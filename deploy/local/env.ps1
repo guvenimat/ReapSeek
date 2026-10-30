@@ -6,6 +6,7 @@ function Initialize-LocalEnv {
         ADMIN_PASSWORD    = { [guid]::NewGuid().ToString('N').Substring(0, 20) }
         SANDBOX_SECRET_KEY     = { "sk_test_" + [guid]::NewGuid().ToString('N') }
         SANDBOX_WEBHOOK_SECRET = { "whsec_" + [guid]::NewGuid().ToString('N') }
+        REDIS_PASSWORD         = { [guid]::NewGuid().ToString('N') }
     }
     $existing = if (Test-Path $path) { [IO.File]::ReadAllText($path) } else { "" }
     $missing = @($required.Keys | Where-Object { $existing -cnotmatch "(?m)^\s*$_\s*=" })

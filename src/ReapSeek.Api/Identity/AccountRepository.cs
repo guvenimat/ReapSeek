@@ -61,20 +61,20 @@ public sealed class AccountRepository(NpgsqlDataSource db)
         await conn.ExecuteAsync("DELETE FROM sessions WHERE token_hash = @TokenHash", new { TokenHash = tokenHash });
     }
 
-    public async Task<bool> ChangePasswordAsync(long userId, Func<string?, bool> verifyCurrent, string newHash, string keepTokenHash, CancellationToken ct)
+    public async Task<string[]?> ChangePasswordAsync(long userId, Func<string?, bool> verifyCurrent, string newHash, string keepTokenHash, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
         var current = await conn.ExecuteScalarAsync<string?>(
             "SELECT password_hash FROM users WHERE id = @UserId FOR UPDATE", new { UserId = userId }, tx);
-        if (!verifyCurrent(current)) return false;
+        if (!verifyCurrent(current)) return null;
 
-        await conn.ExecuteAsync("""
-            UPDATE users SET password_hash = @Hash WHERE id = @UserId;
-            DELETE FROM sessions WHERE user_id = @UserId AND token_hash <> @Keep;
-            """, new { UserId = userId, Hash = newHash, Keep = keepTokenHash }, tx);
+        await conn.ExecuteAsync("UPDATE users SET password_hash = @Hash WHERE id = @UserId", new { UserId = userId, Hash = newHash }, tx);
+        var revoked = (await conn.QueryAsync<string>(
+            "DELETE FROM sessions WHERE user_id = @UserId AND token_hash <> @Keep RETURNING token_hash",
+            new { UserId = userId, Keep = keepTokenHash }, tx)).ToArray();
         await tx.CommitAsync(ct);
-        return true;
+        return revoked;
     }
 
     public async Task<bool> CreateFirstAdminAsync(string email, string name, string passwordHash, CancellationToken ct)

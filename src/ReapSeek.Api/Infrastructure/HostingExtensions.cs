@@ -13,6 +13,7 @@ using ReapSeek.Api.Products;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
+using ReapSeek.Shared.Caching;
 using ReapSeek.Shared.Search;
 
 namespace ReapSeek.Api.Infrastructure;
@@ -21,6 +22,7 @@ public static class HostingExtensions
 {
     public const string AuthRateLimit = "auth";
     const int DefaultAuthAttemptsPerMinute = 10;
+    static readonly TimeSpan AuthWindow = TimeSpan.FromMinutes(1);
 
     public static WebApplicationBuilder AddReapSeekApi(this WebApplicationBuilder builder)
     {
@@ -47,12 +49,20 @@ public static class HostingExtensions
         services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            o.AddPolicy(AuthRateLimit, ctx => RateLimitPartition.GetFixedWindowLimiter(
-                ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = attempts, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            o.OnRejected = (ctx, _) =>
+            {
+                if (ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                    ctx.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+                return ValueTask.CompletedTask;
+            };
+            o.AddPolicy(AuthRateLimit, ctx => RateLimitPartition.Get(ClientIp(ctx), ip =>
+                new RedisFixedWindowLimiter(ctx.RequestServices.GetRequiredService<RedisCache>(), CacheKeys.RateLimit(AuthRateLimit, ip), attempts, AuthWindow,
+                    new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions { PermitLimit = attempts, Window = AuthWindow, QueueLimit = 0 }),
+                    ctx.RequestServices.GetRequiredService<ILogger<RedisFixedWindowLimiter>>())));
         });
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
+        services.AddSingleton<RedisCache>();
 
         services.AddSingleton<AccountRepository>();
         services.AddSingleton<SessionService>();
@@ -64,6 +74,7 @@ public static class HostingExtensions
         services.AddSingleton<CategoryCache>();
         services.AddSingleton<SearchService>();
         services.AddSingleton<ProductRepository>();
+        services.AddSingleton<ProductService>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<CartRepository>();
         services.AddSingleton<CartService>();
@@ -97,4 +108,8 @@ public static class HostingExtensions
 
     static string[] List(string? value) =>
         (value ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    static string ClientIp(HttpContext ctx) => ctx.Connection.RemoteIpAddress is { } ip
+        ? (ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip).ToString()
+        : "unknown";
 }

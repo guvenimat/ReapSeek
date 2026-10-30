@@ -25,19 +25,21 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 | Background jobs | .NET 10 worker with a transactional outbox |
 | Database | PostgreSQL, versioned SQL migrations |
 | Search | OpenSearch |
+| Cache and shared limits | Redis (StackExchange.Redis) |
 | Payments | `ReapSeek.Sandbox`, a simulated payment provider with hosted payment pages and signed webhooks |
 | Email | Mailpit (local) |
 | Analytics and recommendations | ReapDeep |
 
 ### Code architecture
 
-The backend is a **modular monolith**: one API process and one worker, with code organized by feature (`Catalog/`, `Search/`, `Carts/`, `Checkout/`, `Orders/`, `Payments/`, ...) rather than by technical layer. Each feature keeps the same three kinds of classes: `*Endpoints` (routes and access rules, no SQL), a service or pure logic class, and a repository (Dapper with compile-time generated mapping, so everything runs under Native AOT). The architecture is not uniform on purpose; each area uses the simplest style that carries its rules:
+The backend is a **modular monolith**: one API (stateless, so it can run as several instances behind a load balancer) and one worker, with code organized by feature (`Catalog/`, `Search/`, `Carts/`, `Checkout/`, `Orders/`, `Payments/`, ...) rather than by technical layer. Each feature keeps the same three kinds of classes: `*Endpoints` (routes and access rules, no SQL), a service or pure logic class, and a repository (Dapper with compile-time generated mapping, so everything runs under Native AOT). The architecture is not uniform on purpose; each area uses the simplest style that carries its rules:
 
 | Area | Style | Why |
 |---|---|---|
 | Catalog, search, accounts, back office reads | Feature folders, services and SQL read models | Mostly CRUD and queries. The rules (buy box, listing visibility) are best expressed in SQL, close to the data; an object model would only add mapping. |
 | Cart, orders, payments | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
-| Side effects (email, search indexing, ReapDeep sync, purchase events) | Transactional outbox, processed by the worker | A side effect never happens for a change that was rolled back, and none is lost when an external system is down. |
+| Side effects (email, search indexing, ReapDeep sync, purchase events, cache invalidation) | Transactional outbox, processed by the worker | A side effect never happens for a change that was rolled back, and none is lost when an external system is down. |
+| State shared between API instances (rate limits, session and page caches) | Redis, always optional | Instances keep no state of their own that another instance could contradict. If Redis is down the API keeps working from PostgreSQL. |
 
 `ReapSeek.Domain` has no package references and knows nothing about HTTP, SQL or JSON:
 
@@ -56,6 +58,22 @@ There is deliberately no generic repository, mediator or separate application la
 - **Migrations:** SQL files embedded in `ReapSeek.Shared`, applied in order under an advisory lock by a one-shot `migrate` container before the API and the worker start.
 - **Storefront:** server-rendered pages throughout: the header with the signed-in customer and a category menu from the catalog, a home page with deals and new arrivals, search and category listings, sign-in, registration and account pages.
 - **Back office:** staff sign-in, catalog statistics, products, categories and sellers.
+
+### Caching and running several API instances
+
+The API keeps no state in process memory, so any number of instances can serve the same traffic (`docker compose --profile scale up -d` starts a second one on port 8102). What has to be shared lives in Redis:
+
+| Key | What | TTL | Invalidated by |
+|---|---|---|---|
+| `ratelimit:auth:{ip}` | sign-in and registration attempts per client, counted across all instances (atomic Lua `INCR` + `PEXPIRE`), `Retry-After` on 429 | 1 minute window | expiry |
+| `session:{token hash}` | the user behind a session cookie | 60 seconds | sign-out, and a password change for every other session of the user |
+| `product:{slug}` | the storefront product page (product, variants, offers, buy box) | 5 minutes | the worker, on every `products_changed` outbox message: price, stock, order placement, seller suspension, archive |
+| `catalog:categories` | the category tree used by the menu, search and facets | 10 minutes | category changes, catalog rebuilds |
+
+- **PostgreSQL stays the source of truth.** Every entry is a copy with a TTL; invalidation deletes it and the next read loads it again (cache-aside). A change that bypasses the outbox, such as a manual SQL update, shows once its TTL runs out.
+- **Invalidation through the outbox:** product pages are invalidated by the worker in the same batch that updates search and ReapDeep, so every change that reaches search also reaches the cache. A failed deletion is logged and does not hold up search or the ReapDeep sync; the entry then expires with its TTL (and a restarted Redis starts empty).
+- **Redis is never required.** If it is unreachable, reads go to PostgreSQL, each instance falls back to its own in-memory rate limit, and errors are logged; the test suite stops Redis and checks that the storefront, sign-in and search keep working.
+- **Why not a two-level cache:** an in-process copy on each instance would need a broadcast to stay correct after sign-out or a price change; one shared copy is simpler and fast enough here.
 
 ### Marketplace catalog
 
@@ -156,7 +174,7 @@ src/
   ReapSeek.Api/        Minimal API (feature folders: Identity, Catalog, Search, Carts, Checkout, Orders, Payments, ...)
   ReapSeek.Domain/     Domain model for carts, orders and money, no dependencies
   ReapSeek.Worker/     Outbox processor, emails, search indexing, ReapDeep sync and purchase events, payment expiry
-  ReapSeek.Shared/     Migrations, outbox contracts, order persistence, validation helpers
+  ReapSeek.Shared/     Migrations, outbox contracts, order persistence, Redis cache, validation helpers
   ReapSeek.Sandbox/    Simulated payment provider
 storefront/            Next.js storefront
 backoffice/            React back office
@@ -189,6 +207,7 @@ To feed ReapDeep, start the [ReapDeep](https://github.com/guvenimat/ReapDeep) st
 | Payment sandbox | http://localhost:8101 |
 | Mailpit | http://localhost:8025 |
 | OpenSearch | http://localhost:9200 |
+| Redis | localhost:6380 (password in `deploy/local/.env`) |
 
 ## Tests
 
@@ -200,6 +219,7 @@ cd deploy/local
 .\search-test.ps1
 .\product-test.ps1
 .\checkout-test.ps1
+.\scale-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -208,6 +228,7 @@ The scripts run end to end against the running stack.
 - `catalog-test.ps1`: access rules, the seeded catalog, category, brand and seller rules, the variant matrix, the buy box under price, stock, pause and suspension changes, search and filters, the sync to ReapDeep (publish, price change, seller suspension, archive) and the image endpoints.
 - `search-test.ps1`: index consistency, typos, synonyms, accents and mixed-field queries, facet counts, sorting and paging, suggestions, the index following catalog changes, a zero-downtime rebuild and the server-rendered storefront pages.
 - `product-test.ps1`: the storefront product API (hidden offers, buy box, low stock), the server-rendered product page and its structured data, the sitemap, and a real headless Chrome session (`tools/browse.mjs`) that searches, clicks a result, signs in and out, then checks in ReapDeep that every event arrived and that the anonymous visitor and the customer became one person.
+- `scale-test.ps1` (needs the second instance: `docker compose --profile scale up -d`): the sign-in limit shared between two instances, sign-out and password change taking effect on the other instance at once, product page and category tree invalidation across instances, and a Redis outage.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License

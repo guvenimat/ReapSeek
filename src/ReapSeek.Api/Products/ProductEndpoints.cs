@@ -8,7 +8,7 @@ public static class ProductEndpoints
 
     public static void MapStorefrontProducts(this RouteGroupBuilder api)
     {
-        api.MapGet("/catalog/products/{slug}", async (string slug, ProductRepository products, CancellationToken ct) =>
+        api.MapGet("/catalog/products/{slug}", async (string slug, ProductService products, CancellationToken ct) =>
             slug.Length <= 200 && await products.FindAsync(slug, ct) is { } product
                 ? ApiResults.Ok(product, AppJsonContext.Default.StoreProduct)
                 : ApiResults.NotFound("Product not found"));

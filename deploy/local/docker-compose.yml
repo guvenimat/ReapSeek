@@ -1,6 +1,21 @@
 name: reapseek
 
 x-postgres-connection: &postgres-connection Host=postgres;Database=reapseek;Username=reapseek;Password=${POSTGRES_PASSWORD:?Missing .env - run run-local.ps1 or copy .env.example to .env}
+x-redis-connection: &redis-connection redis:6379,password=${REDIS_PASSWORD:?Missing .env - run run-local.ps1}
+x-api-environment: &api-environment
+  ConnectionStrings__Postgres: *postgres-connection
+  ConnectionStrings__Redis: *redis-connection
+  Auth__BootstrapEmail: ${ADMIN_EMAIL:?Missing .env - run run-local.ps1 or copy .env.example to .env}
+  Auth__BootstrapPassword: ${ADMIN_PASSWORD:?Missing .env - run run-local.ps1 or copy .env.example to .env}
+  Auth__SecureCookie: "false"
+  Auth__AttemptsPerMinute: "20"
+  ForwardedHeaders__TrustedNetworks: 172.16.0.0/12
+  OpenSearch__Url: http://opensearch:9200
+  Storefront__PublicUrl: http://localhost:3100
+  Payments__Sandbox__ApiUrl: http://sandbox:8080
+  Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
+  Payments__Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
+  Payments__WebhookUrl: http://api:8080/api/v1/payments/sandbox/webhook
 
 services:
   postgres:
@@ -43,6 +58,21 @@ services:
       retries: 30
       start_period: 30s
 
+  redis:
+    image: redis:8.8.4-alpine
+    container_name: reapseek-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Missing .env - run run-local.ps1}", "--save", "", "--appendonly", "no",
+      "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?Missing .env - run run-local.ps1}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   mailpit:
     image: axllent/mailpit:v1.27
     container_name: reapseek-mailpit
@@ -69,23 +99,31 @@ services:
     container_name: reapseek-api
     ports:
       - "127.0.0.1:8100:8080"
-    environment:
-      ConnectionStrings__Postgres: *postgres-connection
-      Auth__BootstrapEmail: ${ADMIN_EMAIL:?Missing .env - run run-local.ps1 or copy .env.example to .env}
-      Auth__BootstrapPassword: ${ADMIN_PASSWORD:?Missing .env - run run-local.ps1 or copy .env.example to .env}
-      Auth__SecureCookie: "false"
-      Auth__AttemptsPerMinute: "20"
-      ForwardedHeaders__TrustedNetworks: 172.16.0.0/12
-      OpenSearch__Url: http://opensearch:9200
-      Storefront__PublicUrl: http://localhost:3100
-      Payments__Sandbox__ApiUrl: http://sandbox:8080
-      Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
-      Payments__Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
-      Payments__WebhookUrl: http://api:8080/api/v1/payments/sandbox/webhook
+    environment: *api-environment
     depends_on:
       migrate:
         condition: service_completed_successfully
       opensearch:
+        condition: service_started
+      redis:
+        condition: service_started
+      sandbox:
+        condition: service_started
+    restart: unless-stopped
+
+  api-2:
+    image: reapseek-api:local
+    container_name: reapseek-api-2
+    profiles: ["scale"]
+    ports:
+      - "127.0.0.1:8102:8080"
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_started
+      redis:
         condition: service_started
       sandbox:
         condition: service_started
@@ -99,6 +137,7 @@ services:
     container_name: reapseek-worker
     environment:
       ConnectionStrings__Postgres: *postgres-connection
+      ConnectionStrings__Redis: *redis-connection
       Smtp__Host: mailpit
       Smtp__Port: "1025"
       Storefront__PublicUrl: http://localhost:3100
@@ -118,6 +157,8 @@ services:
         condition: service_started
       opensearch:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   sandbox:
