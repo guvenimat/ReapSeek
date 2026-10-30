@@ -1,9 +1,17 @@
+'use client'
+
 import Link from 'next/link'
+import { track } from '@/lib/analytics'
 import { formatPrice, type ProductCard as Card } from '@/lib/catalog'
 
-export function ProductCard({ product }: { product: Card }) {
+export type CardTracking = { query: string; position: number }
+
+export function ProductCard({ product, tracking }: { product: Card; tracking?: CardTracking }) {
+  const click = () => {
+    if (tracking) track('search_result_clicked', { query: tracking.query, item_id: String(product.id), position: tracking.position, price: product.price })
+  }
   return (
-    <Link href={`/p/${product.slug}`} className={`product-card${product.in_stock ? '' : ' sold-out'}`} data-product={product.id}>
+    <Link href={`/p/${product.slug}`} className={`product-card${product.in_stock ? '' : ' sold-out'}`} data-product={product.id} onClick={click}>
       <div className="product-media">
         {product.image_url && <img src={product.image_url} alt={product.title} width={400} height={500} loading="lazy" />}
         {product.discount > 0 && product.in_stock && <span className="discount-badge">-{product.discount}%</span>}

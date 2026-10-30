@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, product search with faceted category pages and the catalog sync to ReapDeep are in place. Product pages, checkout and recommendations follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages and the ReapDeep integration (catalog sync, behavioral events, identity) are in place. The cart, checkout and recommendations follow in stages.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -70,6 +70,33 @@ Search and every category page run on OpenSearch. The worker keeps one document 
 |---|---|
 | ![Women's category filtered by color](docs/images/storefront-category.png) | ![Search suggestions](docs/images/storefront-suggest.png) |
 
+### Product page
+
+`/p/{slug}` is rendered on the server from the storefront product API, which only exposes what a shopper may see: active offers from active sellers that are in stock, the buy box per variant, a discount and a "low stock" hint (the exact stock stays private).
+
+- **Variants:** color swatches and size chips in size-chart order; combinations without a seller are crossed out, choosing a color switches the gallery to that color, and the selection is kept in the URL (`?variant=`).
+- **Sellers:** the buy box seller with rating, handling time and an estimated delivery date (business days, computed from the shop's time zone so the server and the browser agree), plus every other seller of the variant, sorted by price.
+- **SEO:** `Product` and `BreadcrumbList` JSON-LD with an aggregate offer, canonical URL, Open Graph image, and a generated `sitemap.xml` and `robots.txt`.
+
+![Product page with variants and competing sellers](docs/images/storefront-product.png)
+
+### Behavioral analytics with ReapDeep
+
+The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep-js-0.1.0.tgz`, packed from the ReapDeep repository) and sends events straight from the browser to ReapDeep's ingestion API.
+
+| Event | When | Main properties |
+|---|---|---|
+| `$pageview` | every page, including client-side navigation | URL and referrer (SDK) |
+| `search_performed` | a search results page is shown | `query`, `results`, `category`, `brands`, `colors`, `sizes`, `sort`, `page` |
+| `search_result_clicked` | a result card is clicked | `query`, `item_id`, `position`, `price` |
+| `search_suggestion_clicked` | a suggestion is picked | `query`, `type`, `value` |
+| `product_viewed` | a product page is opened | `item_id`, `price`, `category`, `department`, `brand`, `seller_id`, `in_stock` |
+
+`item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations.
+
+- **Identity:** when a customer signs in, the storefront calls `identify("customer-{id}")`; ReapDeep links the anonymous browsing history to the customer. Signing out calls `reset()`, so the next visitor on the same browser starts with a new anonymous id. Identity is synchronized before any page event is sent.
+- **Configuration:** the public key and the ingestion and recommender URLs come from `deploy/local/.env` (written by `connect-reapdeep.ps1`); without them the storefront runs without tracking.
+
 ### ReapDeep catalog sync
 
 Every change that affects what shoppers see (a product edit, a status change, an offer, a seller suspension) writes a `products_changed` message to the outbox in the same transaction. The worker batches these messages and sends the affected products to ReapDeep's catalog API with a `catalog_write` key: active products are upserted with their buy box price, stock status, storefront URL and image; drafts and archived products are removed. A full sync runs after seeding and after connecting.
@@ -122,6 +149,7 @@ cd deploy/local
 .\auth-test.ps1
 .\catalog-test.ps1
 .\search-test.ps1
+.\product-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -129,6 +157,7 @@ The scripts run end to end against the running stack.
 - `auth-test.ps1`: registration, sign-in, session separation, password change, the welcome email arriving in Mailpit through the outbox, server-rendered storefront pages and the sign-in rate limit.
 - `catalog-test.ps1`: access rules, the seeded catalog, category, brand and seller rules, the variant matrix, the buy box under price, stock, pause and suspension changes, search and filters, the sync to ReapDeep (publish, price change, seller suspension, archive) and the image endpoints.
 - `search-test.ps1`: index consistency, typos, synonyms, accents and mixed-field queries, facet counts, sorting and paging, suggestions, the index following catalog changes, a zero-downtime rebuild and the server-rendered storefront pages.
+- `product-test.ps1`: the storefront product API (hidden offers, buy box, low stock), the server-rendered product page and its structured data, the sitemap, and a real headless Chrome session (`tools/browse.mjs`) that searches, clicks a result, signs in and out, then checks in ReapDeep that every event arrived and that the anonymous visitor and the customer became one person.
 
 ## License
 

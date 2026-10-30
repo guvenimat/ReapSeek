@@ -119,6 +119,10 @@ services:
       - "127.0.0.1:3100:3000"
     environment:
       API_INTERNAL_URL: http://api:8080
+      PUBLIC_URL: http://localhost:3100
+      REAPDEEP_PUBLIC_KEY: ${REAPDEEP_PUBLIC_KEY:-}
+      REAPDEEP_INGEST_URL: ${REAPDEEP_INGEST_URL:-http://localhost:8000}
+      REAPDEEP_RECOMMEND_URL: ${REAPDEEP_RECOMMEND_URL:-http://localhost:8002}
     depends_on:
       - api
     restart: unless-stopped
