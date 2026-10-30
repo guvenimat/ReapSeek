@@ -1,6 +1,6 @@
 using ReapSeek.Api.Infrastructure;
 
-if (args.Contains("--migrate"))
+if (MigrateCommand.Handles(args))
 {
     Environment.ExitCode = await MigrateCommand.RunAsync(args);
     return;

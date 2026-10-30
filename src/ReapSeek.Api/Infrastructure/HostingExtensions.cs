@@ -1,8 +1,11 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
+using ReapSeek.Api.Media;
+using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Infrastructure;
@@ -47,6 +50,9 @@ public static class HostingExtensions
         services.AddSingleton<AccountRepository>();
         services.AddSingleton<SessionService>();
         services.AddHostedService<BootstrapAdmin>();
+        services.AddSingleton<CatalogRepository>();
+        services.AddSingleton<CatalogService>();
+        services.AddSingleton<SellerRepository>();
         return builder;
     }
 
@@ -60,6 +66,9 @@ public static class HostingExtensions
         var api = app.MapGroup("/api/v1");
         api.MapGroup("/auth").MapStorefrontAuth();
         api.MapGroup("/backoffice/auth").MapBackofficeAuth();
+        api.MapGroup("/backoffice/catalog").MapCatalogAdmin();
+        api.MapGroup("/backoffice/sellers").MapSellersAdmin();
+        app.MapMedia();
         app.MapHealth();
         return app;
     }

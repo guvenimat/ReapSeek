@@ -9,12 +9,18 @@ namespace ReapSeek.Shared.Outbox;
 public static class OutboxTypes
 {
     public const string UserRegistered = "user_registered";
+    public const string ProductsChanged = "products_changed";
+    public const string CatalogReindex = "catalog_reindex";
 }
 
 public sealed record UserRegistered(long UserId, string Email, string Name);
+public sealed record ProductsChanged(List<long> ProductIds);
+public sealed record CatalogReindex(string Reason);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(UserRegistered))]
+[JsonSerializable(typeof(ProductsChanged))]
+[JsonSerializable(typeof(CatalogReindex))]
 public sealed partial class OutboxJsonContext : JsonSerializerContext;
 
 public static class OutboxWriter

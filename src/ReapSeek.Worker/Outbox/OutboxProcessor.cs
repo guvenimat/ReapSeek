@@ -28,19 +28,23 @@ public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher di
     async Task<int> ProcessBatchAsync(CancellationToken ct)
     {
         var messages = await outbox.ClaimAsync(BatchSize, DateTime.UtcNow + OutboxPolicy.Lease, ct);
-        foreach (var message in messages)
+        foreach (var group in messages.GroupBy(OutboxDispatcher.GroupOf))
         {
+            var batch = group.ToList();
             try
             {
-                await dispatcher.HandleAsync(message, ct);
-                await outbox.CompleteAsync(message.Id, ct);
+                await dispatcher.HandleAsync(batch, ct);
+                foreach (var message in batch) await outbox.CompleteAsync(message.Id, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                var retryAt = OutboxPolicy.RetryAt(message.Attempts, DateTime.UtcNow);
-                log.LogWarning("Outbox message {Id} ({Type}) failed on attempt {Attempt}: {Message}{Final}",
-                    message.Id, message.Type, message.Attempts, ex.Message, retryAt is null ? "; giving up" : "");
-                await outbox.FailAsync(message.Id, OutboxPolicy.Truncate(ex.ToString()), retryAt, ct);
+                foreach (var message in batch)
+                {
+                    var retryAt = OutboxPolicy.RetryAt(message.Attempts, DateTime.UtcNow);
+                    log.LogWarning("Outbox message {Id} ({Type}) failed on attempt {Attempt}: {Message}{Final}",
+                        message.Id, message.Type, message.Attempts, ex.Message, retryAt is null ? "; giving up" : "");
+                    await outbox.FailAsync(message.Id, OutboxPolicy.Truncate(ex.ToString()), retryAt, ct);
+                }
             }
         }
         return messages.Count;

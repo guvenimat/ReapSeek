@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8100',
       '/healthz': 'http://localhost:8100',
+      '/media': 'http://localhost:8100',
     },
   },
 })
