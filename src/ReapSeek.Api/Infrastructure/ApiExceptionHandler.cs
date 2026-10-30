@@ -10,6 +10,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
         var (status, message) = exception switch
         {
             ValidationException e => (StatusCodes.Status400BadRequest, e.Message),
+            NotFoundException e => (StatusCodes.Status404NotFound, e.Message),
+            ConflictException e => (StatusCodes.Status409Conflict, e.Message),
             BadHttpRequestException e => (e.StatusCode, "Invalid request body"),
             _ => (0, ""),
         };

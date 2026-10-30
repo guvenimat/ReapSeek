@@ -1,4 +1,5 @@
 using ReapSeek.Shared;
+using ReapSeek.Worker.CatalogSync;
 using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Outbox;
 
@@ -13,6 +14,9 @@ public static class HostingExtensions
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
         services.AddSingleton<EmailSender>();
+        services.AddSingleton<ReapDeepClient>();
+        services.AddSingleton<CatalogSyncRepository>();
+        services.AddSingleton<CatalogSyncHandler>();
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
         services.AddHostedService<OutboxProcessor>();

@@ -70,6 +70,10 @@ services:
       Smtp__Port: "1025"
       Storefront__PublicUrl: http://localhost:3100
       Outbox__PollMilliseconds: "500"
+      ReapDeep__ApiUrl: ${REAPDEEP_API_URL:-http://host.docker.internal:8001}
+      ReapDeep__CatalogKey: ${REAPDEEP_CATALOG_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       migrate:
         condition: service_completed_successfully

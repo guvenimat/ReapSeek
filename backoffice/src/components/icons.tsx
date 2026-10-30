@@ -15,6 +15,9 @@ export const StoreIcon = () => <Icon><path d="M4 10v10h16V10" /><path d="M3 10 5
 export const ReceiptIcon = () => <Icon><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></Icon>
 export const UsersIcon = () => <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.9 3.5 6" /></Icon>
 export const MegaphoneIcon = () => <Icon><path d="M4 10v4h3l7 4V6L7 10z" /><path d="M18 9a4 4 0 0 1 0 6" /></Icon>
+export const LayersIcon = () => <Icon><path d="M12 3 3 8l9 5 9-5z" /><path d="m3 13 9 5 9-5" /></Icon>
+export const PlusIcon = () => <Icon><path d="M12 5v14M5 12h14" /></Icon>
+export const TrashIcon = () => <Icon><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13M9 7V4h6v3" /></Icon>
 export const LogOutIcon = () => <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4M6 12h10" /></Icon>
 
 export const LogoMark = ({ size = 30 }: { size?: number }) => (
