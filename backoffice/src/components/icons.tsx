@@ -1,0 +1,26 @@
+import type { ReactNode } from 'react'
+
+function Icon({ size = 18, children }: { size?: number; children: ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+export const HomeIcon = () => <Icon><path d="M4 11 12 4l8 7" /><path d="M6 10v10h12V10" /></Icon>
+export const BoxIcon = () => <Icon><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" /><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" /></Icon>
+export const StoreIcon = () => <Icon><path d="M4 10v10h16V10" /><path d="M3 10 5 4h14l2 6" /><path d="M10 20v-5h4v5" /></Icon>
+export const ReceiptIcon = () => <Icon><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></Icon>
+export const UsersIcon = () => <Icon><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.9 3.5 6" /></Icon>
+export const MegaphoneIcon = () => <Icon><path d="M4 10v4h3l7 4V6L7 10z" /><path d="M18 9a4 4 0 0 1 0 6" /></Icon>
+export const LogOutIcon = () => <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4M6 12h10" /></Icon>
+
+export const LogoMark = ({ size = 30 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+    <rect width="32" height="32" rx="9" fill="#5b2bd6" />
+    <circle cx="14.5" cy="14.5" r="6.5" fill="none" stroke="#fff" strokeWidth="3" />
+    <path d="m19.5 19.5 5 5" stroke="#ff7a2f" strokeWidth="3.4" strokeLinecap="round" />
+  </svg>
+)
