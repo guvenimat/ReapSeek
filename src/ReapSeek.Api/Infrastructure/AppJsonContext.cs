@@ -1,7 +1,10 @@
 using System.Text.Json.Serialization;
+using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
+using ReapSeek.Api.Checkout;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
+using ReapSeek.Api.Orders;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
@@ -38,4 +41,13 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(SuggestResponse))]
 [JsonSerializable(typeof(StoreProduct))]
 [JsonSerializable(typeof(SitemapResponse))]
+[JsonSerializable(typeof(AddToCartRequest))]
+[JsonSerializable(typeof(UpdateCartLineRequest))]
+[JsonSerializable(typeof(CartView))]
+[JsonSerializable(typeof(CartSummary))]
+[JsonSerializable(typeof(PlaceOrderRequest))]
+[JsonSerializable(typeof(PlaceOrderResponse))]
+[JsonSerializable(typeof(AddressesResponse))]
+[JsonSerializable(typeof(OrdersPage))]
+[JsonSerializable(typeof(OrderDetail))]
 public sealed partial class AppJsonContext : JsonSerializerContext;

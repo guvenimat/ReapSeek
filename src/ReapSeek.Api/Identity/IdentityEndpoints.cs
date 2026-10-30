@@ -1,3 +1,4 @@
+using ReapSeek.Api.Carts;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 
@@ -8,8 +9,7 @@ public static class IdentityEndpoints
     public static void MapStorefrontAuth(this RouteGroupBuilder group)
     {
         group.MapPost("/register", Register).RequireRateLimiting(HostingExtensions.AuthRateLimit);
-        group.MapPost("/login", (LoginRequest req, HttpContext ctx, SessionService sessions) => Login(req, ctx, sessions, SessionAudience.Storefront))
-            .RequireRateLimiting(HostingExtensions.AuthRateLimit);
+        group.MapPost("/login", StorefrontLogin).RequireRateLimiting(HostingExtensions.AuthRateLimit);
         group.MapPost("/logout", (HttpContext ctx, SessionService sessions) => Logout(ctx, sessions, SessionAudience.Storefront));
         group.MapGet("/me", (UserInfo user) => ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse)).RequireCustomer();
         group.MapPost("/password", (PasswordChangeRequest req, UserInfo user, HttpContext ctx, SessionService sessions) =>
@@ -26,12 +26,13 @@ public static class IdentityEndpoints
             ChangePassword(req, user, ctx, sessions, SessionAudience.Backoffice)).RequireAdmin();
     }
 
-    static async Task<IResult> Register(RegisterRequest req, HttpContext ctx, SessionService sessions, AccountRepository accounts)
+    static async Task<IResult> Register(RegisterRequest req, HttpContext ctx, SessionService sessions, AccountRepository accounts, CartService carts)
     {
         var registration = IdentityRules.Validate(req);
         var id = await accounts.CreateCustomerAsync(registration.Email, registration.Name, PasswordHasher.Hash(registration.Password), ctx.RequestAborted);
         if (id is null) return ApiResults.Conflict("An account with this email already exists");
         var user = await sessions.SignInAsync(ctx, SessionAudience.Storefront, id.Value);
+        await carts.MergeGuestCartAsync(ctx, user.Id, ctx.RequestAborted);
         return ApiResults.Created(new MeResponse(user), AppJsonContext.Default.MeResponse);
     }
 
@@ -44,6 +45,17 @@ public static class IdentityEndpoints
         if (audience == SessionAudience.Backoffice && credentials.Role != Roles.Admin)
             return ApiResults.Forbidden("This account has no back office access");
         var user = await sessions.SignInAsync(ctx, audience, credentials.Id);
+        return ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse);
+    }
+
+    static async Task<IResult> StorefrontLogin(LoginRequest req, HttpContext ctx, SessionService sessions, CartService carts)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrEmpty(req.Password) || req.Password.Length > PasswordHasher.MaxLength)
+            return ApiResults.BadRequest("email and password are required");
+        var credentials = await sessions.AuthenticateAsync(req.Email, req.Password, ctx.RequestAborted);
+        if (credentials is null) return ApiResults.Unauthorized("Invalid email or password");
+        var user = await sessions.SignInAsync(ctx, SessionAudience.Storefront, credentials.Id);
+        await carts.MergeGuestCartAsync(ctx, user.Id, ctx.RequestAborted);
         return ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse);
     }
 

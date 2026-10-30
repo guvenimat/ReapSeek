@@ -5,7 +5,7 @@ import type { User } from '@/lib/session'
 import { CartIcon, HeartIcon, LogoMark, StoreIcon, UserIcon } from './icons'
 import { SearchBox } from './SearchBox'
 
-export function Header({ user, departments }: { user: User | null; departments: CategoryNode[] }) {
+export function Header({ user, departments, cartCount }: { user: User | null; departments: CategoryNode[]; cartCount: number }) {
   return (
     <header className="site-header">
       <div className="utility-bar">
@@ -38,7 +38,9 @@ export function Header({ user, departments }: { user: User | null; departments: 
             </Link>
           )}
           <span className="header-action muted"><HeartIcon /><span><small>Saved</small>Favorites</span></span>
-          <span className="header-action muted cart"><CartIcon /><span className="badge">0</span><span><small>Your</small>Cart</span></span>
+          <Link href="/cart" className="header-action cart" data-testid="cart-link">
+            <CartIcon />{cartCount > 0 && <span className="badge" data-testid="cart-count">{cartCount}</span>}<span><small>Your</small>Cart</span>
+          </Link>
         </nav>
       </div>
       <nav className="category-bar" aria-label="Categories">

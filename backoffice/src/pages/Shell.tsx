@@ -3,6 +3,7 @@ import { api, type User } from '../api'
 import { BoxIcon, HomeIcon, LayersIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, UsersIcon } from '../components/icons'
 import { useRoute } from '../lib'
 import { Categories } from './Categories'
+import { OrderDetailPage, Orders } from './Orders'
 import { Overview } from './Overview'
 import { ProductDetailPage } from './ProductDetail'
 import { ProductNew } from './ProductNew'
@@ -16,7 +17,7 @@ const sections: Section[] = [
   { key: 'products', label: 'Products', icon: BoxIcon, ready: true },
   { key: 'categories', label: 'Categories', icon: LayersIcon, ready: true },
   { key: 'sellers', label: 'Sellers', icon: StoreIcon, ready: true },
-  { key: 'orders', label: 'Orders', icon: ReceiptIcon, ready: false },
+  { key: 'orders', label: 'Orders', icon: ReceiptIcon, ready: true },
   { key: 'customers', label: 'Customers', icon: UsersIcon, ready: false },
   { key: 'marketing', label: 'Marketing', icon: MegaphoneIcon, ready: false },
 ]
@@ -39,7 +40,11 @@ export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => vo
   } else if (section.key === 'products' && route.path[1]) {
     page = <ProductDetailPage id={Number(route.path[1])} />
     title = 'Product'
-  } else if (section.key === 'products') page = <Products query={route.query} />
+  } else if (section.key === 'orders' && route.path[1]) {
+    page = <OrderDetailPage number={route.path[1]} />
+    title = 'Order'
+  } else if (section.key === 'orders') page = <Orders query={route.query} />
+  else if (section.key === 'products') page = <Products query={route.query} />
   else if (section.key === 'categories') page = <Categories />
   else if (section.key === 'sellers') page = <Sellers />
   else page = <Overview user={user} />

@@ -77,10 +77,17 @@ services:
       Auth__AttemptsPerMinute: "20"
       ForwardedHeaders__TrustedNetworks: 172.16.0.0/12
       OpenSearch__Url: http://opensearch:9200
+      Storefront__PublicUrl: http://localhost:3100
+      Payments__Sandbox__ApiUrl: http://sandbox:8080
+      Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
+      Payments__Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
+      Payments__WebhookUrl: http://api:8080/api/v1/payments/sandbox/webhook
     depends_on:
       migrate:
         condition: service_completed_successfully
       opensearch:
+        condition: service_started
+      sandbox:
         condition: service_started
     restart: unless-stopped
 
@@ -99,6 +106,9 @@ services:
       ReapDeep__ApiUrl: ${REAPDEEP_API_URL:-http://host.docker.internal:8001}
       ReapDeep__CatalogKey: ${REAPDEEP_CATALOG_KEY:-}
       OpenSearch__Url: http://opensearch:9200
+      ReapDeep__IngestUrl: ${REAPDEEP_INGEST_INTERNAL_URL:-http://host.docker.internal:8000}
+      ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
+      Orders__ExpiryCheckSeconds: "10"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -108,6 +118,20 @@ services:
         condition: service_started
       opensearch:
         condition: service_healthy
+    restart: unless-stopped
+
+  sandbox:
+    build:
+      context: ../../src
+      dockerfile: ReapSeek.Sandbox/Dockerfile
+    image: reapseek-sandbox:local
+    container_name: reapseek-sandbox
+    ports:
+      - "127.0.0.1:8101:8080"
+    environment:
+      Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
+      Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
+      Sandbox__PublicUrl: http://localhost:8101
     restart: unless-stopped
 
   storefront:

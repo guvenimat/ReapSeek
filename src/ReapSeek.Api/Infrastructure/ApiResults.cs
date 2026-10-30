@@ -2,7 +2,7 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace ReapSeek.Api.Infrastructure;
 
-public sealed record ErrorResponse(string Error);
+public sealed record ErrorResponse(string Error, string? Code = null);
 
 public static class ApiResults
 {

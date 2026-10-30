@@ -19,9 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\ReapSeek.Domain\ReapSeek.Domain.csproj" />
     <ProjectReference Include="..\..\src\ReapSeek.Shared\ReapSeek.Shared.csproj" />
     <ProjectReference Include="..\..\src\ReapSeek.Api\ReapSeek.Api.csproj" />
     <ProjectReference Include="..\..\src\ReapSeek.Worker\ReapSeek.Worker.csproj" />
+    <ProjectReference Include="..\..\src\ReapSeek.Sandbox\ReapSeek.Sandbox.csproj" />
   </ItemGroup>
 
   <ItemGroup>

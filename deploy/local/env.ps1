@@ -4,6 +4,8 @@ function Initialize-LocalEnv {
         POSTGRES_PASSWORD = { [guid]::NewGuid().ToString('N') }
         ADMIN_EMAIL       = { "admin@reapseek.local" }
         ADMIN_PASSWORD    = { [guid]::NewGuid().ToString('N').Substring(0, 20) }
+        SANDBOX_SECRET_KEY     = { "sk_test_" + [guid]::NewGuid().ToString('N') }
+        SANDBOX_WEBHOOK_SECRET = { "whsec_" + [guid]::NewGuid().ToString('N') }
     }
     $existing = if (Test-Path $path) { [IO.File]::ReadAllText($path) } else { "" }
     $missing = @($required.Keys | Where-Object { $existing -cnotmatch "(?m)^\s*$_\s*=" })
