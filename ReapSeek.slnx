@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ReapSeek.Api/ReapSeek.Api.csproj" />
+    <Project Path="src/ReapSeek.Shared/ReapSeek.Shared.csproj" />
+    <Project Path="src/ReapSeek.Worker/ReapSeek.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ReapSeek.UnitTests/ReapSeek.UnitTests.csproj" />
+  </Folder>
+</Solution>

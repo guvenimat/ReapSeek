@@ -18,3 +18,5 @@ Thumbs.db
 .env
 CLAUDE.md
 ILERLEME.md
+
+next-env.d.ts
