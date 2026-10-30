@@ -78,7 +78,7 @@ Write-Host "Updated deploy/local/.env: $(($updates.Keys | Sort-Object) -join ', 
 
 Write-Host "Restarting the worker and the API with the new settings"
 $ErrorActionPreference = "Continue"
-docker compose up -d worker api
+docker compose up -d worker api storefront
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
 docker compose run --rm migrate --reindex
 if ($LASTEXITCODE -ne 0) { throw "Requesting a catalog sync failed." }

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { formatCount, toQuery, type CategoryNode, type FacetValue, type Params, type SearchResult } from '@/lib/catalog'
+import { TrackEvent } from './analytics/Analytics'
 import { ProductCard } from './ProductCard'
 import { SortSelect } from './SortSelect'
 
@@ -77,10 +78,29 @@ export function ProductListing({ basePath, params, result, error, heading, tree,
           )}
           {result && result.products.length > 0 && (
             <div className="product-grid" data-testid="product-grid">
-              {result.products.map((p) => <ProductCard key={p.id} product={p} />)}
+              {result.products.map((p, i) => (
+                <ProductCard key={p.id} product={p}
+                  tracking={result.query ? { query: result.query, position: (result.page - 1) * result.page_size + i + 1 } : undefined} />
+              ))}
             </div>
           )}
           {result && <Pagination result={result} href={(page) => href({ page: page > 1 ? String(page) : undefined })} />}
+          {result?.query && (
+            <TrackEvent
+              event="search_performed"
+              onceKey={toQuery(params).toString()}
+              properties={{
+                query: result.query,
+                results: result.total,
+                category: result.category,
+                brands: ([] as string[]).concat(params.brand ?? []),
+                colors: ([] as string[]).concat(params.color ?? []),
+                sizes: ([] as string[]).concat(params.size ?? []),
+                sort: result.sort,
+                page: result.page,
+              }}
+            />
+          )}
         </section>
       </div>
     </div>

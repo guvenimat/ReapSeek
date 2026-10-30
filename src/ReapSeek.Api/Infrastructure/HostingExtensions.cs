@@ -5,6 +5,7 @@ using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Media;
+using ReapSeek.Api.Products;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
@@ -58,6 +59,7 @@ public static class HostingExtensions
         services.AddSingleton<OpenSearchClient>();
         services.AddSingleton<CategoryCache>();
         services.AddSingleton<SearchService>();
+        services.AddSingleton<ProductRepository>();
         return builder;
     }
 
@@ -72,6 +74,7 @@ public static class HostingExtensions
         api.MapGroup("/auth").MapStorefrontAuth();
         api.MapGroup("/backoffice/auth").MapBackofficeAuth();
         api.MapStorefrontCatalog();
+        api.MapStorefrontProducts();
         api.MapGroup("/backoffice/catalog").MapCatalogAdmin();
         api.MapGroup("/backoffice/sellers").MapSellersAdmin();
         app.MapMedia();

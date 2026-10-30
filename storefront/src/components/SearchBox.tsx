@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { track } from '@/lib/analytics'
 import { formatPrice, type FacetValue, type ProductCard } from '@/lib/catalog'
 import { SearchIcon } from './icons'
 
@@ -58,13 +59,21 @@ export function SearchBox() {
       ]
     : []
 
+  const suggestionClicked = (key: string) => {
+    const [type, ...rest] = key.split(':')
+    track('search_suggestion_clicked', { query: data?.query ?? q.trim(), type: { c: 'category', b: 'brand', p: 'product' }[type] ?? type, value: rest.join(':') })
+    setOpen(false)
+  }
   const go = (href: string) => {
     setOpen(false)
     router.push(href)
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (active >= 0 && items[active]) return go(items[active].href)
+    if (active >= 0 && items[active]) {
+      suggestionClicked(items[active].key)
+      return go(items[active].href)
+    }
     const term = q.trim()
     if (term) go(`/search?q=${encodeURIComponent(term)}`)
   }
@@ -105,7 +114,7 @@ export function SearchBox() {
             <div className="suggestion-group">
               <span className="suggestion-title">Categories</span>
               {data.categories.map((c) => (
-                <Link key={c.value} href={items[index(`c:${c.value}`)].href} onClick={() => setOpen(false)}
+                <Link key={c.value} href={items[index(`c:${c.value}`)].href} onClick={() => suggestionClicked(`c:${c.value}`)}
                   className={`suggestion${active === index(`c:${c.value}`) ? ' active' : ''}`}>
                   <span>{c.label}</span>
                   <span className="muted">{c.count}</span>
@@ -117,7 +126,7 @@ export function SearchBox() {
             <div className="suggestion-group">
               <span className="suggestion-title">Brands</span>
               {data.brands.map((b) => (
-                <Link key={b.value} href={items[index(`b:${b.value}`)].href} onClick={() => setOpen(false)}
+                <Link key={b.value} href={items[index(`b:${b.value}`)].href} onClick={() => suggestionClicked(`b:${b.value}`)}
                   className={`suggestion${active === index(`b:${b.value}`) ? ' active' : ''}`}>
                   <span>{b.label}</span>
                 </Link>
@@ -127,7 +136,7 @@ export function SearchBox() {
           <div className="suggestion-group">
             <span className="suggestion-title">Products</span>
             {data.products.map((p) => (
-              <Link key={p.id} href={`/p/${p.slug}`} onClick={() => setOpen(false)}
+              <Link key={p.id} href={`/p/${p.slug}`} onClick={() => suggestionClicked(`p:${p.id}`)}
                 className={`suggestion product${active === index(`p:${p.id}`) ? ' active' : ''}`}>
                 {p.image_url && <img src={p.image_url} alt="" width={32} height={40} />}
                 <span className="suggestion-name">{p.title}</span>
