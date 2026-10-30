@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { TrackEvent } from '@/components/analytics/Analytics'
 import { ProductView } from '@/components/product/ProductView'
+import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
 import { buyBox, getProduct, initialVariant, publicUrl, type StoreProduct } from '@/lib/products'
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }
@@ -94,6 +95,9 @@ export default async function ProductPage({ params, searchParams }: Props) {
           </dl>
         )}
       </section>
+
+      <RecommendationShelf placement="product_bought_together" title="Frequently bought together" productId={product.id} />
+      <RecommendationShelf placement="product_similar" title="Customers also viewed" productId={product.id} />
 
       <TrackEvent
         event="product_viewed"

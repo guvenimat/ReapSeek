@@ -6,9 +6,10 @@ import { formatPrice, type ProductCard as Card } from '@/lib/catalog'
 
 export type CardTracking = { query: string; position: number }
 
-export function ProductCard({ product, tracking }: { product: Card; tracking?: CardTracking }) {
+export function ProductCard({ product, tracking, onSelect }: { product: Card; tracking?: CardTracking; onSelect?: () => void }) {
   const click = () => {
     if (tracking) track('search_result_clicked', { query: tracking.query, item_id: String(product.id), position: tracking.position, price: product.price })
+    onSelect?.()
   }
   return (
     <Link href={`/p/${product.slug}`} className={`product-card${product.in_stock ? '' : ' sold-out'}`} data-product={product.id} onClick={click}>

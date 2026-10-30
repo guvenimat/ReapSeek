@@ -51,4 +51,33 @@ public sealed class SearchService(OpenSearchClient search, CategoryCache categor
             ?? throw new OpenSearchException(502, "Empty search response");
         return SearchQuery.ParseSuggest(result, q, names);
     }
+
+    public async Task<List<ProductCard>> InStockCardsAsync(IReadOnlyCollection<long> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return [];
+        var result = await search.PostAsync($"{ProductIndex.Alias}/_search", SearchQuery.BuildByIds(ids), ct)
+            ?? throw new OpenSearchException(502, "Empty search response");
+        var byId = SearchQuery.ParseCards(result).ToDictionary(c => c.Id);
+        return ids.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+    }
+
+    public async Task<List<ProductCard>> FallbackCardsAsync(string? categoryPath, IReadOnlyCollection<long> exclude, int size, CancellationToken ct)
+    {
+        var result = await search.PostAsync($"{ProductIndex.Alias}/_search", SearchQuery.BuildFallback(categoryPath, exclude, size), ct)
+            ?? throw new OpenSearchException(502, "Empty search response");
+        return SearchQuery.ParseCards(result);
+    }
+
+    public async Task<ProductCategory?> CategoryOfAsync(long productId, CancellationToken ct)
+    {
+        try
+        {
+            var source = (await search.GetAsync($"{ProductIndex.Alias}/_doc/{productId}", ct))?["_source"];
+            return source?["category_path"] is { } path ? new ProductCategory(path.GetValue<string>(), source["category_name"]?.GetValue<string>() ?? "") : null;
+        }
+        catch (OpenSearchException ex) when (ex.Status == StatusCodes.Status404NotFound)
+        {
+            return null;
+        }
+    }
 }

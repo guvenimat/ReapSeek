@@ -102,6 +102,44 @@ public static class SearchQuery
         },
     };
 
+    public static JsonObject BuildByIds(IReadOnlyCollection<long> ids) => new()
+    {
+        ["size"] = ids.Count,
+        ["query"] = new JsonObject
+        {
+            ["bool"] = new JsonObject
+            {
+                ["filter"] = Arr(
+                    new JsonObject { ["ids"] = new JsonObject { ["values"] = new JsonArray(ids.Select(id => (JsonNode)id.ToString(CultureInfo.InvariantCulture)).ToArray()) } },
+                    Term("in_stock", true)),
+            },
+        },
+    };
+
+    public static JsonObject BuildFallback(string? categoryPath, IReadOnlyCollection<long> exclude, int size)
+    {
+        var filters = Arr(Term("in_stock", true));
+        if (categoryPath is not null) filters.Add((JsonNode)Term("category_paths", categoryPath));
+        return new JsonObject
+        {
+            ["size"] = size,
+            ["query"] = new JsonObject
+            {
+                ["bool"] = new JsonObject
+                {
+                    ["filter"] = filters,
+                    ["must_not"] = Arr(new JsonObject { ["ids"] = new JsonObject { ["values"] = new JsonArray(exclude.Select(id => (JsonNode)id.ToString(CultureInfo.InvariantCulture)).ToArray()) } }),
+                },
+            },
+            ["sort"] = Arr(
+                new JsonObject { ["seller_count"] = new JsonObject { ["order"] = "desc" } },
+                new JsonObject { ["discount"] = new JsonObject { ["order"] = "desc" } },
+                new JsonObject { ["id"] = new JsonObject { ["order"] = "asc" } }),
+        };
+    }
+
+    public static List<ProductCard> ParseCards(JsonNode result) => Cards(result, []);
+
     public static SearchResponse ParseResults(JsonNode result, SearchRequest r, IReadOnlyDictionary<string, string> categoryNames)
     {
         var aggs = result["aggregations"]!;

@@ -217,6 +217,22 @@
   padding-bottom: 6px;
 }
 
+.product-card.skeleton {
+  min-height: 300px;
+  background: linear-gradient(90deg, var(--surface-muted) 0%, var(--border) 50%, var(--surface-muted) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card.skeleton { animation: none; }
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;

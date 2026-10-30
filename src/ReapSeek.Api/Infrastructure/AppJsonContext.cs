@@ -6,6 +6,7 @@ using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Products;
+using ReapSeek.Api.Recommendations;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
 
@@ -40,6 +41,8 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(SearchResponse))]
 [JsonSerializable(typeof(SuggestResponse))]
 [JsonSerializable(typeof(StoreProduct))]
+[JsonSerializable(typeof(RecommenderResponse))]
+[JsonSerializable(typeof(RecommendationsResponse))]
 [JsonSerializable(typeof(SitemapResponse))]
 [JsonSerializable(typeof(AddToCartRequest))]
 [JsonSerializable(typeof(UpdateCartLineRequest))]
