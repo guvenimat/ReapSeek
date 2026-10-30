@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office and the catalog sync to ReapDeep are in place. Search, the product pages, checkout and recommendations follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, product search with faceted category pages and the catalog sync to ReapDeep are in place. Product pages, checkout and recommendations follow in stages.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -36,7 +36,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - **Separate sessions for the storefront and the back office:** different cookies (`rs_session` with `SameSite=Lax` for 30 days, `rs_bo_session` with `SameSite=Strict` for 12 hours), so a customer session never opens the back office.
 - **Transactional outbox:** the API writes domain messages in the same transaction as the data; the worker claims them with `FOR UPDATE SKIP LOCKED` and a lease, retries with exponential backoff and gives up after 10 attempts. The first consumer sends the welcome email.
 - **Migrations:** SQL files embedded in `ReapSeek.Shared`, applied in order under an advisory lock by a one-shot `migrate` container before the API and the worker start.
-- **Storefront:** server-rendered header with the signed-in customer, category navigation, home and category pages, sign-in, registration and account pages.
+- **Storefront:** server-rendered pages throughout: the header with the signed-in customer and a category menu from the catalog, a home page with deals and new arrivals, search and category listings, sign-in, registration and account pages.
 - **Back office:** staff sign-in, catalog statistics, products, categories and sellers.
 
 ### Marketplace catalog
@@ -53,6 +53,22 @@ The catalog follows the model of large marketplaces: one canonical **product** (
 | Product with competing offers | Back office overview |
 |---|---|
 | ![Product detail with variants, offers and the buy box](docs/images/backoffice-product.png) | ![Back office overview](docs/images/backoffice-overview.png) |
+
+### Search
+
+Search and every category page run on OpenSearch. The worker keeps one document per active product with its buy box price, discount, stock state, colors, sizes and category ancestors.
+
+- **Language:** English stemming, accent folding (`cafe` finds "Café"), search-time synonyms (`tee` → t-shirt, `couch` → sofa, `sneakers` → trainers) and typo tolerance for words of four letters or more (`dreses`, `sneekers`, `laptp`). A query can mix fields: `velora linen` matches the brand and the material.
+- **Facets:** category, brand, color, size and price. Multi-select facets are counted without their own filter, so picking "Black" still shows how many navy products there are; the price range shows the full range of the other filters.
+- **Sorting:** best match, price both ways, biggest discount and newest; out-of-stock products always come last and can be hidden.
+- **Suggestions:** as-you-type product, brand and category suggestions from a `search_as_you_type` field, with keyboard navigation.
+- **Color-aware cards:** filtering by a color shows each product's image in that color.
+- **Indexing:** catalog changes flow through the same outbox as the ReapDeep sync and reach search within a second. A full rebuild creates a new index, fills it, swaps the `products` alias atomically and deletes the old index, so search never goes down; the worker rebuilds by itself when the index is missing or its mapping version changes.
+- **No JavaScript needed** for filtering or paging: facets are plain links and the price filter is a form, so every listing state has a crawlable URL. Category pages carry canonical URLs; search pages are `noindex`.
+
+| Category page with filters | Suggestions while typing |
+|---|---|
+| ![Women's category filtered by color](docs/images/storefront-category.png) | ![Search suggestions](docs/images/storefront-suggest.png) |
 
 ### ReapDeep catalog sync
 
@@ -96,6 +112,7 @@ To feed ReapDeep, start the [ReapDeep](https://github.com/guvenimat/ReapDeep) st
 | Back office | http://localhost:3101 (admin credentials are in `deploy/local/.env`) |
 | API | http://localhost:8100 |
 | Mailpit | http://localhost:8025 |
+| OpenSearch | http://localhost:9200 |
 
 ## Tests
 
@@ -104,12 +121,14 @@ dotnet test tests/ReapSeek.UnitTests
 cd deploy/local
 .\auth-test.ps1
 .\catalog-test.ps1
+.\search-test.ps1
 ```
 
-Both scripts run end to end against the running stack.
+The scripts run end to end against the running stack.
 
 - `auth-test.ps1`: registration, sign-in, session separation, password change, the welcome email arriving in Mailpit through the outbox, server-rendered storefront pages and the sign-in rate limit.
 - `catalog-test.ps1`: access rules, the seeded catalog, category, brand and seller rules, the variant matrix, the buy box under price, stock, pause and suspension changes, search and filters, the sync to ReapDeep (publish, price change, seller suspension, archive) and the image endpoints.
+- `search-test.ps1`: index consistency, typos, synonyms, accents and mixed-field queries, facet counts, sorting and paging, suggestions, the index following catalog changes, a zero-downtime rebuild and the server-rendered storefront pages.
 
 ## License
 

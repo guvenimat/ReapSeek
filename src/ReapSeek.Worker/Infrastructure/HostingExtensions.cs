@@ -1,4 +1,6 @@
 using ReapSeek.Shared;
+using ReapSeek.Shared.Search;
+using ReapSeek.Worker.Search;
 using ReapSeek.Worker.CatalogSync;
 using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Outbox;
@@ -17,6 +19,10 @@ public static class HostingExtensions
         services.AddSingleton<ReapDeepClient>();
         services.AddSingleton<CatalogSyncRepository>();
         services.AddSingleton<CatalogSyncHandler>();
+        services.AddSingleton<OpenSearchClient>();
+        services.AddSingleton<SearchRepository>();
+        services.AddSingleton<SearchIndexer>();
+        services.AddHostedService<SearchBootstrap>();
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
         services.AddHostedService<OutboxProcessor>();

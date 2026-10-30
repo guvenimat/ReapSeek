@@ -10,7 +10,7 @@ public sealed record SeedBrand(long Id, string Name, string Slug);
 public sealed record SeedSeller(long Id, string Name, string Slug, string City, decimal Rating, decimal Commission);
 public sealed record SeedProduct(long Id, string Slug, string Title, long BrandId, long CategoryId, string Description, string AttributesJson, string Status, DateTime CreatedAt);
 public sealed record SeedVariant(long Id, long ProductId, string Sku, string OptionsJson, int Position);
-public sealed record SeedImage(long ProductId, int Position, string Url, string Alt);
+public sealed record SeedImage(long ProductId, int Position, string Url, string Alt, string? Color);
 public sealed record SeedOffer(long SellerId, long VariantId, decimal Price, decimal? ListPrice, int Stock, int HandlingDays, string Status);
 
 public sealed record SeedCatalog(
@@ -68,11 +68,13 @@ public static class CatalogGenerator
                     var basePrice = leaf.MinPrice + (decimal)rng.NextDouble() * (leaf.MaxPrice - leaf.MinPrice);
                     var options = Options(rng, dept, leaf);
                     var colors = options.Select(o => o.Options.GetValueOrDefault("Color")).Where(c => c is not null).Distinct().ToList();
-                    if (colors.Count == 0) colors.Add(dept.Colors[rng.Next(dept.Colors.Length)]);
+                    var hasColorOption = colors.Count > 0;
+                    if (!hasColorOption) colors.Add(dept.Colors[rng.Next(dept.Colors.Length)]);
                     for (var i = 0; i < colors.Count; i++)
                     {
                         var color = ProductArt.FindColorByName(colors[i]);
-                        images.Add(new SeedImage(id, i, ProductArt.Url(leaf.Kind, color.Slug, id), $"{title}, {color.Name}"));
+                        images.Add(new SeedImage(id, i, ProductArt.Url(leaf.Kind, color.Slug, id), hasColorOption ? $"{title}, {color.Name}" : title,
+                            hasColorOption ? color.Name : null));
                     }
 
                     var productVariants = options.Select((o, i) => (Variant: new SeedVariant(++variantId, id, $"RS{id}-{i + 1:00}", Json(o.Options), i), o.PriceFactor)).ToList();

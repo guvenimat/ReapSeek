@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
+using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
 
 namespace ReapSeek.Api.Infrastructure;
@@ -31,4 +32,7 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(SellersResponse))]
 [JsonSerializable(typeof(CreateSellerRequest))]
 [JsonSerializable(typeof(UpdateSellerRequest))]
+[JsonSerializable(typeof(CategoryTreeResponse))]
+[JsonSerializable(typeof(SearchResponse))]
+[JsonSerializable(typeof(SuggestResponse))]
 public sealed partial class AppJsonContext : JsonSerializerContext;
