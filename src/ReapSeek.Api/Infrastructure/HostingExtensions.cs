@@ -1,10 +1,14 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
+using ReapSeek.Api.Checkout;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Media;
+using ReapSeek.Api.Orders;
+using ReapSeek.Api.Payments;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
@@ -60,6 +64,13 @@ public static class HostingExtensions
         services.AddSingleton<CategoryCache>();
         services.AddSingleton<SearchService>();
         services.AddSingleton<ProductRepository>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<CartRepository>();
+        services.AddSingleton<CartService>();
+        services.AddSingleton<SandboxClient>();
+        services.AddSingleton<CheckoutService>();
+        services.AddSingleton<PaymentService>();
+        services.AddSingleton<OrderQueries>();
         return builder;
     }
 
@@ -75,6 +86,8 @@ public static class HostingExtensions
         api.MapGroup("/backoffice/auth").MapBackofficeAuth();
         api.MapStorefrontCatalog();
         api.MapStorefrontProducts();
+        api.MapGroup("/cart").MapCart();
+        api.MapOrdering();
         api.MapGroup("/backoffice/catalog").MapCatalogAdmin();
         api.MapGroup("/backoffice/sellers").MapSellersAdmin();
         app.MapMedia();

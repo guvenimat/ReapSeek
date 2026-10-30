@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages and the ReapDeep integration (catalog sync, behavioral events, identity) are in place. The cart, checkout and recommendations follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases) are in place. Recommendations, the seller panel, after-sales and marketing follow in stages.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -25,10 +25,28 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 | Background jobs | .NET 10 worker with a transactional outbox |
 | Database | PostgreSQL, versioned SQL migrations |
 | Search | OpenSearch |
-| Cache | Garnet |
-| Payments and shipping | `ReapSeek.Sandbox`, a simulated payment provider and carrier |
+| Payments | `ReapSeek.Sandbox`, a simulated payment provider with hosted payment pages and signed webhooks |
 | Email | Mailpit (local) |
 | Analytics and recommendations | ReapDeep |
+
+### Code architecture
+
+The backend is a **modular monolith**: one API process and one worker, with code organized by feature (`Catalog/`, `Search/`, `Carts/`, `Checkout/`, `Orders/`, `Payments/`, ...) rather than by technical layer. Each feature keeps the same three kinds of classes: `*Endpoints` (routes and access rules, no SQL), a service or pure logic class, and a repository (Dapper with compile-time generated mapping, so everything runs under Native AOT). The architecture is not uniform on purpose; each area uses the simplest style that carries its rules:
+
+| Area | Style | Why |
+|---|---|---|
+| Catalog, search, accounts, back office reads | Feature folders, services and SQL read models | Mostly CRUD and queries. The rules (buy box, listing visibility) are best expressed in SQL, close to the data; an object model would only add mapping. |
+| Cart, orders, payments | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
+| Side effects (email, search indexing, ReapDeep sync, purchase events) | Transactional outbox, processed by the worker | A side effect never happens for a change that was rolled back, and none is lost when an external system is down. |
+
+`ReapSeek.Domain` has no package references and knows nothing about HTTP, SQL or JSON:
+
+- **Value objects:** `Money` (non-negative, one currency, rounded half away from zero), `ShippingAddress` (validated on creation).
+- **Aggregates:** `Cart` (lines, merge of a guest cart on sign-in) and `Order` with its `SellerPackage`s. State changes go through methods such as `Order.MarkPaid(reference, amount, at)`, which checks the transition, the amount and replays of the same payment.
+- **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`. The persistence layer (`ReapSeek.Shared/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
+- **Unit tested** without a database: every rule has a test in `DomainTests.cs`.
+
+There is deliberately no generic repository, mediator or separate application layer: the endpoints call a service, the service loads an aggregate, calls one of its methods and saves it.
 
 ### What is built so far
 
@@ -80,6 +98,31 @@ Search and every category page run on OpenSearch. The worker keeps one document 
 
 ![Product page with variants and competing sellers](docs/images/storefront-product.png)
 
+### Cart and checkout
+
+- **Cart:** guests get a cart behind an httpOnly `rs_cart` cookie (30 days); signing in or registering merges it into the customer's cart. Up to 10 of one item and 50 lines. The cart is always priced live against the current offers: a price change is shown next to the price at the time the item was added, and lines that are low on stock or no longer sold are flagged and block checkout until they are fixed.
+- **Per-seller packages:** the cart and the order are grouped by seller. Each seller's package ships separately, with free shipping from ₺500 per package and ₺39.90 below it.
+- **Checkout:** the customer confirms the total they saw (`expected_total`). The API locks the offers, prices the cart again, rejects the order if anything changed, reserves stock with a conditional update and writes the order in one transaction. Order numbers look like `RS261030000123`.
+- **Payment:** the customer is redirected to the provider's hosted payment page, so card data never reaches ReapSeek. The order has 15 minutes to be paid; after that the worker cancels it and returns the stock. If the payment provider cannot be reached the order is closed at once and the stock is returned.
+- **Confirmation:** the provider's webhook marks the order paid, moves the packages to "preparing", removes the purchased items from the cart and, through the outbox, sends the confirmation email and the `purchase` events to ReapDeep. The result page waits for the webhook and shows the outcome.
+- **Back office:** orders with status and search filters, per-seller packages, the address and every payment attempt with its failure reason.
+
+### Payments: `ReapSeek.Sandbox`
+
+A separate Native AOT service that behaves like a real card payment provider:
+
+- `POST /v1/payments` with a secret key creates a payment and returns a hosted page URL; the page asks for the card and then for a 3-D Secure code (`123456`).
+- Test cards: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` is declined, `4000 0000 0000 9995` has insufficient funds.
+- Results arrive as webhooks signed with HMAC-SHA256 in the `Sandbox-Signature: t=...,v1=...` format, retried after 1, 5 and 15 seconds. ReapSeek rejects signatures older than five minutes, records every event id so a replayed webhook is applied once, and checks that the paid amount matches the order.
+
+| Cart | Hosted payment page |
+|---|---|
+| ![Cart with two seller packages](docs/images/storefront-cart.png) | ![Sandbox payment page](docs/images/sandbox-payment.png) |
+
+| Order confirmed | Back office order |
+|---|---|
+| ![Payment result page](docs/images/storefront-order-paid.png) | ![Back office order detail](docs/images/backoffice-order.png) |
+
 ### Behavioral analytics with ReapDeep
 
 The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep-js-0.1.0.tgz`, packed from the ReapDeep repository) and sends events straight from the browser to ReapDeep's ingestion API.
@@ -91,8 +134,11 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 | `search_result_clicked` | a result card is clicked | `query`, `item_id`, `position`, `price` |
 | `search_suggestion_clicked` | a suggestion is picked | `query`, `type`, `value` |
 | `product_viewed` | a product page is opened | `item_id`, `price`, `category`, `department`, `brand`, `seller_id`, `in_stock` |
+| `add_to_cart` | an item is added from the product page | `item_id`, `offer_id`, `seller_id`, `price`, `quantity` |
+| `checkout_started` | the checkout page is opened | `value`, `items`, `sellers` |
+| `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id` |
 
-`item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations.
+`item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations. Purchases are sent from the server rather than the browser, so they are counted even when the customer closes the tab after paying; each line has a stable `event_id`, so a retry never counts twice.
 
 - **Identity:** when a customer signs in, the storefront calls `identify("customer-{id}")`; ReapDeep links the anonymous browsing history to the customer. Signing out calls `reset()`, so the next visitor on the same browser starts with a new anonymous id. Identity is synchronized before any page event is sent.
 - **Configuration:** the public key and the ingestion and recommender URLs come from `deploy/local/.env` (written by `connect-reapdeep.ps1`); without them the storefront runs without tracking.
@@ -107,9 +153,11 @@ Every change that affects what shoppers see (a product edit, a status change, an
 
 ```
 src/
-  ReapSeek.Api/        Minimal API (feature folders: Identity, Catalog, Sellers, Media, Seed, ...)
-  ReapSeek.Worker/     Outbox processor, notifications and the ReapDeep catalog sync
-  ReapSeek.Shared/     Migrations, outbox contracts, validation helpers
+  ReapSeek.Api/        Minimal API (feature folders: Identity, Catalog, Search, Carts, Checkout, Orders, Payments, ...)
+  ReapSeek.Domain/     Domain model for carts, orders and money, no dependencies
+  ReapSeek.Worker/     Outbox processor, emails, search indexing, ReapDeep sync and purchase events, payment expiry
+  ReapSeek.Shared/     Migrations, outbox contracts, order persistence, validation helpers
+  ReapSeek.Sandbox/    Simulated payment provider
 storefront/            Next.js storefront
 backoffice/            React back office
 deploy/local/          Docker Compose stack and end-to-end tests
@@ -138,6 +186,7 @@ To feed ReapDeep, start the [ReapDeep](https://github.com/guvenimat/ReapDeep) st
 | Storefront | http://localhost:3100 |
 | Back office | http://localhost:3101 (admin credentials are in `deploy/local/.env`) |
 | API | http://localhost:8100 |
+| Payment sandbox | http://localhost:8101 |
 | Mailpit | http://localhost:8025 |
 | OpenSearch | http://localhost:9200 |
 
@@ -150,6 +199,7 @@ cd deploy/local
 .\catalog-test.ps1
 .\search-test.ps1
 .\product-test.ps1
+.\checkout-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -158,6 +208,7 @@ The scripts run end to end against the running stack.
 - `catalog-test.ps1`: access rules, the seeded catalog, category, brand and seller rules, the variant matrix, the buy box under price, stock, pause and suspension changes, search and filters, the sync to ReapDeep (publish, price change, seller suspension, archive) and the image endpoints.
 - `search-test.ps1`: index consistency, typos, synonyms, accents and mixed-field queries, facet counts, sorting and paging, suggestions, the index following catalog changes, a zero-downtime rebuild and the server-rendered storefront pages.
 - `product-test.ps1`: the storefront product API (hidden offers, buy box, low stock), the server-rendered product page and its structured data, the sitemap, and a real headless Chrome session (`tools/browse.mjs`) that searches, clicks a result, signs in and out, then checks in ReapDeep that every event arrived and that the anonymous visitor and the customer became one person.
+- `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License
 

@@ -26,6 +26,19 @@ export type Seller = {
   id: number; name: string; slug: string; city: string; status: 'active' | 'suspended'; commission_rate: number; rating: number
   product_count: number; offer_count: number; created_at: string
 }
+export type OrderSummary = {
+  number: string; status: string; total: number; currency: string; item_count: number; package_count: number; image_url: string | null
+  placed_at: string; paid_at: string | null; customer_email: string | null
+}
+export type OrdersPage = { orders: OrderSummary[]; total: number; page: number; page_size: number }
+export type OrderDetail = {
+  number: string; status: string; placed_at: string; paid_at: string | null; payment_deadline: string; close_reason: string | null
+  address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
+  subtotal: number; shipping_total: number; total: number; currency: string; customer_id: number; customer_email: string | null
+  packages: { seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null
+    lines: { product_id: number; product_title: string; variant_label: string; sku: string; image_url: string | null; unit_price: number; quantity: number; total: number }[] }[]
+  payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]
+}
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
 export class ApiError extends Error {
@@ -79,6 +92,9 @@ export const api = {
     request<ProductDetail>('PATCH', `${catalog}/products/${id}`, body),
   saveOffer: (body: OfferInput) => request<ProductDetail>('PUT', `${catalog}/offers`, body),
   deleteOffer: (id: number) => request<ProductDetail>('DELETE', `${catalog}/offers/${id}`),
+
+  orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
+  order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
   sellers: () => request<{ sellers: Seller[] }>('GET', '/api/v1/backoffice/sellers').then((r) => r.sellers),
   createSeller: (body: { name: string; city: string; commission_rate: number }) => request<Seller>('POST', '/api/v1/backoffice/sellers', body),

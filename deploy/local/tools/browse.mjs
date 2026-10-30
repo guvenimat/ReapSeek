@@ -45,6 +45,7 @@ const send = (method, params = {}) => new Promise((r) => {
 })
 const evaluate = async (expression) => {
   const res = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })
+  if (res.error) throw new Error(res.error.message)
   if (res.result?.exceptionDetails) throw new Error(res.result.exceptionDetails.exception?.description ?? 'evaluation failed')
   return res.result?.result?.value
 }
@@ -81,6 +82,7 @@ try {
   }
 } catch (err) {
   failure = String(err)
+  results.failedAt = await evaluate("location.href + ' | ' + (document.body ? document.body.innerText.slice(0, 500) : '')").catch((e) => String(e))
 }
 
 console.log(JSON.stringify({ failure, errors, results, requests: requests.filter((r) => !r.url.startsWith('data:')).map((r) => `${r.method} ${r.url}`) }))

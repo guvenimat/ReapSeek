@@ -3,11 +3,12 @@ using System.Text.Json.Serialization.Metadata;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.CatalogSync;
 using ReapSeek.Worker.Notifications;
+using ReapSeek.Worker.Orders;
 using ReapSeek.Worker.Search;
 
 namespace ReapSeek.Worker.Outbox;
 
-public sealed class OutboxDispatcher(EmailSender email, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync, IConfiguration cfg)
+public sealed class OutboxDispatcher(EmailSender email, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync, OrderPaidHandler orderPaid, IConfiguration cfg)
 {
     const string CatalogGroup = "catalog";
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
@@ -28,6 +29,8 @@ public sealed class OutboxDispatcher(EmailSender email, SearchIndexer searchInde
         {
             OutboxTypes.UserRegistered => email.SendAsync(EmailTemplates.Welcome(
                 Deserialize(message, OutboxJsonContext.Default.UserRegistered), _storefrontUrl), ct),
+            OutboxTypes.OrderPaid => orderPaid.HandleAsync(message, ct),
+            OutboxTypes.OrderPlaced or OutboxTypes.OrderPaymentFailed or OutboxTypes.OrderCancelled => Task.CompletedTask,
             _ => throw new NotSupportedException($"Unknown outbox message type: {message.Type}"),
         });
     }

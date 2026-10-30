@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ReapSeek.Api/ReapSeek.Api.csproj" />
+    <Project Path="src/ReapSeek.Domain/ReapSeek.Domain.csproj" />
+    <Project Path="src/ReapSeek.Sandbox/ReapSeek.Sandbox.csproj" />
     <Project Path="src/ReapSeek.Shared/ReapSeek.Shared.csproj" />
     <Project Path="src/ReapSeek.Worker/ReapSeek.Worker.csproj" />
   </Folder>

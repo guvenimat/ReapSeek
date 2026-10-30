@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '@/lib/catalog'
 import { buyBox, type StoreOffer, type StoreProduct, type StoreVariant } from '@/lib/products'
-import { HeartIcon, ReturnIcon, ShieldIcon, TruckIcon } from '../icons'
+import { ReturnIcon, ShieldIcon, TruckIcon } from '../icons'
+import { AddToCart } from './AddToCart'
 
 const swatches: Record<string, string> = {
   black: '#2b2d33', white: '#f4f3ef', grey: '#9aa0a6', navy: '#1f3a68', blue: '#2f6fdb', red: '#d6453d', green: '#2f8f5b', beige: '#d9c3a0',
@@ -131,11 +132,7 @@ export function ProductView({ product, initialVariantId, today }: { product: Sto
           </div>
         )}
 
-        <div className="pdp-actions">
-          <button type="button" className="btn btn-accent btn-lg" disabled title="The cart opens in the next release">Add to cart</button>
-          <button type="button" className="btn btn-ghost btn-lg icon-only" disabled aria-label="Save to favorites"><HeartIcon /></button>
-        </div>
-        <p className="muted small">Checkout is coming soon. You can already compare sellers and options.</p>
+        <AddToCart key={`${variant.id}-${offer?.id ?? 0}`} productId={product.id} offer={offer} />
 
         <ul className="pdp-promises">
           <li><TruckIcon size={18} /> Free shipping over ₺500</li>
