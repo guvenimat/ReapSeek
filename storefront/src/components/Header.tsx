@@ -1,9 +1,11 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
+import type { CategoryNode } from '@/lib/catalog'
 import type { User } from '@/lib/session'
-import { categories } from '@/lib/categories'
-import { CartIcon, HeartIcon, LogoMark, SearchIcon, StoreIcon, UserIcon } from './icons'
+import { CartIcon, HeartIcon, LogoMark, StoreIcon, UserIcon } from './icons'
+import { SearchBox } from './SearchBox'
 
-export function Header({ user }: { user: User | null }) {
+export function Header({ user, departments }: { user: User | null; departments: CategoryNode[] }) {
   return (
     <header className="site-header">
       <div className="utility-bar">
@@ -20,12 +22,9 @@ export function Header({ user }: { user: User | null }) {
           <LogoMark />
           <span className="logo-text">Reap<strong>Seek</strong></span>
         </Link>
-        <form className="search" role="search" action="/">
-          <SearchIcon size={18} className="search-icon" />
-          <input type="search" name="q" placeholder="Search for products, brands and categories" aria-label="Search" disabled
-            title="Search is coming soon" />
-          <button type="submit" disabled>Search</button>
-        </form>
+        <Suspense fallback={<div className="search" />}>
+          <SearchBox />
+        </Suspense>
         <nav className="header-actions" aria-label="Account">
           {user ? (
             <Link href="/account" className="header-action" data-testid="account-link">
@@ -44,8 +43,15 @@ export function Header({ user }: { user: User | null }) {
       </div>
       <nav className="category-bar" aria-label="Categories">
         <div className="container category-inner">
-          {categories.map((c) => (
-            <Link key={c.slug} href={`/c/${c.slug}`}>{c.name}</Link>
+          {departments.map((d) => (
+            <div key={d.slug} className="category-menu">
+              <Link href={`/c/${d.slug}`}>{d.name}</Link>
+              {d.children.length > 0 && (
+                <div className="category-dropdown">
+                  {d.children.map((c) => <Link key={c.slug} href={`/c/${c.slug}`}>{c.name}</Link>)}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </nav>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
+import { ProductCard } from '@/components/ProductCard'
 import { ReturnIcon, ShieldIcon, StoreIcon, TruckIcon } from '@/components/icons'
-import { categories } from '@/lib/categories'
+import { departmentHue, getCategories, search, type ProductCard as Card } from '@/lib/catalog'
 
 const promises = [
   { icon: TruckIcon, title: 'Fast delivery', text: 'Most orders ship within 24 hours' },
@@ -9,7 +10,13 @@ const promises = [
   { icon: StoreIcon, title: 'Trusted sellers', text: 'Every seller is verified by ReapSeek' },
 ]
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [departments, deals, fresh] = await Promise.all([
+    getCategories(),
+    search({ sort: 'discount', in_stock: 'true', page_size: '10' }),
+    search({ sort: 'newest', in_stock: 'true', page_size: '10' }),
+  ])
+
   return (
     <div className="container home">
       <section className="hero" data-testid="hero">
@@ -17,7 +24,7 @@ export default function HomePage() {
           <span className="eyebrow">Autumn season</span>
           <h1>Everything you need, from hundreds of sellers</h1>
           <p>Compare offers on the same product, pick the seller you trust and get it delivered fast.</p>
-          <Link href="/c/women" className="btn btn-accent">Shop the new season</Link>
+          <Link href="/search?sort=discount" className="btn btn-accent">Shop the deals</Link>
         </div>
         <div className="hero-art" aria-hidden="true">
           <span className="blob b1" />
@@ -38,20 +45,41 @@ export default function HomePage() {
         ))}
       </section>
 
+      <Shelf title="Today's deals" href="/search?sort=discount&in_stock=true" products={deals.result?.products ?? []} testId="shelf-deals" />
+
       <section className="section">
         <div className="section-head">
           <h2>Shop by category</h2>
         </div>
         <div className="category-grid" data-testid="category-grid">
-          {categories.map((c) => (
-            <Link key={c.slug} href={`/c/${c.slug}`} className="category-tile" style={{ ['--hue' as string]: c.hue }}>
-              <span className="tile-art" aria-hidden="true">{c.name.charAt(0)}</span>
-              <strong>{c.name}</strong>
-              <span>{c.tagline}</span>
+          {departments.map((d) => (
+            <Link key={d.slug} href={`/c/${d.slug}`} className="category-tile" style={{ ['--hue' as string]: departmentHue(d.slug) }}>
+              <span className="tile-art" aria-hidden="true">
+                <img src={`/media/catalog/${d.image_kind}/white/${d.id}.svg`} alt="" width={80} height={100} />
+              </span>
+              <strong>{d.name}</strong>
+              <span>{d.children.slice(0, 3).map((c) => c.name).join(', ')}</span>
             </Link>
           ))}
         </div>
       </section>
+
+      <Shelf title="New arrivals" href="/search?sort=newest" products={fresh.result?.products ?? []} testId="shelf-new" />
     </div>
+  )
+}
+
+function Shelf({ title, href, products, testId }: { title: string; href: string; products: Card[]; testId: string }) {
+  if (products.length === 0) return null
+  return (
+    <section className="section" data-testid={testId}>
+      <div className="section-head">
+        <h2>{title}</h2>
+        <Link href={href} className="see-all">See all</Link>
+      </div>
+      <div className="shelf">
+        {products.map((p) => <ProductCard key={p.id} product={p} />)}
+      </div>
+    </section>
   )
 }

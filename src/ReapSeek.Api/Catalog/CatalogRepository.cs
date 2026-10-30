@@ -166,7 +166,7 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
         if (p is null) return null;
 
         var images = (await conn.QueryAsync<ProductImage>(
-            "SELECT position, url, alt FROM product_images WHERE product_id = @Id ORDER BY position", new { Id = id })).AsList();
+            "SELECT position, url, alt, color FROM product_images WHERE product_id = @Id ORDER BY position", new { Id = id })).AsList();
         var variants = (await conn.QueryAsync<VariantRecord>(
             "SELECT id, sku, options::text AS options, position FROM product_variants WHERE product_id = @Id ORDER BY position, id",
             new { Id = id })).AsList();
@@ -206,14 +206,15 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
             FROM unnest(@Skus, @Options) WITH ORDINALITY AS v(sku, options, position)
             """, new { ProductId = product.Id, Skus = product.Variants.Select(v => v.Sku).ToArray(), Options = product.Variants.Select(v => v.OptionsJson).ToArray() }, tx);
         await conn.ExecuteAsync("""
-            INSERT INTO product_images (product_id, position, url, alt)
-            SELECT @ProductId, i.position, i.url, i.alt FROM unnest(@Positions, @Urls, @Alts) AS i(position, url, alt)
+            INSERT INTO product_images (product_id, position, url, alt, color)
+            SELECT @ProductId, i.position, i.url, i.alt, i.color FROM unnest(@Positions, @Urls, @Alts, @Colors) AS i(position, url, alt, color)
             """, new
         {
             ProductId = product.Id,
             Positions = product.Images.Select(i => i.Position).ToArray(),
             Urls = product.Images.Select(i => i.Url).ToArray(),
             Alts = product.Images.Select(i => i.Alt).ToArray(),
+            Colors = product.Images.Select(i => i.Color).ToArray(),
         }, tx);
         await tx.CommitAsync(ct);
     }

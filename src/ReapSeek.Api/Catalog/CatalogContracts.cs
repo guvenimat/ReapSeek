@@ -13,7 +13,7 @@ public sealed record ProductListItem(
     int VariantCount, int SellerCount, decimal? Price, decimal? ListPrice, string? ImageUrl, DateTime UpdatedAt);
 public sealed record ProductsResponse(List<ProductListItem> Products, long Total, int Page, int PageSize);
 
-public sealed record ProductImage(int Position, string Url, string Alt);
+public sealed record ProductImage(int Position, string Url, string Alt, string? Color);
 public sealed record OfferRow(
     long Id, long SellerId, string SellerName, string SellerStatus, decimal SellerRating, long VariantId,
     decimal Price, decimal? ListPrice, int Stock, int HandlingDays, string Status, bool IsBuyBox, DateTime UpdatedAt);

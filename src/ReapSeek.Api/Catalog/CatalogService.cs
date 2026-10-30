@@ -1,11 +1,12 @@
 using System.Text.Json;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Media;
+using ReapSeek.Api.Search;
 using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Catalog;
 
-public sealed class CatalogService(CatalogRepository catalog)
+public sealed class CatalogService(CatalogRepository catalog, CategoryCache categoryCache)
 {
     const int MaxPageSize = 100;
 
@@ -26,6 +27,7 @@ public sealed class CatalogService(CatalogRepository catalog)
         var path = parent is null ? slug : $"{parent.Path}/{slug}";
         var id = await catalog.CreateCategoryAsync(parent?.Id, slug, name, path, parent is null ? 0 : parent.Depth + 1, kind ?? parent?.ImageKind ?? "box", ct)
             ?? throw new ConflictException($"A category with the slug '{slug}' already exists");
+        categoryCache.Invalidate();
         return (await catalog.ListCategoriesAsync(ct)).First(c => c.Id == id);
     }
 
@@ -66,9 +68,10 @@ public sealed class CatalogService(CatalogRepository catalog)
         var id = await catalog.NextProductIdAsync(ct);
         var colorAxis = CatalogRules.ColorAxis(req.VariantAxes?.Keys ?? Enumerable.Empty<string>());
         var colors = colorAxis is null
-            ? [ProductArt.ColorFor(id)]
-            : req.VariantAxes![colorAxis].Select(ProductArt.FindColorByName).DistinctBy(c => c.Slug).ToList();
-        var images = colors.Select((c, i) => new ProductImage(i, ProductArt.Url(category.ImageKind, c.Slug, id), colorAxis is null ? title : $"{title}, {c.Name}")).ToList();
+            ? [(Name: (string?)null, Art: ProductArt.ColorFor(id))]
+            : req.VariantAxes![colorAxis].Select(n => (Name: (string?)n.Trim(), Art: ProductArt.FindColorByName(n.Trim()))).DistinctBy(c => c.Art.Slug).ToList();
+        var images = colors.Select((c, i) => new ProductImage(i, ProductArt.Url(category.ImageKind, c.Art.Slug, id),
+            c.Name is null ? title : $"{title}, {c.Name}", c.Name)).ToList();
 
         await catalog.InsertProductAsync(new NewProduct(id, CatalogRules.ProductSlug(title, id), title, brandId, category.Id, description,
             JsonSerializer.Serialize(attributes, AppJsonContext.Default.DictionaryStringString),

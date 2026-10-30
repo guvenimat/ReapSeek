@@ -163,8 +163,6 @@ a.header-action:hover {
 .category-inner {
   display: flex;
   gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .category-inner a {
@@ -243,5 +241,10 @@ a.header-action:hover {
 
   .utility-inner nav {
     display: none;
+  }
+
+  .category-inner {
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 }

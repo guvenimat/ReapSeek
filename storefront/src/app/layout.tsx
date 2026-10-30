@@ -5,8 +5,10 @@ import '@/styles/tokens.css'
 import '@/styles/base.css'
 import '@/styles/layout.css'
 import '@/styles/components.css'
+import '@/styles/listing.css'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
+import { getCategories } from '@/lib/catalog'
 import { getCurrentUser } from '@/lib/session'
 
 export const metadata: Metadata = {
@@ -15,11 +17,11 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser()
+  const [user, departments] = await Promise.all([getCurrentUser(), getCategories()])
   return (
     <html lang="en">
       <body>
-        <Header user={user} />
+        <Header user={user} departments={departments} />
         <main className="site-main">{children}</main>
         <Footer />
       </body>

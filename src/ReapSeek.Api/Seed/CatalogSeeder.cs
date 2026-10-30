@@ -83,13 +83,14 @@ public static class CatalogSeeder
         }, tx);
 
         await conn.ExecuteAsync("""
-            INSERT INTO product_images (product_id, position, url, alt) SELECT * FROM unnest(@ProductIds, @Positions, @Urls, @Alts)
+            INSERT INTO product_images (product_id, position, url, alt, color) SELECT * FROM unnest(@ProductIds, @Positions, @Urls, @Alts, @Colors)
             """, new
         {
             ProductIds = c.Images.Select(i => i.ProductId).ToArray(),
             Positions = c.Images.Select(i => i.Position).ToArray(),
             Urls = c.Images.Select(i => i.Url).ToArray(),
             Alts = c.Images.Select(i => i.Alt).ToArray(),
+            Colors = c.Images.Select(i => i.Color).ToArray(),
         }, tx);
 
         await conn.ExecuteAsync("""
