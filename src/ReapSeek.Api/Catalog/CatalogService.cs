@@ -27,7 +27,7 @@ public sealed class CatalogService(CatalogRepository catalog, CategoryCache cate
         var path = parent is null ? slug : $"{parent.Path}/{slug}";
         var id = await catalog.CreateCategoryAsync(parent?.Id, slug, name, path, parent is null ? 0 : parent.Depth + 1, kind ?? parent?.ImageKind ?? "box", ct)
             ?? throw new ConflictException($"A category with the slug '{slug}' already exists");
-        categoryCache.Invalidate();
+        await categoryCache.InvalidateAsync();
         return (await catalog.ListCategoriesAsync(ct)).First(c => c.Id == id);
     }
 

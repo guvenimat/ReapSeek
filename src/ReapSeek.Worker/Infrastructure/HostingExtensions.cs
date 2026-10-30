@@ -1,4 +1,6 @@
 using ReapSeek.Shared;
+using ReapSeek.Shared.Caching;
+using ReapSeek.Worker.Caching;
 using ReapSeek.Shared.Search;
 using ReapSeek.Worker.Search;
 using ReapSeek.Worker.CatalogSync;
@@ -16,6 +18,8 @@ public static class HostingExtensions
         var services = builder.Services;
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
+        services.AddSingleton<RedisCache>();
+        services.AddSingleton<ProductCacheInvalidator>();
         services.AddSingleton<EmailSender>();
         services.AddSingleton<ReapDeepClient>();
         services.AddSingleton<CatalogSyncRepository>();

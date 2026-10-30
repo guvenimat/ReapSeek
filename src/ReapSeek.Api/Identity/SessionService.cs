@@ -1,6 +1,7 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using ReapSeek.Api.Infrastructure;
+using ReapSeek.Shared.Caching;
 
 namespace ReapSeek.Api.Identity;
 
@@ -10,24 +11,20 @@ public sealed record SessionAudience(string Name, string CookieName, TimeSpan Li
     public static readonly SessionAudience Backoffice = new("backoffice", "rs_bo_session", TimeSpan.FromHours(12), SameSiteMode.Strict);
 }
 
-public sealed class SessionService(AccountRepository accounts, IConfiguration cfg)
+public sealed class SessionService(AccountRepository accounts, RedisCache cache, IConfiguration cfg)
 {
-    static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
-    const int MaxCacheEntries = 10_000;
+    static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
     const int MaxTokenLength = 128;
 
-    readonly ConcurrentDictionary<string, (UserInfo? User, DateTime Expires)> _cache = new();
     readonly bool _secureCookie = cfg["Auth:SecureCookie"] != "false";
 
     public async ValueTask<UserInfo?> GetCurrentAsync(HttpContext ctx, SessionAudience audience)
     {
         if (TokenHash(ctx.Request, audience) is not { } hash) return null;
-        var now = DateTime.UtcNow;
-        if (_cache.TryGetValue(hash, out var hit) && hit.Expires > now) return hit.User;
-
-        var user = await accounts.FindSessionAsync(hash, audience.Name, ctx.RequestAborted);
-        if (_cache.Count >= MaxCacheEntries) _cache.Clear();
-        _cache[hash] = (user, now + CacheTtl);
+        if (ctx.Items.TryGetValue(audience, out var resolved)) return resolved as UserInfo;
+        var user = await cache.GetOrLoadAsync(CacheKeys.Session(hash), CacheJsonContext.Default.UserInfo, CacheTtl,
+            () => accounts.FindSessionAsync(hash, audience.Name, ctx.RequestAborted));
+        ctx.Items[audience] = user;
         return user;
     }
 
@@ -52,24 +49,19 @@ public sealed class SessionService(AccountRepository accounts, IConfiguration cf
     {
         if (TokenHash(ctx.Request, audience) is { } hash)
         {
-            _cache.TryRemove(hash, out _);
             await accounts.DeleteSessionAsync(hash, ctx.RequestAborted);
+            await cache.RemoveAsync(CacheKeys.Session(hash));
         }
         ctx.Response.Cookies.Delete(audience.CookieName, CookieOptions(audience, null));
     }
 
     public async Task<bool> ChangePasswordAsync(HttpContext ctx, SessionAudience audience, long userId, string currentPassword, string newPassword)
     {
-        var changed = await accounts.ChangePasswordAsync(userId, stored => PasswordHasher.Verify(currentPassword, stored),
+        var revoked = await accounts.ChangePasswordAsync(userId, stored => PasswordHasher.Verify(currentPassword, stored),
             PasswordHasher.Hash(newPassword), TokenHash(ctx.Request, audience) ?? "", ctx.RequestAborted);
-        if (changed) InvalidateUser(userId);
-        return changed;
-    }
-
-    void InvalidateUser(long userId)
-    {
-        foreach (var (hash, entry) in _cache)
-            if (entry.User?.Id == userId) _cache.TryRemove(hash, out _);
+        if (revoked is null) return false;
+        await cache.RemoveAsync(revoked.Select(CacheKeys.Session).ToArray());
+        return true;
     }
 
     CookieOptions CookieOptions(SessionAudience audience, DateTime? expires) => new()

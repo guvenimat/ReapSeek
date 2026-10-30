@@ -121,6 +121,7 @@ if (-not $readKey -or -not $envValues.REAPDEEP_PUBLIC_KEY) {
     $userId = $reg.Json.user.id
     $session = ($shopper.Cookies.GetCookies([Uri]$api) | Where-Object { $_.Name -ceq "rs_session" }).Value
     $stateJs = "JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith('reapdeep_'))))"
+    Check "the product is searchable before the browser looks for it" (WaitFor { (Send $plain GET "$api/api/v1/search?q=aurelia+silk+$tag").Json.total -gt 0 } 15)
     $run = Browse @(
         @{ goto = "$browserBase/search?q=aurelia+silk+$tag" },
         @{ waitFor = "document.querySelector('.product-card')" },
@@ -156,9 +157,9 @@ if (-not $readKey -or -not $envValues.REAPDEEP_PUBLIC_KEY) {
         @((Send $rd GET "$reapDeep/api/v1/events?$q" $null @{ Authorization = "Bearer $readKey" }).Json.events)
     }
     Check "search_performed reached ReapDeep" (WaitFor { @(Events $anon "search_performed" | Where-Object { $_.properties.query -eq "aurelia silk $tag" -and $_.properties.results -eq 1 }).Count -eq 1 } 60)
-    Check "search_result_clicked with position 1" (@(Events $anon "search_result_clicked" | Where-Object { $_.columns.item_id -eq "$($product.id)" -and $_.properties.position -eq 1 }).Count -eq 1)
-    Check "anonymous product_viewed with item_id, price and category" (@(Events $anon "product_viewed" | Where-Object { $_.columns.item_id -eq "$($product.id)" -and $_.properties.price -eq 100 -and $_.properties.category -eq "dresses" }).Count -ge 1)
-    Check "page views are tracked" (@(Events $anon '$pageview').Count -ge 2)
+    Check "search_result_clicked with position 1" (WaitFor { @(Events $anon "search_result_clicked" | Where-Object { $_.columns.item_id -eq "$($product.id)" -and $_.properties.position -eq 1 }).Count -eq 1 } 60)
+    Check "anonymous product_viewed with item_id, price and category" (WaitFor { @(Events $anon "product_viewed" | Where-Object { $_.columns.item_id -eq "$($product.id)" -and $_.properties.price -eq 100 -and $_.properties.category -eq "dresses" }).Count -ge 1 } 60)
+    Check "page views are tracked" (WaitFor { @(Events $anon '$pageview').Count -ge 2 } 60)
     Check "identify links the anonymous id to the customer" (WaitFor { @(Events $customer '$identify' | Where-Object { $_.properties.'$anon_distinct_id' -eq $anon }).Count -eq 1 } 60)
     Check "product_viewed after sign-in belongs to the customer" (WaitFor { @(Events $customer "product_viewed" | Where-Object { $_.columns.item_id -eq "$($product.id)" }).Count -ge 1 } 60)
     Check "ReapDeep merged both ids into one person" (WaitFor {
