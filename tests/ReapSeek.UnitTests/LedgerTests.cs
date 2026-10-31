@@ -7,7 +7,7 @@ namespace ReapSeek.UnitTests;
 public class LedgerTests
 {
     static readonly DateTime Now = new(2026, 10, 30, 12, 0, 0, DateTimeKind.Utc);
-    static readonly ShippingAddress Address = ShippingAddress.Create("Ayse Yilmaz", "+90 532 123 45 67", "Izmir", "Konak", "Ataturk Cd. 12", "35210");
+    static readonly ShippingAddress Address = ShippingAddress.Create("Ayse Yilmaz", "+90 100 000 00 02", "Izmir", "Konak", "Ataturk Cd. 12", "35210");
 
     static OrderItem Item(long offerId, long sellerId, decimal price, int quantity) =>
         new(offerId, offerId * 10, offerId * 100, sellerId, $"Seller {sellerId}", $"Product {offerId}", "Size: M", $"SKU{offerId}", null, Money.Of(price), quantity);

@@ -132,7 +132,7 @@ public class PaymentTests
     public void Purchase_events_are_one_per_line_with_stable_ids()
     {
         var now = Now.UtcDateTime;
-        var address = ShippingAddress.Create("Ayse", "5321234567", "Izmir", "Konak", "Street 1", "35210");
+        var address = ShippingAddress.Create("Ayse", "1000000003", "Izmir", "Konak", "Street 1", "35210");
         var order = Order.Place(Guid.NewGuid(), "RS261030000009", 42, address,
         [
             new OrderItem(1, 10, 100, 7, "Seller", "Dress", "Size: M", "SKU1", null, Money.Of(250m), 2),

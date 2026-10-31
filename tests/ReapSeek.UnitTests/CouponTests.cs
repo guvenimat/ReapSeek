@@ -50,7 +50,7 @@ public class CouponTests
     [Fact]
     public void An_order_subtracts_the_discount_from_the_total()
     {
-        var address = ShippingAddress.Create("Ada Kaya", "05321112233", "Izmir", "Konak", "Ataturk Cd. 1", "35210");
+        var address = ShippingAddress.Create("Ada Kaya", "01000000001", "Izmir", "Konak", "Ataturk Cd. 1", "35210");
         var item = new OrderItem(1, 10, 100, 1, "Seller", "Dress", "M", "SKU1", null, Money.Of(150m), 2);
         var order = Order.Place(Guid.NewGuid(), "RS1", 7, address, [item], ShippingPolicy.Standard, Guid.NewGuid, Now, new OrderDiscount("RS-X", Money.Of(30m)));
 

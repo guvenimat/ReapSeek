@@ -26,13 +26,13 @@ public class IdentityTests
 
     [Theory]
     [InlineData("  Jane.Doe@Example.COM ", "jane.doe@example.com")]
-    [InlineData("a@b.co", "a@b.co")]
+    [InlineData("a@b.example", "a@b.example")]
     public void Emails_are_trimmed_and_lowercased(string input, string expected) =>
         Assert.Equal(expected, IdentityRules.NormalizeEmail(input));
 
     [Theory]
     [InlineData("jane@example.com", true)]
-    [InlineData("jane+shop@mail.example.com.tr", true)]
+    [InlineData("jane+shop@mail.example.org", true)]
     [InlineData("jane@example", false)]
     [InlineData("jane example@example.com", false)]
     [InlineData("@example.com", false)]

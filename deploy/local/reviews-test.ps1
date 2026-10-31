@@ -87,7 +87,7 @@ $id = $product.id
 $null = A PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $product.variants[0].id; price = 150; stock = 10 }
 $null = A PATCH "/catalog/products/$id" @{ status = "active" }
 $offerId = ((A GET "/catalog/products/$id").Json.variants[0].offers | Where-Object { $_.seller_id -eq $seller.id }).id
-$address = @{ full_name = "Review Buyer"; phone = "0532 111 22 33"; city = "Izmir"; district = "Konak"; line = "Ataturk Cd. 1"; postal_code = "35210" }
+$address = @{ full_name = "Review Buyer"; phone = "0100 000 00 01"; city = "Izmir"; district = "Konak"; line = "Ataturk Cd. 1"; postal_code = "35210" }
 
 function Customer([string]$name, [string]$display) {
     $c = NewClient

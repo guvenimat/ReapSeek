@@ -116,7 +116,7 @@ Write-Host "`n[4] Shipping a package"
 $offerId = ($view.product.variants[0].offers | Select-Object -First 1).id
 $null = Send $customer POST "$api/api/v1/cart/items" @{ offer_id = $offerId; quantity = 2 }
 $cart = (Send $customer GET "$api/api/v1/cart").Json
-$address = @{ full_name = "Panel Buyer"; phone = "0532 111 22 33"; city = "Bursa"; district = "Nilufer"; line = "Ataturk Cd. 5"; postal_code = "16110" }
+$address = @{ full_name = "Panel Buyer"; phone = "0100 000 00 01"; city = "Bursa"; district = "Nilufer"; line = "Ataturk Cd. 5"; postal_code = "16110" }
 $placed = (Send $customer POST "$api/api/v1/checkout" @{ address = $address; expected_total = $cart.total }).Json
 $payId = $placed.payment_url.Substring($placed.payment_url.LastIndexOf("/") + 1)
 $pay = Send (NewClient) POST "$sandbox/pay/$payId" $null "holder=Panel+Buyer&card_number=4242424242424242&expiry=12%2F30&cvc=123"
