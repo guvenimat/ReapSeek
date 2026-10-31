@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { api } from '../api'
+import { api, sellerApi } from '../api'
 import { TrashIcon } from '../components/icons'
 import { Card, FormError, Loading } from '../components/ui'
 import { navigate, useAction, useLoad } from '../lib'
@@ -7,8 +7,8 @@ import { CategorySelect } from './ProductDetail'
 
 type Axis = { name: string; values: string }
 
-export function ProductNew() {
-  const lookups = useLoad(() => Promise.all([api.brands(), api.categories()]), [])
+export function ProductNew({ seller = false }: { seller?: boolean }) {
+  const lookups = useLoad(() => seller ? Promise.all([sellerApi.brands(), sellerApi.categories()]) : Promise.all([api.brands(), api.categories()]), [seller])
   const action = useAction()
   const [form, setForm] = useState({ title: '', brand_id: 0, category_id: 0, description: '', brand_name: '' })
   const [axes, setAxes] = useState<Axis[]>([{ name: 'Color', values: '' }, { name: 'Size', values: '' }])
@@ -20,31 +20,35 @@ export function ProductNew() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const created = await action.run(async () => {
-      const brandId = form.brand_id || (await api.createBrand(form.brand_name)).id
-      return api.createProduct({
-        title: form.title, brand_id: brandId, category_id: form.category_id, description: form.description, attributes: {},
-        variant_axes: Object.fromEntries(parsedAxes.map((a) => [a.name, a.values])),
-      })
+    const body = (brandId: number) => ({
+      title: form.title, brand_id: brandId, category_id: form.category_id, description: form.description, attributes: {},
+      variant_axes: Object.fromEntries(parsedAxes.map((a) => [a.name, a.values])),
     })
+    if (seller) {
+      const proposed = await action.run(() => sellerApi.propose(body(form.brand_id)))
+      if (proposed) navigate(`catalog/${proposed.product.id}`)
+      return
+    }
+    const created = await action.run(async () => api.createProduct(body(form.brand_id || (await api.createBrand(form.brand_name)).id)))
     if (created) navigate(`products/${created.id}`)
   }
 
   return (
     <Loading state={lookups}>
       {([brands, categories]) => (
-        <Card title="Create a product">
+        <Card title={seller ? 'Propose a new product' : 'Create a product'}>
+          {seller && <p className="muted">Can't find your product in the catalog? Propose it here. Our team reviews it, usually within a day, and you can already add your price and stock.</p>}
           <form className="form" onSubmit={submit} data-testid="new-product-form">
             <label className="field wide"><span>Title</span>
               <input required minLength={3} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Velora Linen Midi Dress" />
             </label>
             <label className="field"><span>Brand</span>
               <select value={form.brand_id} onChange={(e) => setForm({ ...form, brand_id: Number(e.target.value) })}>
-                <option value={0}>New brand…</option>
+                <option value={0}>{seller ? 'Choose a brand…' : 'New brand…'}</option>
                 {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </label>
-            {form.brand_id === 0 ? (
+            {form.brand_id === 0 && !seller ? (
               <label className="field"><span>New brand name</span>
                 <input required maxLength={80} value={form.brand_name} onChange={(e) => setForm({ ...form, brand_name: e.target.value })} />
               </label>
@@ -70,8 +74,9 @@ export function ProductNew() {
               <p className="muted small" data-testid="variant-count">{variantCount} variant{variantCount === 1 ? '' : 's'} will be created</p>
             </div>
             <div className="form-actions wide">
-              <button type="submit" className="btn btn-primary" disabled={action.busy || form.category_id === 0}>Create as draft</button>
-              <a className="btn btn-ghost" href="#/products">Cancel</a>
+              <button type="submit" className="btn btn-primary" disabled={action.busy || form.category_id === 0 || (seller && form.brand_id === 0)}>
+                {seller ? 'Submit for review' : 'Create as draft'}</button>
+              <a className="btn btn-ghost" href={seller ? '#/proposals' : '#/products'}>Cancel</a>
             </div>
             <FormError error={action.error} />
           </form>

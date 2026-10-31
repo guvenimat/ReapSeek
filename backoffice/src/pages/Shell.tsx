@@ -1,53 +1,76 @@
 import type { ReactNode } from 'react'
 import { api, type User } from '../api'
-import { BoxIcon, HomeIcon, LayersIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, UsersIcon } from '../components/icons'
-import { useRoute } from '../lib'
+import {
+  BoxIcon, HomeIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
+} from '../components/icons'
+import { useRoute, type Route } from '../lib'
 import { Categories } from './Categories'
 import { OrderDetailPage, Orders } from './Orders'
 import { Overview } from './Overview'
+import { Payouts } from './Payouts'
 import { ProductDetailPage } from './ProductDetail'
 import { ProductNew } from './ProductNew'
 import { Products } from './Products'
+import { SellerCatalog, SellerHome, SellerOffers, SellerPackages, SellerProduct, SellerProposals } from './SellerPanel'
 import { Sellers } from './Sellers'
 
 type Section = { key: string; label: string; icon: () => ReactNode; ready: boolean }
 
-const sections: Section[] = [
+const adminSections: Section[] = [
   { key: '', label: 'Overview', icon: HomeIcon, ready: true },
   { key: 'products', label: 'Products', icon: BoxIcon, ready: true },
   { key: 'categories', label: 'Categories', icon: LayersIcon, ready: true },
   { key: 'sellers', label: 'Sellers', icon: StoreIcon, ready: true },
   { key: 'orders', label: 'Orders', icon: ReceiptIcon, ready: true },
+  { key: 'payouts', label: 'Payouts', icon: WalletIcon, ready: true },
   { key: 'customers', label: 'Customers', icon: UsersIcon, ready: false },
   { key: 'marketing', label: 'Marketing', icon: MegaphoneIcon, ready: false },
 ]
 
+const sellerSections: Section[] = [
+  { key: '', label: 'Earnings', icon: WalletIcon, ready: true },
+  { key: 'packages', label: 'Packages', icon: TruckIcon, ready: true },
+  { key: 'offers', label: 'Offers', icon: TagIcon, ready: true },
+  { key: 'catalog', label: 'Catalog', icon: BoxIcon, ready: true },
+  { key: 'proposals', label: 'Proposals', icon: LightbulbIcon, ready: true },
+]
+
+function adminPage(section: Section, route: Route, user: User): [ReactNode, string] {
+  const [, sub] = route.path
+  if (section.key === 'products' && sub === 'new') return [<ProductNew />, 'New product']
+  if (section.key === 'products' && sub) return [<ProductDetailPage id={Number(sub)} />, 'Product']
+  if (section.key === 'orders' && sub) return [<OrderDetailPage number={sub} />, 'Order']
+  if (section.key === 'orders') return [<Orders query={route.query} />, section.label]
+  if (section.key === 'products') return [<Products query={route.query} />, section.label]
+  if (section.key === 'categories') return [<Categories />, section.label]
+  if (section.key === 'sellers') return [<Sellers />, section.label]
+  if (section.key === 'payouts') return [<Payouts />, section.label]
+  return [<Overview user={user} />, section.label]
+}
+
+function sellerPage(section: Section, route: Route, user: User): [ReactNode, string] {
+  const [, sub] = route.path
+  if (section.key === 'catalog' && sub === 'new') return [<ProductNew seller />, 'Propose a product']
+  if (section.key === 'catalog' && sub) return [<SellerProduct id={Number(sub)} />, 'Product']
+  if (section.key === 'catalog') return [<SellerCatalog query={route.query} />, section.label]
+  if (section.key === 'packages') return [<SellerPackages query={route.query} />, section.label]
+  if (section.key === 'offers') return [<SellerOffers query={route.query} />, section.label]
+  if (section.key === 'proposals') return [<SellerProposals />, section.label]
+  return [<SellerHome user={user} />, section.label]
+}
+
 export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const route = useRoute()
+  const isSeller = user.role === 'seller'
+  const sections = isSeller ? sellerSections : adminSections
   const current = route.path[0] ?? ''
   const section = sections.find((s) => s.key === current && s.ready) ?? sections[0]
+  const [page, title] = isSeller ? sellerPage(section, route, user) : adminPage(section, route, user)
 
   async function signOut() {
     await api.logout().catch(() => undefined)
     onSignedOut()
   }
-
-  let page: ReactNode
-  let title = section.label
-  if (section.key === 'products' && route.path[1] === 'new') {
-    page = <ProductNew />
-    title = 'New product'
-  } else if (section.key === 'products' && route.path[1]) {
-    page = <ProductDetailPage id={Number(route.path[1])} />
-    title = 'Product'
-  } else if (section.key === 'orders' && route.path[1]) {
-    page = <OrderDetailPage number={route.path[1]} />
-    title = 'Order'
-  } else if (section.key === 'orders') page = <Orders query={route.query} />
-  else if (section.key === 'products') page = <Products query={route.query} />
-  else if (section.key === 'categories') page = <Categories />
-  else if (section.key === 'sellers') page = <Sellers />
-  else page = <Overview user={user} />
 
   return (
     <div className="shell">
@@ -56,7 +79,7 @@ export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => vo
           <LogoMark />
           <div>
             <strong>ReapSeek</strong>
-            <span>Back office</span>
+            <span>{isSeller ? 'Seller center' : 'Back office'}</span>
           </div>
         </div>
         <nav aria-label="Sections">

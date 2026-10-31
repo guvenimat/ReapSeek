@@ -34,6 +34,34 @@ public static class EmailTemplates
             """);
     }
 
+    public static EmailMessage PackageShipped(Order order, SellerPackage package, string email, string name, string storefrontUrl)
+    {
+        var orderUrl = $"{storefrontUrl}/account/orders/{order.Number}";
+        var items = string.Join(", ", package.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"));
+        var text = $"""
+            Hi {name},
+
+            Your package from {package.SellerName} for order {order.Number} is on its way.
+            Tracking number: {package.TrackingNumber}
+            Items: {items}
+
+            Track your order: {orderUrl}
+
+            The ReapSeek team
+            """;
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330">
+              <h1 style="color:#5b2bd6;font-size:22px">Your package is on its way</h1>
+              <p>Hi {WebUtility.HtmlEncode(name)}, {WebUtility.HtmlEncode(package.SellerName)} shipped your package for order <strong>{WebUtility.HtmlEncode(order.Number)}</strong>.</p>
+              <p>Tracking number: <strong>{WebUtility.HtmlEncode(package.TrackingNumber ?? "")}</strong></p>
+              <p style="font-size:13px;color:#6b7080">{WebUtility.HtmlEncode(items)}</p>
+              <p><a href="{WebUtility.HtmlEncode(orderUrl)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Track your order</a></p>
+              <p style="color:#6b7080;font-size:12px">The ReapSeek team</p>
+            </div>
+            """;
+        return new EmailMessage(email, $"Your package for order {order.Number} has shipped", text, html);
+    }
+
     public static EmailMessage OrderConfirmation(Order order, string email, string name, string storefrontUrl)
     {
         static string M(decimal amount) => amount.ToString("N2", CultureInfo.InvariantCulture);

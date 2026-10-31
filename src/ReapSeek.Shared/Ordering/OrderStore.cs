@@ -58,8 +58,8 @@ public static class OrderStore
         foreach (var p in order.Packages)
         {
             await conn.ExecuteAsync("""
-                INSERT INTO order_packages (id, order_id, seller_id, seller_name, status, shipping_fee)
-                VALUES (@Id, @OrderId, @SellerId, @SellerName, @Status, @ShippingFee)
+                INSERT INTO order_packages (id, order_id, seller_id, seller_name, status, shipping_fee, commission_rate)
+                SELECT @Id, @OrderId, @SellerId, @SellerName, @Status, @ShippingFee, s.commission_rate FROM sellers s WHERE s.id = @SellerId
                 """, new { p.Id, OrderId = order.Id, p.SellerId, p.SellerName, Status = OrderStatusRules.Name(p.Status), ShippingFee = p.ShippingFee.Amount }, tx);
             await conn.ExecuteAsync("""
                 INSERT INTO order_lines (id, order_id, package_id, offer_id, product_id, variant_id, product_title, variant_label, sku, image_url, unit_price, quantity)
@@ -143,6 +143,17 @@ public static class OrderStore
                 foreach (var line in order.Lines)
                     await conn.ExecuteAsync("UPDATE offers SET stock = stock + @Quantity, updated_at = now() WHERE id = @OfferId",
                         new { line.OfferId, line.Quantity }, tx);
+            }
+            if (e is PackageShipped or PackageDelivered)
+            {
+                var (packageType, message) = e switch
+                {
+                    PackageShipped s => (OutboxTypes.PackageShipped, new PackageEventMessage(s.OrderId, s.Number, s.CustomerId, s.PackageId, s.TrackingNumber, s.OccurredAt)),
+                    PackageDelivered d => (OutboxTypes.PackageDelivered, new PackageEventMessage(d.OrderId, d.Number, d.CustomerId, d.PackageId, null, d.OccurredAt)),
+                    _ => throw new InvalidOperationException(),
+                };
+                await OutboxWriter.EnqueueAsync(conn, tx, packageType, message, OutboxJsonContext.Default.PackageEventMessage);
+                continue;
             }
             var (type, reason) = e switch
             {

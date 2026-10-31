@@ -33,6 +33,8 @@ public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator 
             OutboxTypes.UserRegistered => email.SendAsync(EmailTemplates.Welcome(
                 Deserialize(message, OutboxJsonContext.Default.UserRegistered), _storefrontUrl), ct),
             OutboxTypes.OrderPaid => orderPaid.HandleAsync(message, ct),
+            OutboxTypes.PackageShipped => orderPaid.HandleShippedAsync(message, ct),
+            OutboxTypes.PackageDelivered => Task.CompletedTask,
             OutboxTypes.OrderPlaced or OutboxTypes.OrderPaymentFailed or OutboxTypes.OrderCancelled => Task.CompletedTask,
             _ => throw new NotSupportedException($"Unknown outbox message type: {message.Type}"),
         });

@@ -156,6 +156,9 @@ services:
       ReapDeep__IngestUrl: ${REAPDEEP_INGEST_INTERNAL_URL:-http://host.docker.internal:8000}
       ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
       Orders__ExpiryCheckSeconds: "10"
+      Payouts__CheckSeconds: "60"
+      Payments__Sandbox__ApiUrl: http://sandbox:8080
+      Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

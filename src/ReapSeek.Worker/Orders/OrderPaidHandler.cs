@@ -31,4 +31,16 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
         }
         await email.SendAsync(EmailTemplates.OrderConfirmation(order, customer.Email, customer.Name, _storefrontUrl), ct);
     }
+
+    public async Task HandleShippedAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.PackageEventMessage)
+            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var order = await OrderStore.LoadByNumberAsync(conn, null, payload.Number)
+            ?? throw new InvalidOperationException($"Order {payload.Number} was not found");
+        var package = order.Packages.Single(p => p.Id == payload.PackageId);
+        var customer = await conn.QuerySingleAsync<CustomerRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = order.CustomerId });
+        await email.SendAsync(EmailTemplates.PackageShipped(order, package, customer.Email, customer.Name, _storefrontUrl), ct);
+    }
 }

@@ -12,7 +12,7 @@ public sealed record OrderSummary(
     DateTime PlacedAt, DateTime? PaidAt, string? CustomerEmail);
 public sealed record OrdersPage(List<OrderSummary> Orders, long Total, int Page, int PageSize);
 public sealed record OrderLineView(long ProductId, string ProductTitle, string VariantLabel, string Sku, string? ImageUrl, decimal UnitPrice, int Quantity, decimal Total);
-public sealed record OrderPackageView(long SellerId, string SellerName, string Status, decimal Subtotal, decimal ShippingFee, string? TrackingNumber, List<OrderLineView> Lines);
+public sealed record OrderPackageView(Guid Id, long SellerId, string SellerName, string Status, decimal Subtotal, decimal ShippingFee, string? TrackingNumber, List<OrderLineView> Lines);
 public sealed record OrderPaymentView(string Provider, string Status, string? FailureReason, DateTime CreatedAt);
 public sealed record OrderDetail(
     string Number, string Status, DateTime PlacedAt, DateTime? PaidAt, DateTime PaymentDeadline, string? CloseReason, ShippingAddress Address,
@@ -77,7 +77,7 @@ public sealed class OrderQueries(NpgsqlDataSource db)
         var pending = order.Status == OrderStatus.PendingPayment ? payments.LastOrDefault(p => p.Status == "pending")?.RedirectUrl : null;
         return new OrderDetail(order.Number, OrderStatusRules.Name(order.Status), order.PlacedAt, order.PaidAt, order.PaymentDeadline, order.CloseReason,
             order.Address, order.Subtotal.Amount, order.ShippingTotal.Amount, order.Total.Amount, order.Total.Currency,
-            order.Packages.Select(p => new OrderPackageView(p.SellerId, p.SellerName, OrderStatusRules.Name(p.Status), p.Subtotal.Amount, p.ShippingFee.Amount,
+            order.Packages.Select(p => new OrderPackageView(p.Id, p.SellerId, p.SellerName, OrderStatusRules.Name(p.Status), p.Subtotal.Amount, p.ShippingFee.Amount,
                 p.TrackingNumber, p.Lines.Select(l => new OrderLineView(l.ProductId, l.ProductTitle, l.VariantLabel, l.Sku, l.ImageUrl, l.UnitPrice.Amount,
                     l.Quantity, l.Total.Amount)).ToList())).ToList(),
             payments.Select(p => new OrderPaymentView(p.Provider, p.Status, p.FailureReason, p.CreatedAt)).ToList(),

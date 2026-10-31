@@ -21,9 +21,9 @@ public static class IdentityEndpoints
         group.MapPost("/login", (LoginRequest req, HttpContext ctx, SessionService sessions) => Login(req, ctx, sessions, SessionAudience.Backoffice))
             .RequireRateLimiting(HostingExtensions.AuthRateLimit);
         group.MapPost("/logout", (HttpContext ctx, SessionService sessions) => Logout(ctx, sessions, SessionAudience.Backoffice));
-        group.MapGet("/me", (UserInfo user) => ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse)).RequireAdmin();
+        group.MapGet("/me", (UserInfo user) => ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse)).RequireBackofficeUser();
         group.MapPost("/password", (PasswordChangeRequest req, UserInfo user, HttpContext ctx, SessionService sessions) =>
-            ChangePassword(req, user, ctx, sessions, SessionAudience.Backoffice)).RequireAdmin();
+            ChangePassword(req, user, ctx, sessions, SessionAudience.Backoffice)).RequireBackofficeUser();
     }
 
     static async Task<IResult> Register(RegisterRequest req, HttpContext ctx, SessionService sessions, AccountRepository accounts, CartService carts)
@@ -42,7 +42,7 @@ public static class IdentityEndpoints
             return ApiResults.BadRequest("email and password are required");
         var credentials = await sessions.AuthenticateAsync(req.Email, req.Password, ctx.RequestAborted);
         if (credentials is null) return ApiResults.Unauthorized("Invalid email or password");
-        if (audience == SessionAudience.Backoffice && credentials.Role != Roles.Admin)
+        if (audience == SessionAudience.Backoffice && credentials.Role is not (Roles.Admin or Roles.Seller))
             return ApiResults.Forbidden("This account has no back office access");
         var user = await sessions.SignInAsync(ctx, audience, credentials.Id);
         return ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse);

@@ -181,6 +181,29 @@ public sealed class Order : AggregateRoot
         return true;
     }
 
+    public SellerPackage ShipPackage(Guid packageId, long sellerId, string trackingNumber, DateTime now)
+    {
+        var package = SellersPackage(packageId, sellerId);
+        EnsureStatus(OrderStatus.Paid, "ship a package");
+        package.Ship(trackingNumber, now);
+        Raise(new PackageShipped(Id, Number, CustomerId, package.Id, package.SellerName, package.TrackingNumber!, now));
+        return package;
+    }
+
+    public SellerPackage DeliverPackage(Guid packageId, DateTime now)
+    {
+        var package = _packages.FirstOrDefault(p => p.Id == packageId)
+            ?? throw new DomainException("package.not_found", "Package not found");
+        EnsureStatus(OrderStatus.Paid, "deliver a package");
+        package.Deliver(now);
+        Raise(new PackageDelivered(Id, Number, CustomerId, package.Id, package.SellerId, now));
+        return package;
+    }
+
+    SellerPackage SellersPackage(Guid packageId, long sellerId) =>
+        _packages.FirstOrDefault(p => p.Id == packageId && p.SellerId == sellerId)
+        ?? throw new DomainException("package.not_found", "Package not found");
+
     public bool IsPaymentOverdue(DateTime now) => Status == OrderStatus.PendingPayment && now > PaymentDeadline;
 
     void Close(OrderStatus status, string reason)
