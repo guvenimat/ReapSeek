@@ -194,6 +194,7 @@ services:
       Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
       Simulator__ApiUrl: http://api:8080
       Simulator__SandboxUrl: http://sandbox:8080
+      ConnectionStrings__Sandbox: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=${POSTGRES_PASSWORD:?Missing .env - run run-local.ps1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -937,3 +937,35 @@ select {
   color: #f5a623;
   letter-spacing: 1px;
 }
+
+.table tr.selected td {
+  background: var(--brand-soft);
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font: inherit;
+}
+
+.error-text {
+  color: var(--danger);
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
+pre.code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  margin: 4px 0 10px;
+}

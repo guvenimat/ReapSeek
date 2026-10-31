@@ -161,7 +161,7 @@ if (-not $readKey) {
     Check "suspending the seller re-syncs the product" (WaitFor { (Item $product.id).Json.item.price -eq 100 } 30)
     $null = A PATCH "$c/products/$($product.id)" @{ status = "archived" }
     Check "archived product is removed from ReapDeep" (WaitFor { (Item $product.id).Status -eq 404 } 30)
-    Check "outbox has no failed messages" ((Psql "SELECT count(*) FROM outbox WHERE failed_at IS NOT NULL OR (processed_at IS NULL AND attempts > 1)") -eq "0")
+    Check "outbox has no failed messages" ((Psql "SELECT count(*) FROM outbox WHERE (failed_at IS NOT NULL AND discarded_at IS NULL) OR (processed_at IS NULL AND attempts > 1)") -eq "0")
 }
 
 Write-Host "`n[8] Product images"
