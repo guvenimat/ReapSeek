@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Shared.Analytics;
 
 namespace ReapSeek.Worker.Orders;
 
@@ -15,12 +16,10 @@ public sealed partial class CaptureJsonContext : JsonSerializerContext;
 
 public static class PurchaseEvents
 {
-    public static string DistinctId(long customerId) => $"customer-{customerId}";
-
     public static List<CaptureEvent> For(Order order) =>
         order.Packages.SelectMany(p => p.Lines.Select(l => new CaptureEvent(
             "purchase",
-            DistinctId(order.CustomerId),
+            ReapDeepIdentity.DistinctId(order.CustomerId),
             $"order-line-{l.Id}",
             order.PaidAt ?? order.PlacedAt,
             new PurchaseProperties(l.ProductId.ToString(), order.Number, l.UnitPrice.Amount, l.Quantity, l.Total.Amount, l.UnitPrice.Currency,

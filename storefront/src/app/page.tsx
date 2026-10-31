@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
@@ -12,6 +13,7 @@ const promises = [
 ]
 
 export default async function HomePage() {
+  const signedIn = (await cookies()).has('rs_session')
   const [departments, deals, fresh] = await Promise.all([
     getCategories(),
     search({ sort: 'discount', in_stock: 'true', page_size: '10' }),
@@ -45,6 +47,8 @@ export default async function HomePage() {
           </div>
         ))}
       </section>
+
+      {signedIn && <RecommendationShelf placement="home_for_you" title="Recommended for you" skeleton={false} />}
 
       <RecommendationShelf placement="home_popular" title="Popular right now" />
 

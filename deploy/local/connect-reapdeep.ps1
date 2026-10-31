@@ -73,6 +73,15 @@ if ($NewKeys -or -not $sameProject -or -not $local.REAPDEEP_READ_KEY) {
     $updates.REAPDEEP_READ_KEY = (Call POST "/api-keys" @{ name = "ReapSeek read"; scope = "read" } $projectId).key
     Write-Host "Created a read key"
 }
+if ($NewKeys -or -not $sameProject -or -not $local.REAPDEEP_RECOMMENDATION_SECRET) {
+    if (-not $NewKeys -and $detail.recommendation_secret) {
+        $updates.REAPDEEP_RECOMMENDATION_SECRET = $detail.recommendation_secret
+        Write-Host "Using the project's recommendation secret"
+    } else {
+        $updates.REAPDEEP_RECOMMENDATION_SECRET = (Call POST "/project/recommendation-secret" @{} $projectId).recommendation_secret
+        Write-Host "Created a recommendation secret for personalized recommendations"
+    }
+}
 Set-EnvValues $updates
 Write-Host "Updated deploy/local/.env: $(($updates.Keys | Sort-Object) -join ', ')"
 

@@ -81,4 +81,30 @@ public class RecommendationTests
     [Fact]
     public void Fetch_size_leaves_room_for_filtered_items() =>
         Assert.Equal((16, 48, 50), (RecommendationRules.FetchSize(8), RecommendationRules.FetchSize(24), RecommendationRules.FetchSize(30)));
+
+    [Fact]
+    public void For_you_is_personal_and_never_padded()
+    {
+        var forYou = RecommendationRules.Find("home_for_you")!;
+
+        Assert.Equal(("for_you", PlacementKind.Personal), (forYou.Model, forYou.Kind));
+        Assert.True(RecommendationRules.Keeps(forYou, "for_you", "Dresses", null));
+        Assert.False(RecommendationRules.Keeps(forYou, "popular", "Dresses", null));
+    }
+
+    [Fact]
+    public void A_personal_shelf_needs_at_least_four_items()
+    {
+        var forYou = RecommendationRules.Find("home_for_you")!;
+        var popular = RecommendationRules.Find("home_popular")!;
+
+        Assert.Empty(RecommendationRules.Shown(forYou, new List<int> { 1, 2, 3 }));
+        Assert.Equal([1, 2, 3, 4], RecommendationRules.Shown(forYou, new List<int> { 1, 2, 3, 4 }));
+        Assert.Equal([1], RecommendationRules.Shown(popular, new List<int> { 1 }));
+    }
+
+    [Fact]
+    public void Signature_matches_the_reapdeep_contract() =>
+        Assert.Equal("0ec8ce98296680b03efbb84e8046365a99890b7ffa8707582bbc2ea9a54fc3e8",
+            RecommenderClient.Sign("rsk_test", "customer-7", 1793400000));
 }

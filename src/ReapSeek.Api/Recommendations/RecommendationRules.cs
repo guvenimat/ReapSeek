@@ -2,7 +2,7 @@ using System.Globalization;
 
 namespace ReapSeek.Api.Recommendations;
 
-public enum PlacementKind { Global, Product, Cart }
+public enum PlacementKind { Global, Product, Cart, Personal }
 
 public enum FillPolicy { Anything, SameCategory, None }
 
@@ -17,6 +17,7 @@ public static class RecommendationRules
     public const int MaxCartSources = 3;
     public const string FallbackSource = "fallback";
     public const int RankFusionK = 60;
+    public const int MinPersonalItems = 4;
 
     public static readonly Placement[] Placements =
     [
@@ -25,6 +26,7 @@ public static class RecommendationRules
         new("product_similar", "co_viewed", PlacementKind.Product, FillPolicy.SameCategory),
         new("product_bought_together", "bought_together", PlacementKind.Product, FillPolicy.None),
         new("cart", "bought_together", PlacementKind.Cart, FillPolicy.None),
+        new("home_for_you", "for_you", PlacementKind.Personal, FillPolicy.None),
     ];
 
     public static Placement? Find(string name) => Placements.FirstOrDefault(p => p.Name == name);
@@ -53,6 +55,9 @@ public static class RecommendationRules
         return merged.OrderByDescending(kv => kv.Value.Score).ThenBy(kv => kv.Value.FirstSeen)
             .Take(limit).Select(kv => new Candidate(kv.Key, kv.Value.Score, kv.Value.Source)).ToList();
     }
+
+    public static List<T> Shown<T>(Placement placement, List<T> items) =>
+        placement.Kind == PlacementKind.Personal && items.Count < MinPersonalItems ? [] : items;
 
     public static bool Keeps(Placement placement, string source, string itemCategory, string? sourceCategory) => placement.Fill switch
     {

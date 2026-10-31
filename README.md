@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases) are in place. Personalized recommendations, the seller panel, after-sales and marketing follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), and the ReapDeep integration (catalog sync, behavioral events, identity, purchases) are in place. The seller panel, after-sales and marketing follow in stages.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -67,7 +67,7 @@ The API keeps no state in process memory, so any number of instances can serve t
 |---|---|---|---|
 | `ratelimit:auth:{ip}` | sign-in and registration attempts per client, counted across all instances (atomic Lua `INCR` + `PEXPIRE`), `Retry-After` on 429 | 1 minute window | expiry |
 | `session:{token hash}` | the user behind a session cookie | 60 seconds | sign-out, and a password change for every other session of the user |
-| `reco:{model}:{product id}` | the last product id list from the ReapDeep Recommender | fresh for 5 minutes (30 s locally), kept 24 hours as a stale copy | expiry; ReapDeep retrains on its own schedule |
+| `reco:{model}:{product id}` | the last product id list from the ReapDeep Recommender (`reco:for_you:customer-{id}` for a shopper's personal list) | fresh for 5 minutes (30 s locally), kept 24 hours as a stale copy | expiry; ReapDeep retrains on its own schedule |
 | `product:{slug}` | the storefront product page (product, variants, offers, buy box) | 5 minutes | the worker, on every `products_changed` outbox message: price, stock, order placement, seller suspension, archive |
 | `catalog:categories` | the category tree used by the menu, search and facets | 10 minutes | category changes, catalog rebuilds |
 
@@ -150,6 +150,7 @@ ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behav
 
 | Shelf | Page | ReapDeep model | When ReapDeep has too few items |
 |---|---|---|---|
+| Recommended for you | home, signed-in shoppers | `for_you` (neighbors of what this shopper viewed, carted and bought; purchases left out) | **not filled**: hidden below four personal items, so a new shopper never sees a copy of "Popular right now" |
 | Popular right now | home | `popular` (30 days, views, carts and purchases weighted 1/3/5) | filled from the catalog |
 | Trending this week | home | `trending` (last 7 days against the 21 before) | filled from the catalog |
 | Customers also viewed | product | `co_viewed` (shoppers who viewed this one) | filled with popular products **of the same category** |
@@ -158,6 +159,7 @@ ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behav
 - **Server side, never blocking:** the API asks the Recommender with a one-second timeout and the storefront streams each shelf in with React Suspense, so a slow or missing ReapDeep never delays the product page.
 - **Live catalog data:** ReapDeep returns product ids; ReapSeek turns them into cards from its own search index, so prices and stock are always current. Products that went out of stock or were archived after ReapDeep trained are dropped.
 - **Cache and outage:** the id list is cached in Redis. When ReapDeep is down the last list is served (`served_from: stale`); with no list at all the shelf falls back to the catalog (`served_from: none`). The test suite stops the Recommender and checks both.
+- **Personal lists are signed:** ReapDeep only answers `for_you` for a request signed with the project's recommendation secret (`HMAC-SHA256(secret, "customer-{id}.{expires}")`, valid for five minutes). The API signs it for the signed-in shopper, so the secret never reaches the browser and nobody can ask for another shopper's list. Guests get no personal shelf.
 - **Cart:** the cart combines the bought-together lists of up to three of its products with reciprocal rank fusion (`1 / (60 + rank)`), so lists with different score scales merge fairly and products already in the cart are left out.
 - **Measured in ReapDeep:** each shelf sends `recommendations_shown` once with its items and every click sends `recommendation_clicked` with the position and model, so the click-through rate of each shelf is a trend formula in ReapDeep (`clicked / shown`, broken down by `placement`).
 
@@ -187,7 +189,7 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 
 Every change that affects what shoppers see (a product edit, a status change, an offer, a seller suspension) writes a `products_changed` message to the outbox in the same transaction. The worker batches these messages and sends the affected products to ReapDeep's catalog API with a `catalog_write` key: active products are upserted with their buy box price, stock status, storefront URL and image; drafts and archived products are removed. A full sync runs after seeding and after connecting.
 
-`deploy/local/connect-reapdeep.ps1` connects a running ReapSeek stack to a running ReapDeep stack the way any customer would: it signs in to ReapDeep, creates a `ReapSeek` project through ReapDeep's API, creates the API keys and writes them to `deploy/local/.env`.
+`deploy/local/connect-reapdeep.ps1` connects a running ReapSeek stack to a running ReapDeep stack the way any customer would: it signs in to ReapDeep, creates a `ReapSeek` project through ReapDeep's API, creates the API keys and the recommendation secret and writes them to `deploy/local/.env`.
 
 ## Repository layout
 
@@ -251,7 +253,7 @@ The scripts run end to end against the running stack.
 - `catalog-test.ps1`: access rules, the seeded catalog, category, brand and seller rules, the variant matrix, the buy box under price, stock, pause and suspension changes, search and filters, the sync to ReapDeep (publish, price change, seller suspension, archive) and the image endpoints.
 - `search-test.ps1`: index consistency, typos, synonyms, accents and mixed-field queries, facet counts, sorting and paging, suggestions, the index following catalog changes, a zero-downtime rebuild and the server-rendered storefront pages.
 - `product-test.ps1`: the storefront product API (hidden offers, buy box, low stock), the server-rendered product page and its structured data, the sitemap, and a real headless Chrome session (`tools/browse.mjs`) that searches, clicks a result, signs in and out, then checks in ReapDeep that every event arrived and that the anonymous visitor and the customer became one person.
-- `recommendations-test.ps1`: sends controlled views and orders to ReapDeep, waits for it to retrain, then checks every shelf: ranking, the same-category fill, bought-together without padding, live prices and stock on cached lists, cart merging, validation, the server-rendered pages, `recommendations_shown` and `recommendation_clicked` from a real browser, and a Recommender outage (stale list, then catalog fallback).
+- `recommendations-test.ps1`: sends controlled views and orders to ReapDeep, waits for it to retrain, then checks every shelf: ranking, the same-category fill, bought-together without padding, live prices and stock on cached lists, cart merging, the personal list (ranking, no purchased products, hidden when short, nothing for guests), validation, the server-rendered pages, `recommendations_shown` and `recommendation_clicked` from a real browser, and a Recommender outage (stale list, then catalog fallback).
 - `scale-test.ps1` (needs the second instance: `docker compose --profile scale up -d`): the sign-in limit shared between two instances, sign-out and password change taking effect on the other instance at once, product page and category tree invalidation across instances, and a Redis outage.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
