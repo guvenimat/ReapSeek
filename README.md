@@ -57,10 +57,12 @@ There is deliberately no generic repository, mediator or separate application la
 
 - **Accounts:** customer registration and sign-in, PBKDF2 password hashing, password change that signs out other devices, rate-limited sign-in.
 - **Separate sessions for the storefront and the back office:** different cookies (`rs_session` with `SameSite=Lax` for 30 days, `rs_bo_session` with `SameSite=Strict` for 12 hours), so a customer session never opens the back office.
-- **Transactional outbox:** the API writes domain messages in the same transaction as the data; the worker claims them with `FOR UPDATE SKIP LOCKED` and a lease, retries with exponential backoff and gives up after 10 attempts. The first consumer sends the welcome email.
+- **Transactional outbox:** the API writes domain messages in the same transaction as the data; the worker claims them with `FOR UPDATE SKIP LOCKED` and a lease, retries with exponential backoff and gives up after 10 attempts. A job that gives up queues an email to the admins in the same statement, and the back office **Jobs** page shows pending, retrying, failed and discarded jobs per type with the payload and the last error, so a failure can be retried (one job or every failed job of a type) or discarded once its cause is understood.
 - **Migrations:** SQL files embedded in `ReapSeek.Shared`, applied in order under an advisory lock by a one-shot `migrate` container before the API and the worker start.
 - **Storefront:** server-rendered pages throughout: the header with the signed-in customer and a category menu from the catalog, a home page with deals and new arrivals, search and category listings, sign-in, registration and account pages.
 - **Back office:** one React app with two roles. Staff manage the catalog, sellers, orders and payouts; sellers get the seller center described below.
+
+![Background jobs in the back office: outbox jobs per type with pending, retrying, failed and discarded counts](docs/images/backoffice-jobs.png)
 
 ### Caching and running several API instances
 
@@ -238,7 +240,7 @@ docker compose --profile simulator run --rm simulator backfill   # --customers 2
 docker compose --profile simulator up -d simulator              # live mode
 ```
 
-The backfill runs once per database (it refuses when simulated shoppers already exist). Shopper and seller passwords for the demo are `shopper-pass-1` and `seller-pass-1`.
+The backfill runs once per database (it refuses when simulated shoppers already exist). It also registers the simulated card payments and refunds with the payment sandbox, so a shopper can later return a backfilled order and get a real refund; `simulator sync-sandbox` repeats that step on its own. Shopper and seller passwords for the demo are `shopper-pass-1` and `seller-pass-1`.
 
 ### Behavioral analytics with ReapDeep
 
@@ -333,6 +335,7 @@ cd deploy/local
 .\reviews-test.ps1
 .\campaigns-test.ps1
 .\engagement-test.ps1
+.\jobs-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -347,6 +350,7 @@ The scripts run end to end against the running stack.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
 - `campaigns-test.ps1`: a static cohort created in ReapDeep, the audience preview (customers only), campaign validation, sending once with one email and personal code per customer, the code rules (owner, minimum basket, single use, case), checkout with the discounted total and payment, the code coming back after a failed payment, campaign revenue, the `coupon` on ReapDeep purchase events, the refund of a discounted item, and one-click codes at checkout in a headless Chrome session.
+- `jobs-test.ps1`: a job that gives up after ten attempts, the admin email, the Jobs list and summary, retrying and discarding one job, retrying every failed job of a type, and a failure notice that never notifies about itself.
 - `engagement-test.ps1`: one abandoned-cart reminder per idle period with the items and prices, none for emptied or guest carts, a new one after a change, the ReapDeep event; a real alert defined and fired in ReapDeep reaching the back office and the admins' inbox, unknown alerts, changed bodies and duplicate deliveries rejected.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 

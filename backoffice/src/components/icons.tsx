@@ -35,3 +35,4 @@ export const ReturnIcon = () => <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h10
 export const StarIcon = () => <Icon><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></Icon>
 export const ChatIcon = () => <Icon><path d="M4 5h16v11H9l-5 4z" /><path d="M8 10h8M8 13h5" /></Icon>
 export const BellIcon = () => <Icon><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></Icon>
+export const GearIcon = () => <Icon><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></Icon>

@@ -28,7 +28,7 @@ public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator 
             return;
         }
         var message = batch.Single();
-        if (message.Type is OutboxTypes.CartReminder or OutboxTypes.AlertReceived)
+        if (message.Type is OutboxTypes.CartReminder or OutboxTypes.AlertReceived or OutboxTypes.OutboxFailed)
         {
             await engagement.HandleAsync(message, ct);
             return;

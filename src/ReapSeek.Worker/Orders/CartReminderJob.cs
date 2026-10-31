@@ -64,6 +64,7 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
 {
     public sealed record CartLineRecord(string Title, string Slug, int Quantity, decimal? Price);
     public sealed record PersonRecord(string Email, string Name);
+    public sealed record FailedJobRecord(string Type, int Attempts, string? LastError);
     public sealed record AlertRecord(string AlertName, string State, string Message, string InsightName, double Value, DateTime CheckedAt);
 
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
@@ -72,6 +73,7 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
     public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
     {
         if (message.Type == OutboxTypes.CartReminder) await RemindAsync(message, ct);
+        else if (message.Type == OutboxTypes.OutboxFailed) await FailedJobAsync(message, ct);
         else await AlertAsync(message, ct);
     }
 
@@ -129,5 +131,22 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
             await email.SendAsync(new EmailMessage(admin.Email, headline,
                 $"{headline}\n\n{a.Message}\nSource: {a.InsightName} (ReapDeep)\n\nAll alerts: {url}\n",
                 $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:{(a.State == "firing" ? "#c8324b" : "#12805c")};font-size:20px">{WebUtility.HtmlEncode(headline)}</h1><p>{WebUtility.HtmlEncode(a.Message)}</p><p style="color:#6b7080;font-size:13px">Source: {WebUtility.HtmlEncode(a.InsightName)} in ReapDeep</p><p><a href="{WebUtility.HtmlEncode(url)}">All alerts in the back office</a></p></div>"""), ct);
+    }
+
+    async Task FailedJobAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.OutboxFailedMessage)
+            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var job = await conn.QuerySingleOrDefaultAsync<FailedJobRecord>(
+            "SELECT type, attempts, last_error FROM outbox WHERE id = @Id AND failed_at IS NOT NULL", new { Id = payload.MessageId });
+        if (job is null) return;
+        var url = $"{_backofficeUrl}/#/jobs";
+        var headline = $"Background job {payload.MessageId} ({job.Type}) gave up";
+        var error = (job.LastError ?? "").Split('\n')[0];
+        foreach (var admin in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE role = 'admin'"))
+            await email.SendAsync(new EmailMessage(admin.Email, headline,
+                $"{headline} after {job.Attempts} attempts.\n\n{error}\n\nRetry or discard it: {url}\n",
+                $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#c8324b;font-size:20px">{WebUtility.HtmlEncode(headline)}</h1><p>It failed {job.Attempts} times. Last error:</p><pre style="white-space:pre-wrap;font-size:12px;background:#f4f5f8;padding:8px">{WebUtility.HtmlEncode(error)}</pre><p><a href="{WebUtility.HtmlEncode(url)}">Retry or discard it in the back office</a></p></div>"""), ct);
     }
 }

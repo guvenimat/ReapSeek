@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using ReapSeek.Api.Alerts;
+using ReapSeek.Api.Operations;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
@@ -45,6 +46,9 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(ReapDeepAlertPayload))]
 [JsonSerializable(typeof(AlertSubscriptionRequest))]
 [JsonSerializable(typeof(AlertsResponse))]
+[JsonSerializable(typeof(OutboxResponse))]
+[JsonSerializable(typeof(OutboxRetryRequest))]
+[JsonSerializable(typeof(OutboxRetryResult))]
 [JsonSerializable(typeof(CampaignRequest))]
 [JsonSerializable(typeof(CampaignRow))]
 [JsonSerializable(typeof(CampaignsResponse))]

@@ -82,6 +82,11 @@ export type AlertEvent = {
   id: number; alert_id: number; alert_name: string; state: string; condition: string; threshold: number; time_window: string; value: number
   previous_value: number | null; message: string; insight_name: string; checked_at: string; received_at: string
 }
+export type OutboxTypeSummary = { type: string; pending: number; retrying: number; failed: number; discarded: number; processed_last_day: number }
+export type OutboxMessage = {
+  id: number; type: string; payload: string; attempts: number; last_error: string | null; created_at: string; available_at: string
+  failed_at: string | null; discarded_at: string | null
+}
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -140,6 +145,11 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
+  outbox: (state: string, type?: string) =>
+    request<{ types: OutboxTypeSummary[]; messages: OutboxMessage[] }>('GET', `/api/v1/backoffice/outbox?${qs({ state, type })}`),
+  retryOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/retry`),
+  discardOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/discard`),
+  retryOutbox: (type?: string) => request<{ retried: number }>('POST', '/api/v1/backoffice/outbox/retry', { type: type ?? null }),
   alerts: () => request<{ events: AlertEvent[]; subscriptions: number }>('GET', '/api/v1/backoffice/alerts'),
   campaigns: () => request<{ campaigns: Campaign[] }>('GET', '/api/v1/backoffice/marketing/campaigns').then((r) => r.campaigns),
   audienceCohorts: () => request<{ cohorts: AudienceCohort[] }>('GET', '/api/v1/backoffice/marketing/cohorts').then((r) => r.cohorts),

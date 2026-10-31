@@ -9,6 +9,7 @@ using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Marketing;
 using ReapSeek.Api.Media;
+using ReapSeek.Api.Operations;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Payments;
 using ReapSeek.Api.Products;
@@ -123,6 +124,7 @@ public static class HostingExtensions
         api.MapReviews();
         api.MapCampaigns();
         api.MapAlerts();
+        api.MapOutboxAdmin();
         app.MapMedia();
         app.MapHealth();
         return app;

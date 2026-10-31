@@ -33,10 +33,15 @@ public sealed class OutboxRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await conn.ExecuteAsync("""
-            UPDATE outbox SET last_error = @Error,
-                available_at = COALESCE(@RetryAt, available_at),
-                failed_at = CASE WHEN @RetryAt IS NULL THEN now() END
-            WHERE id = @Id
+            WITH changed AS (
+                UPDATE outbox SET last_error = @Error,
+                    available_at = COALESCE(@RetryAt, available_at),
+                    failed_at = CASE WHEN @RetryAt IS NULL THEN now() END
+                WHERE id = @Id
+                RETURNING id, type, failed_at)
+            INSERT INTO outbox (type, payload)
+            SELECT 'outbox_failed', jsonb_build_object('message_id', id, 'type', type) FROM changed
+            WHERE failed_at IS NOT NULL AND type <> 'outbox_failed'
             """, new { Id = id, Error = error, RetryAt = retryAt });
     }
 }
