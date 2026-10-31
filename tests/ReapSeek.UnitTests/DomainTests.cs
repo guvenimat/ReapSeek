@@ -98,7 +98,7 @@ public class CartTests
 public class OrderTests
 {
     static readonly DateTime Now = new(2026, 10, 30, 12, 0, 0, DateTimeKind.Utc);
-    static readonly ShippingAddress Address = ShippingAddress.Create("Ayse Yilmaz", "+90 532 123 45 67", "Izmir", "Konak", "Ataturk Cd. 12", "35210");
+    static readonly ShippingAddress Address = ShippingAddress.Create("Ayse Yilmaz", "+90 100 000 00 02", "Izmir", "Konak", "Ataturk Cd. 12", "35210");
 
     static OrderItem Item(long offerId, long sellerId, decimal price, int quantity) =>
         new(offerId, offerId * 10, offerId * 100, sellerId, $"Seller {sellerId}", $"Product {offerId}", "Size: M", $"SKU{offerId}", null, Money.Of(price), quantity);
@@ -233,13 +233,13 @@ public class OrderTests
         Assert.Equal("RS261030000042", OrderNumber.Format(Now, 42));
 
     [Theory]
-    [InlineData("", "5321234567", "Izmir", "Konak", "Street 1", "35210", "address.invalid")]
+    [InlineData("", "1000000003", "Izmir", "Konak", "Street 1", "35210", "address.invalid")]
     [InlineData("Ayse", "123", "Izmir", "Konak", "Street 1", "35210", "address.phone")]
-    [InlineData("Ayse", "5321234567", "Izmir", "Konak", "Street 1", "3521", "address.postal_code")]
+    [InlineData("Ayse", "1000000003", "Izmir", "Konak", "Street 1", "3521", "address.postal_code")]
     public void Addresses_are_validated(string name, string phone, string city, string district, string line, string postal, string code) =>
         Assert.Equal(code, Assert.Throws<DomainException>(() => ShippingAddress.Create(name, phone, city, district, line, postal)).Code);
 
     [Fact]
     public void Phone_numbers_keep_only_digits() =>
-        Assert.Equal("905321234567", Address.Phone);
+        Assert.Equal("901000000002", Address.Phone);
 }

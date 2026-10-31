@@ -125,7 +125,7 @@ $null = Send $deniz POST "$api/api/v1/cart/items" @{ offer_id = $offerId; quanti
 $other = Preview $deniz $adaCode
 Check "someone else cannot use the code ($($other.Status) $($other.Json.code))" ($other.Json.code -eq "coupon.not_found")
 Check "an unknown code is refused" ((Preview $ada "RS-NOPE1234").Json.code -eq "coupon.not_found")
-$address = @{ full_name = "Ada Kaya"; phone = "0532 111 22 33"; city = "Izmir"; district = "Konak"; line = "Ataturk Cd. 1"; postal_code = "35210" }
+$address = @{ full_name = "Ada Kaya"; phone = "0100 000 00 01"; city = "Izmir"; district = "Konak"; line = "Ataturk Cd. 1"; postal_code = "35210" }
 Check "the total must include the discount" ((Send $ada POST "$api/api/v1/checkout" @{ address = $address; expected_total = 339.90; coupon_code = $adaCode }).Json.code -eq "price_changed")
 $placed = (Send $ada POST "$api/api/v1/checkout" @{ address = $address; expected_total = 309.90; coupon_code = $adaCode }).Json
 Check "the order is placed for 309.90" ($placed.total -eq 309.90)

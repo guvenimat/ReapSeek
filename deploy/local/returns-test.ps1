@@ -82,7 +82,7 @@ $customer = NewClient
 $null = Send $customer POST "$api/api/v1/auth/register" @{ email = "returner.$tag@example.com"; name = "Return Buyer"; password = "buyer-pass-1" }
 $null = Send $customer POST "$api/api/v1/cart/items" @{ offer_id = $offerId; quantity = 3 }
 $cart = (Send $customer GET "$api/api/v1/cart").Json
-$address = @{ full_name = "Return Buyer"; phone = "0532 111 22 33"; city = "Izmir"; district = "Bornova"; line = "Kazim Dirik Cd. 3"; postal_code = "35040" }
+$address = @{ full_name = "Return Buyer"; phone = "0100 000 00 01"; city = "Izmir"; district = "Bornova"; line = "Kazim Dirik Cd. 3"; postal_code = "35040" }
 $placed = (Send $customer POST "$api/api/v1/checkout" @{ address = $address; expected_total = $cart.total }).Json
 $number = $placed.order_number
 $payId = $placed.payment_url.Substring($placed.payment_url.LastIndexOf("/") + 1)

@@ -70,7 +70,7 @@ function DockerQuiet([string[]]$arguments) {
     $ErrorActionPreference = $prev
 }
 
-$address = @{ full_name = "Test Buyer"; phone = "0532 111 22 33"; city = "Izmir"; district = "Konak"; line = "Cumhuriyet Blv. 10"; postal_code = "35210" }
+$address = @{ full_name = "Test Buyer"; phone = "0100 000 00 01"; city = "Izmir"; district = "Konak"; line = "Cumhuriyet Blv. 10"; postal_code = "35210" }
 
 function Register([string]$name) {
     $c = NewClient
@@ -255,7 +255,7 @@ $steps = @(
     @{ waitFor = "document.querySelector('[data-testid=checkout-link]')" },
     @{ click = "[data-testid=checkout-link]" },
     @{ waitFor = "document.querySelector('[data-testid=address-form]')" },
-    @{ eval = "(() => { const set = (n, v) => { const i = document.querySelector('[name=' + n + ']'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })) }; set('phone', '05321112233'); set('city', 'Izmir'); set('district', 'Bornova'); set('line', 'Kazimdirik Mah. 5'); set('postal_code', '35100'); return true })()"; name = "filled" },
+    @{ eval = "(() => { const set = (n, v) => { const i = document.querySelector('[name=' + n + ']'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })) }; set('phone', '01000000001'); set('city', 'Izmir'); set('district', 'Bornova'); set('line', 'Kazimdirik Mah. 5'); set('postal_code', '35100'); return true })()"; name = "filled" },
     @{ sleep = 500 },
     @{ click = "[data-testid=pay-button]" },
     @{ waitFor = "location.host === 'localhost:8101' && document.querySelector('[data-testid=card-form]')"; timeout = 20000 },
