@@ -29,8 +29,10 @@ export function Products({ query }: { query: URLSearchParams }) {
         <input type="search" placeholder="Search by title, brand or ID" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search products" />
         <select value={status} onChange={(e) => go({ status: e.target.value })} aria-label="Status">
           <option value="">All statuses</option>
+          <option value="pending_review">Pending review</option>
           <option value="active">Active</option>
           <option value="draft">Draft</option>
+          <option value="rejected">Rejected</option>
           <option value="archived">Archived</option>
         </select>
         <select value={category} onChange={(e) => go({ category: e.target.value })} aria-label="Category">

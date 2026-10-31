@@ -69,6 +69,7 @@ const date = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', 
 
 export const formatMoney = (value: number | null | undefined) => (value == null ? '-' : money.format(value))
 export const formatCount = (value: number) => count.format(value)
+export const plural = (value: number, word: string) => `${count.format(value)} ${word}${value === 1 ? '' : 's'}`
 export const formatDate = (value: string) => date.format(new Date(value))
 export const formatOptions = (options: Record<string, string>) =>
   Object.keys(options).length === 0 ? 'Default' : Object.entries(options).map(([k, v]) => `${k}: ${v}`).join(' · ')

@@ -6,3 +6,5 @@ public sealed class ConflictException(string message, string? code = null) : Exc
 {
     public string? Code { get; } = code;
 }
+
+public sealed class ShippingProviderException(string message) : Exception(message);

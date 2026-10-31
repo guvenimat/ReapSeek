@@ -100,3 +100,5 @@ public sealed record OrderPlaced(Guid OrderId, string Number, long CustomerId, D
 public sealed record OrderPaid(Guid OrderId, string Number, long CustomerId, DateTime OccurredAt) : IDomainEvent;
 public sealed record OrderPaymentFailed(Guid OrderId, string Number, long CustomerId, string Reason, DateTime OccurredAt) : IDomainEvent, IReleasesStock;
 public sealed record OrderCancelled(Guid OrderId, string Number, long CustomerId, string Reason, DateTime OccurredAt) : IDomainEvent, IReleasesStock;
+public sealed record PackageShipped(Guid OrderId, string Number, long CustomerId, Guid PackageId, string SellerName, string TrackingNumber, DateTime OccurredAt) : IDomainEvent;
+public sealed record PackageDelivered(Guid OrderId, string Number, long CustomerId, Guid PackageId, long SellerId, DateTime OccurredAt) : IDomainEvent;

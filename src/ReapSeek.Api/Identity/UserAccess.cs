@@ -9,6 +9,12 @@ public static class UserAccess
     public static TBuilder RequireCustomer<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new AccessRequirement(SessionAudience.Storefront, null));
 
+    public static TBuilder RequireSeller<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
+        builder.WithMetadata(new AccessRequirement(SessionAudience.Backoffice, Roles.Seller));
+
+    public static TBuilder RequireBackofficeUser<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
+        builder.WithMetadata(new AccessRequirement(SessionAudience.Backoffice, null));
+
     public static TBuilder RequireAdmin<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new AccessRequirement(SessionAudience.Backoffice, Roles.Admin));
 }

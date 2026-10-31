@@ -4,7 +4,7 @@ public sealed record RegisterRequest(string? Email, string? Name, string? Passwo
 public sealed record LoginRequest(string? Email, string? Password);
 public sealed record PasswordChangeRequest(string? CurrentPassword, string? NewPassword);
 
-public sealed record UserInfo(long Id, string Email, string Name, string Role)
+public sealed record UserInfo(long Id, string Email, string Name, string Role, long? SellerId = null)
 {
     const string ItemKey = "reapseek.user";
 
@@ -19,4 +19,5 @@ public static class Roles
 {
     public const string Customer = "customer";
     public const string Admin = "admin";
+    public const string Seller = "seller";
 }

@@ -33,7 +33,9 @@ export function ProductDetailPage({ id }: { id: number }) {
 function Header({ product, onChange }: { product: ProductDetail; onChange: (p: ProductDetail) => void }) {
   const action = useAction()
   const [image, setImage] = useState(0)
+  const [note, setNote] = useState('')
   const setStatus = (status: ProductStatus) => action.run(async () => onChange(await api.updateProduct(product.id, { status })))
+  const review = (decision: 'approve' | 'reject') => action.run(async () => onChange(await api.reviewProduct(product.id, decision, note || undefined)))
   const img = product.images[Math.min(image, product.images.length - 1)]
 
   return (
@@ -59,11 +61,22 @@ function Header({ product, onChange }: { product: ProductDetail; onChange: (p: P
             <span className="muted small">#{product.id} · /p/{product.slug}</span>
           </div>
           <div className="muted small">Created {formatDate(product.created_at)} · Updated {formatDate(product.updated_at)}</div>
+          {product.status === 'pending_review' ? (
+            <div className="review-box" data-testid="product-review">
+              <div className="small strong">A seller proposed this product</div>
+              <input placeholder="Note for the seller (required to reject)" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Review note" />
+              <div className="row">
+                <button className="btn btn-primary btn-sm" disabled={action.busy} onClick={() => review('approve')}>Approve</button>
+                <button className="btn btn-ghost btn-sm danger" disabled={action.busy || !note.trim()} onClick={() => review('reject')}>Reject</button>
+              </div>
+            </div>
+          ) : (
           <div className="row">
             {product.status !== 'active' && <button className="btn btn-primary btn-sm" disabled={action.busy} onClick={() => setStatus('active')}>Publish</button>}
             {product.status !== 'draft' && <button className="btn btn-ghost btn-sm" disabled={action.busy} onClick={() => setStatus('draft')}>Move to draft</button>}
             {product.status !== 'archived' && <button className="btn btn-ghost btn-sm danger" disabled={action.busy} onClick={() => setStatus('archived')}>Archive</button>}
           </div>
+          )}
           <FormError error={action.error} />
         </div>
       </div>

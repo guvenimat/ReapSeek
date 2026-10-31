@@ -43,6 +43,10 @@ public sealed record WebhookEvent(string Id, string Type, DateTime Created, Webh
 [JsonSerializable(typeof(PaymentResponse))]
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(WebhookEvent))]
+[JsonSerializable(typeof(CreateShipmentRequest))]
+[JsonSerializable(typeof(ShipmentResponse))]
+[JsonSerializable(typeof(CreateTransferRequest))]
+[JsonSerializable(typeof(TransferResponse))]
 public sealed partial class SandboxJsonContext : JsonSerializerContext;
 
 public enum CardOutcome { Invalid, Declined, InsufficientFunds, RequiresAuthentication }

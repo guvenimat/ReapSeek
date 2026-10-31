@@ -860,3 +860,70 @@ select {
     display: none;
   }
 }
+
+.num.negative,
+.negative {
+  color: var(--danger);
+}
+
+.num-input {
+  width: 96px;
+  text-align: right;
+}
+
+.review-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--brand-soft);
+  max-width: 460px;
+}
+
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.table tr.subrow td {
+  background: #fafbfd;
+}
+
+.package {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.package-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.package-body {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.package-body address {
+  font-style: normal;
+}
+
+@media (max-width: 900px) {
+  .package-body {
+    grid-template-columns: 1fr;
+  }
+}

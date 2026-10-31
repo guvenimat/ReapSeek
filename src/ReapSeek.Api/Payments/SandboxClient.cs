@@ -4,11 +4,14 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using ReapSeek.Api.Infrastructure;
 
 namespace ReapSeek.Api.Payments;
 
 public sealed record SandboxCreatePayment(decimal Amount, string Currency, string Reference, string Description, string ReturnUrl, string WebhookUrl);
 public sealed record SandboxPayment(string Id, string Status, decimal Amount, string Currency, string Reference, string RedirectUrl);
+public sealed record SandboxCreateShipment(string Reference);
+public sealed record SandboxShipment(string TrackingNumber, string Carrier);
 public sealed record SandboxWebhookData(string PaymentId, string Reference, decimal Amount, string Currency, string Status, string? FailureReason, string? CardLast4);
 public sealed record SandboxWebhookEvent(string Id, string Type, DateTime Created, SandboxWebhookData Data);
 
@@ -16,6 +19,8 @@ public sealed record SandboxWebhookEvent(string Id, string Type, DateTime Create
 [JsonSerializable(typeof(SandboxCreatePayment))]
 [JsonSerializable(typeof(SandboxPayment))]
 [JsonSerializable(typeof(SandboxWebhookEvent))]
+[JsonSerializable(typeof(SandboxCreateShipment))]
+[JsonSerializable(typeof(SandboxShipment))]
 public sealed partial class SandboxJsonContext : JsonSerializerContext;
 
 public sealed class PaymentProviderException(string message) : Exception(message);
@@ -45,6 +50,22 @@ public sealed class SandboxClient : IDisposable
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
             throw new PaymentProviderException($"The payment provider is unreachable: {ex.Message}");
+        }
+    }
+
+    public async Task<SandboxShipment> CreateShipmentAsync(string reference, CancellationToken ct)
+    {
+        try
+        {
+            using var res = await _http.PostAsJsonAsync("v1/shipments", new SandboxCreateShipment(reference), SandboxJsonContext.Default.SandboxCreateShipment, ct);
+            if (!res.IsSuccessStatusCode)
+                throw new ShippingProviderException($"The carrier returned {(int)res.StatusCode}: {await res.Content.ReadAsStringAsync(ct)}");
+            return await res.Content.ReadFromJsonAsync(SandboxJsonContext.Default.SandboxShipment, ct)
+                ?? throw new ShippingProviderException("The carrier returned an empty response");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new ShippingProviderException($"The carrier is unreachable: {ex.Message}");
         }
     }
 

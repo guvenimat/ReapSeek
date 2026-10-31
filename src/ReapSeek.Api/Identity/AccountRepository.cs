@@ -7,6 +7,7 @@ namespace ReapSeek.Api.Identity;
 public sealed class AccountRepository(NpgsqlDataSource db)
 {
     public sealed record CredentialsRecord(long Id, string PasswordHash, string Role);
+    public sealed record SellerUserRecord(long Id, string Email, string Name, DateTime CreatedAt);
 
     const string UniqueViolation = "23505";
 
@@ -37,11 +38,33 @@ public sealed class AccountRepository(NpgsqlDataSource db)
         }
     }
 
+    public async Task<long?> CreateSellerUserAsync(long sellerId, string email, string name, string passwordHash, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        try
+        {
+            return await conn.ExecuteScalarAsync<long>("""
+                INSERT INTO users (email, name, password_hash, role, seller_id) VALUES (@Email, @Name, @Hash, 'seller', @SellerId) RETURNING id
+                """, new { Email = email, Name = name, Hash = passwordHash, SellerId = sellerId });
+        }
+        catch (PostgresException ex) when (ex.SqlState == UniqueViolation)
+        {
+            return null;
+        }
+    }
+
+    public async Task<List<SellerUserRecord>> SellerUsersAsync(long sellerId, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        return (await conn.QueryAsync<SellerUserRecord>(
+            "SELECT id, email, name, created_at FROM users WHERE seller_id = @SellerId ORDER BY id", new { SellerId = sellerId })).AsList();
+    }
+
     public async Task<UserInfo?> FindSessionAsync(string tokenHash, string audience, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<UserInfo>("""
-            SELECT u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+            SELECT u.id, u.email, u.name, u.role, u.seller_id FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.token_hash = @TokenHash AND s.audience = @Audience AND s.expires_at > now()
             """, new { TokenHash = tokenHash, Audience = audience });
     }

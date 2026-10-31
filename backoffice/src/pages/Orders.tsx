@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { api, type OrderDetail } from '../api'
-import { Badge, Card, Loading, Pagination } from '../components/ui'
-import { formatDate, formatMoney, navigate, useLoad } from '../lib'
+import { Badge, Card, FormError, Loading, Pagination } from '../components/ui'
+import { formatDate, formatMoney, navigate, useAction, useLoad } from '../lib'
 
 const statuses = ['pending_payment', 'paid', 'payment_failed', 'cancelled']
 const labels: Record<string, string> = {
@@ -69,6 +69,20 @@ export function Orders({ query }: { query: URLSearchParams }) {
   )
 }
 
+function DeliverButton({ id, onDone }: { id: string; onDone: () => void }) {
+  const action = useAction()
+  const deliver = async () => {
+    if (await action.run(() => api.deliverPackage(id))) onDone()
+  }
+  return (
+    <div className="row" data-testid="deliver-package">
+      <button className="btn btn-ghost btn-sm" disabled={action.busy} onClick={deliver}>Mark as delivered</button>
+      <span className="muted small">Until carrier tracking arrives, delivery is confirmed here. The seller is paid 7 days later.</span>
+      <FormError error={action.error} />
+    </div>
+  )
+}
+
 export function OrderDetailPage({ number }: { number: string }) {
   const order = useLoad(() => api.order(number), [number])
   return (
@@ -86,7 +100,7 @@ export function OrderDetailPage({ number }: { number: string }) {
             </div>
           </Card>
           {o.packages.map((p, i) => (
-            <Card key={p.seller_id} title={<>Package {i + 1} · {p.seller_name} <OrderStatusBadge status={p.status} /></>}>
+            <Card key={p.id} title={<>Package {i + 1} · {p.seller_name} <OrderStatusBadge status={p.status} /></>}>
               <table className="table compact">
                 <thead><tr><th>Product</th><th>SKU</th><th className="num">Unit price</th><th className="num">Qty</th><th className="num">Total</th></tr></thead>
                 <tbody>
@@ -101,7 +115,9 @@ export function OrderDetailPage({ number }: { number: string }) {
                   ))}
                 </tbody>
               </table>
-              <p className="muted small">Subtotal {formatMoney(p.subtotal)} · Shipping {p.shipping_fee === 0 ? 'free' : formatMoney(p.shipping_fee)}</p>
+              <p className="muted small">Subtotal {formatMoney(p.subtotal)} · Shipping {p.shipping_fee === 0 ? 'free' : formatMoney(p.shipping_fee)}
+                {p.tracking_number && <> · Tracking <strong>{p.tracking_number}</strong></>}</p>
+              {p.status === 'shipped' && <DeliverButton id={p.id} onDone={order.reload} />}
             </Card>
           ))}
           <Card title="Payments">

@@ -115,6 +115,14 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
         }
     }
 
+    public async Task<VariantProductRecord?> ProductOfVariantAsync(long variantId, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        return await conn.QuerySingleOrDefaultAsync<VariantProductRecord>("""
+            SELECT p.id, p.status, p.submitted_by_seller_id FROM product_variants v JOIN products p ON p.id = v.product_id WHERE v.id = @Id
+            """, new { Id = variantId });
+    }
+
     public async Task<bool> BrandExistsAsync(long id, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);

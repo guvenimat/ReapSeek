@@ -1,4 +1,4 @@
-export type User = { id: number; email: string; name: string; role: string }
+export type User = { id: number; email: string; name: string; role: 'admin' | 'seller'; seller_id: number | null }
 
 export type CatalogStats = {
   active_products: number; draft_products: number; archived_products: number; active_sellers: number; suspended_sellers: number
@@ -6,7 +6,7 @@ export type CatalogStats = {
 }
 export type Category = { id: number; parent_id: number | null; slug: string; name: string; path: string; depth: number; position: number; image_kind: string; product_count: number }
 export type Brand = { id: number; name: string; slug: string; product_count: number }
-export type ProductStatus = 'draft' | 'active' | 'archived'
+export type ProductStatus = 'draft' | 'pending_review' | 'active' | 'rejected' | 'archived'
 export type ProductListItem = {
   id: number; slug: string; title: string; brand: string; category_name: string; category_path: string; status: ProductStatus
   variant_count: number; seller_count: number; price: number | null; list_price: number | null; image_url: string | null; updated_at: string
@@ -35,10 +35,31 @@ export type OrderDetail = {
   number: string; status: string; placed_at: string; paid_at: string | null; payment_deadline: string; close_reason: string | null
   address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
   subtotal: number; shipping_total: number; total: number; currency: string; customer_id: number; customer_email: string | null
-  packages: { seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null
+  packages: { id: string; seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null
     lines: { product_id: number; product_title: string; variant_label: string; sku: string; image_url: string | null; unit_price: number; quantity: number; total: number }[] }[]
   payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]
 }
+export type SellerAccount = { id: number; name: string; slug: string; city: string; status: string; commission_rate: number; rating: number }
+export type SellerOffer = {
+  id: number; product_id: number; product_title: string; product_slug: string; product_status: ProductStatus; variant_id: number; sku: string
+  variant_label: string; price: number; list_price: number | null; stock: number; handling_days: number; status: 'active' | 'paused'
+  buy_box_price: number | null; is_buy_box: boolean; updated_at: string
+}
+export type SellerProductView = { product: ProductDetail; buy_box: { variant_id: number; price: number | null; mine: boolean }[]; editable: boolean }
+export type Proposal = { id: number; slug: string; title: string; brand: string; category_name: string; status: ProductStatus; review_note: string | null; created_at: string }
+export type SellerPackage = {
+  id: string; order_number: string; status: 'preparing' | 'shipped' | 'delivered'; placed_at: string; paid_at: string | null
+  subtotal: number; shipping_fee: number; commission_rate: number; tracking_number: string | null; shipped_at: string | null; delivered_at: string | null
+  address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
+  lines: { product_title: string; variant_label: string; sku: string; unit_price: number; quantity: number }[]
+}
+export type LedgerEntry = { id: number; order_number: string; kind: 'sale' | 'shipping' | 'commission'; amount: number; available_at: string; payout_id: number | null; created_at: string }
+export type Payout = { id: number; seller_id: number; seller_name: string; period_end: string; amount: number; entry_count: number; transfer_reference: string | null; created_at: string }
+export type Balance = {
+  summary: { in_transit: number; pending: number; available: number; paid_out: number; next_payout_at: string }
+  entries: LedgerEntry[]; payouts: Payout[]
+}
+export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
 export class ApiError extends Error {
@@ -96,8 +117,37 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
+  deliverPackage: (id: string) => request<SellerPackage>('POST', `/api/v1/backoffice/packages/${id}/deliver`),
+  payouts: () => request<{ payouts: Payout[] }>('GET', '/api/v1/backoffice/payouts').then((r) => r.payouts),
+  runPayouts: () => request<{ period_end: string; created: number; transferred: number; transfer_failures: number }>('POST', '/api/v1/backoffice/payouts/run'),
+  reviewProduct: (id: number, decision: 'approve' | 'reject', note?: string) =>
+    request<ProductDetail>('POST', `/api/v1/backoffice/catalog/products/${id}/review`, { decision, note }),
+  sellerUsers: (id: number) => request<{ users: SellerUser[] }>('GET', `/api/v1/backoffice/sellers/${id}/users`).then((r) => r.users),
+  createSellerUser: (id: number, body: { email: string; name: string; password: string }) =>
+    request<SellerUser>('POST', `/api/v1/backoffice/sellers/${id}/users`, body),
+
   sellers: () => request<{ sellers: Seller[] }>('GET', '/api/v1/backoffice/sellers').then((r) => r.sellers),
   createSeller: (body: { name: string; city: string; commission_rate: number }) => request<Seller>('POST', '/api/v1/backoffice/sellers', body),
   updateSeller: (id: number, body: Partial<{ name: string; city: string; status: string; commission_rate: number }>) =>
     request<Seller>('PATCH', `/api/v1/backoffice/sellers/${id}`, body),
+}
+
+const seller = '/api/v1/seller'
+
+export const sellerApi = {
+  account: () => request<SellerAccount>('GET', `${seller}/account`),
+  balance: () => request<Balance>('GET', `${seller}/balance`),
+  offers: (params: { q?: string; page?: number }) =>
+    request<{ offers: SellerOffer[]; total: number; page: number; page_size: number }>('GET', `${seller}/offers?${qs(params)}`),
+  saveOffer: (body: Omit<OfferInput, 'seller_id'>) => request<SellerProductView>('PUT', `${seller}/offers`, body),
+  products: (params: { q?: string; page?: number }) => request<ProductsPage>('GET', `${seller}/catalog/products?${qs(params)}`),
+  product: (id: number) => request<SellerProductView>('GET', `${seller}/catalog/products/${id}`),
+  categories: () => request<{ categories: Category[] }>('GET', `${seller}/catalog/categories`).then((r) => r.categories),
+  brands: () => request<{ brands: Brand[] }>('GET', `${seller}/catalog/brands`).then((r) => r.brands),
+  propose: (body: { title: string; brand_id: number; category_id: number; description: string; attributes: Record<string, string>; variant_axes: Record<string, string[]> }) =>
+    request<SellerProductView>('POST', `${seller}/catalog/products`, body),
+  proposals: () => request<{ proposals: Proposal[] }>('GET', `${seller}/proposals`).then((r) => r.proposals),
+  packages: (params: { status?: string; page?: number }) =>
+    request<{ packages: SellerPackage[]; total: number; page: number; page_size: number }>('GET', `${seller}/packages?${qs(params)}`),
+  ship: (id: string) => request<SellerPackage>('POST', `${seller}/packages/${id}/ship`),
 }

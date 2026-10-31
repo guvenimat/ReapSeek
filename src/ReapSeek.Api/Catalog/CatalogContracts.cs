@@ -29,6 +29,7 @@ public sealed record CreateProductRequest(
 public sealed record UpdateProductRequest(
     string? Title, long? BrandId, long? CategoryId, string? Description, Dictionary<string, string>? Attributes, string? Status);
 
+public sealed record VariantProductRecord(long Id, string Status, long? SubmittedBySellerId);
 public sealed record OfferRequest(long? SellerId, long? VariantId, decimal? Price, decimal? ListPrice, int? Stock, int? HandlingDays, string? Status);
 
 public sealed record CatalogStats(
@@ -40,7 +41,9 @@ public static class ProductStatus
     public const string Draft = "draft";
     public const string Active = "active";
     public const string Archived = "archived";
-    public static readonly string[] All = [Draft, Active, Archived];
+    public const string PendingReview = "pending_review";
+    public const string Rejected = "rejected";
+    public static readonly string[] All = [Draft, PendingReview, Active, Rejected, Archived];
 }
 
 public static class OfferStatus

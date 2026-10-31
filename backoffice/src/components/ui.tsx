@@ -6,8 +6,11 @@ export function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'good
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone = status === 'active' ? 'good' : status === 'draft' || status === 'paused' ? 'warn' : status === 'archived' || status === 'suspended' ? 'bad' : 'neutral'
-  return <Badge tone={tone}>{status}</Badge>
+  const tone = status === 'active' || status === 'delivered' ? 'good'
+    : status === 'draft' || status === 'paused' || status === 'pending_review' || status === 'preparing' ? 'warn'
+    : status === 'archived' || status === 'suspended' || status === 'rejected' ? 'bad'
+    : status === 'shipped' ? 'brand' : 'neutral'
+  return <Badge tone={tone}>{status.replace('_', ' ')}</Badge>
 }
 
 export function Card({ title, actions, children, testId }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; testId?: string }) {

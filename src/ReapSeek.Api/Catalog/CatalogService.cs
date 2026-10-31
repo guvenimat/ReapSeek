@@ -95,9 +95,11 @@ public sealed class CatalogService(CatalogRepository catalog, CategoryCache cate
         return await GetProductAsync(id, ct);
     }
 
-    public async Task<ProductDetail> UpsertOfferAsync(OfferRequest req, CancellationToken ct)
+    public async Task<ProductDetail> UpsertOfferAsync(OfferRequest req, CancellationToken ct, Func<VariantProductRecord, bool>? allowed = null)
     {
         var offer = CatalogRules.Offer(req);
+        if (allowed is not null && (await catalog.ProductOfVariantAsync(offer.VariantId, ct) is not { } product || !allowed(product)))
+            throw new NotFoundException("Variant not found");
         var result = await catalog.UpsertOfferAsync(offer, ct) ?? throw new NotFoundException("Seller or variant not found");
         return await GetProductAsync(result.ProductId, ct);
     }

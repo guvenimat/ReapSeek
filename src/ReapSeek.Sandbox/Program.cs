@@ -5,4 +5,5 @@ builder.AddSandbox();
 
 var app = builder.Build();
 app.MapSandbox();
+app.MapLogistics();
 app.Run();

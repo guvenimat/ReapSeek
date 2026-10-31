@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { Fragment, useState, type FormEvent } from 'react'
 import { api, type Seller } from '../api'
 import { Card, FormError, Loading, StatusBadge } from '../components/ui'
 import { formatCount, useAction, useLoad } from '../lib'
@@ -46,12 +46,14 @@ export function Sellers() {
 
 function SellerRow({ seller, onChanged }: { seller: Seller; onChanged: () => void }) {
   const action = useAction()
+  const [open, setOpen] = useState(false)
   const toggle = async () => {
     const next = seller.status === 'active' ? 'suspended' : 'active'
     if (next === 'suspended' && !window.confirm(`Suspend ${seller.name}? Their offers stop winning the buy box immediately.`)) return
     if (await action.run(() => api.updateSeller(seller.id, { status: next }))) onChanged()
   }
   return (
+    <Fragment>
     <tr data-seller={seller.id}>
       <td><div className="strong">{seller.name}</div>{action.error && <div className="form-error small">{action.error}</div>}</td>
       <td className="muted">{seller.city || '-'}</td>
@@ -61,10 +63,42 @@ function SellerRow({ seller, onChanged }: { seller: Seller; onChanged: () => voi
       <td className="num">{formatCount(seller.offer_count)}</td>
       <td><StatusBadge status={seller.status} /></td>
       <td className="actions">
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(!open)} aria-expanded={open}>Logins</button>
         <button className={`btn btn-ghost btn-sm${seller.status === 'active' ? ' danger' : ''}`} disabled={action.busy} onClick={toggle}>
           {seller.status === 'active' ? 'Suspend' : 'Reactivate'}
         </button>
       </td>
     </tr>
+    {open && <tr className="subrow"><td colSpan={8}><SellerLogins seller={seller} /></td></tr>}
+    </Fragment>
+  )
+}
+
+function SellerLogins({ seller }: { seller: Seller }) {
+  const users = useLoad(() => api.sellerUsers(seller.id), [seller.id])
+  const action = useAction()
+  const [form, setForm] = useState({ email: '', name: '', password: '' })
+  const create = async (e: FormEvent) => {
+    e.preventDefault()
+    if (await action.run(() => api.createSellerUser(seller.id, form))) {
+      setForm({ email: '', name: '', password: '' })
+      users.reload()
+    }
+  }
+  return (
+    <div className="stack" data-testid="seller-logins">
+      <Loading state={users}>
+        {(list) => list.length === 0
+          ? <p className="muted small">{seller.name} has no back office login yet.</p>
+          : <ul className="plain-list">{list.map((u) => <li key={u.id}><strong>{u.name}</strong> <span className="muted">{u.email}</span></li>)}</ul>}
+      </Loading>
+      <form className="row wrap" onSubmit={create}>
+        <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} aria-label="Login email" />
+        <input required maxLength={80} placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} aria-label="Login name" />
+        <input required type="password" minLength={8} placeholder="Initial password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} aria-label="Initial password" />
+        <button type="submit" className="btn btn-primary btn-sm" disabled={action.busy}>Add login</button>
+      </form>
+      <FormError error={action.error} />
+    </div>
   )
 }
