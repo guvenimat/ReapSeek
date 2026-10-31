@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { api, type User } from '../api'
 import {
-  BoxIcon, HomeIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
+  BoxIcon, HomeIcon, ReturnIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
 } from '../components/icons'
 import { useRoute, type Route } from '../lib'
 import { Categories } from './Categories'
@@ -11,7 +11,7 @@ import { Payouts } from './Payouts'
 import { ProductDetailPage } from './ProductDetail'
 import { ProductNew } from './ProductNew'
 import { Products } from './Products'
-import { SellerCatalog, SellerHome, SellerOffers, SellerPackages, SellerProduct, SellerProposals } from './SellerPanel'
+import { SellerCatalog, SellerHome, SellerOffers, SellerPackages, SellerProduct, SellerProposals, SellerReturns } from './SellerPanel'
 import { Sellers } from './Sellers'
 
 type Section = { key: string; label: string; icon: () => ReactNode; ready: boolean }
@@ -30,6 +30,7 @@ const adminSections: Section[] = [
 const sellerSections: Section[] = [
   { key: '', label: 'Earnings', icon: WalletIcon, ready: true },
   { key: 'packages', label: 'Packages', icon: TruckIcon, ready: true },
+  { key: 'returns', label: 'Returns', icon: ReturnIcon, ready: true },
   { key: 'offers', label: 'Offers', icon: TagIcon, ready: true },
   { key: 'catalog', label: 'Catalog', icon: BoxIcon, ready: true },
   { key: 'proposals', label: 'Proposals', icon: LightbulbIcon, ready: true },
@@ -56,6 +57,7 @@ function sellerPage(section: Section, route: Route, user: User): [ReactNode, str
   if (section.key === 'packages') return [<SellerPackages query={route.query} />, section.label]
   if (section.key === 'offers') return [<SellerOffers query={route.query} />, section.label]
   if (section.key === 'proposals') return [<SellerProposals />, section.label]
+  if (section.key === 'returns') return [<SellerReturns query={route.query} />, section.label]
   return [<SellerHome user={user} />, section.label]
 }
 

@@ -8,6 +8,7 @@ using ReapSeek.Api.Orders;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Recommendations;
 using ReapSeek.Api.Search;
+using ReapSeek.Api.Returns;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared.Payouts;
@@ -37,6 +38,11 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(CatalogStats))]
 [JsonSerializable(typeof(SellerRow))]
 [JsonSerializable(typeof(SellerAccount))]
+[JsonSerializable(typeof(CreateReturnRequest))]
+[JsonSerializable(typeof(CreatedReturn))]
+[JsonSerializable(typeof(RejectReturnRequest))]
+[JsonSerializable(typeof(SellerReturnRow))]
+[JsonSerializable(typeof(SellerReturnsResponse))]
 [JsonSerializable(typeof(SellerOffersResponse))]
 [JsonSerializable(typeof(SellerProductView))]
 [JsonSerializable(typeof(ProposalsResponse))]

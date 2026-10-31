@@ -10,10 +10,12 @@ namespace ReapSeek.Api.Payments;
 
 public sealed record SandboxCreatePayment(decimal Amount, string Currency, string Reference, string Description, string ReturnUrl, string WebhookUrl);
 public sealed record SandboxPayment(string Id, string Status, decimal Amount, string Currency, string Reference, string RedirectUrl);
-public sealed record SandboxCreateShipment(string Reference);
+public sealed record SandboxCreateShipment(string Reference, string Kind, string? WebhookUrl);
 public sealed record SandboxShipment(string TrackingNumber, string Carrier);
 public sealed record SandboxWebhookData(string PaymentId, string Reference, decimal Amount, string Currency, string Status, string? FailureReason, string? CardLast4);
 public sealed record SandboxWebhookEvent(string Id, string Type, DateTime Created, SandboxWebhookData Data);
+public sealed record SandboxShipmentData(string TrackingNumber, string Reference, string Kind, string Status, DateTime OccurredAt);
+public sealed record SandboxShipmentEvent(string Id, string Type, DateTime Created, SandboxShipmentData Data);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(SandboxCreatePayment))]
@@ -21,6 +23,7 @@ public sealed record SandboxWebhookEvent(string Id, string Type, DateTime Create
 [JsonSerializable(typeof(SandboxWebhookEvent))]
 [JsonSerializable(typeof(SandboxCreateShipment))]
 [JsonSerializable(typeof(SandboxShipment))]
+[JsonSerializable(typeof(SandboxShipmentEvent))]
 public sealed partial class SandboxJsonContext : JsonSerializerContext;
 
 public sealed class PaymentProviderException(string message) : Exception(message);
@@ -30,8 +33,11 @@ public sealed class SandboxClient : IDisposable
     public const string Provider = "sandbox";
     readonly HttpClient _http;
 
+    readonly string? _shippingWebhookUrl;
+
     public SandboxClient(IConfiguration cfg)
     {
+        _shippingWebhookUrl = cfg["Shipping:WebhookUrl"];
         var url = cfg["Payments:Sandbox:ApiUrl"] ?? "http://localhost:8101";
         _http = new HttpClient { BaseAddress = new Uri(url.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(15) };
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", cfg["Payments:Sandbox:SecretKey"] ?? "");
@@ -53,11 +59,11 @@ public sealed class SandboxClient : IDisposable
         }
     }
 
-    public async Task<SandboxShipment> CreateShipmentAsync(string reference, CancellationToken ct)
+    public async Task<SandboxShipment> CreateShipmentAsync(string reference, string kind, CancellationToken ct)
     {
         try
         {
-            using var res = await _http.PostAsJsonAsync("v1/shipments", new SandboxCreateShipment(reference), SandboxJsonContext.Default.SandboxCreateShipment, ct);
+            using var res = await _http.PostAsJsonAsync("v1/shipments", new SandboxCreateShipment(reference, kind, _shippingWebhookUrl), SandboxJsonContext.Default.SandboxCreateShipment, ct);
             if (!res.IsSuccessStatusCode)
                 throw new ShippingProviderException($"The carrier returned {(int)res.StatusCode}: {await res.Content.ReadAsStringAsync(ct)}");
             return await res.Content.ReadFromJsonAsync(SandboxJsonContext.Default.SandboxShipment, ct)

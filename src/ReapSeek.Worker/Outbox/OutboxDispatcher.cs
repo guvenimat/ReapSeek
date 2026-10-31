@@ -10,7 +10,7 @@ using ReapSeek.Worker.Search;
 namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
-    OrderPaidHandler orderPaid, IConfiguration cfg)
+    OrderPaidHandler orderPaid, ReturnHandler returns, IConfiguration cfg)
 {
     const string CatalogGroup = "catalog";
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
@@ -28,6 +28,11 @@ public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator 
             return;
         }
         var message = batch.Single();
+        if (ReturnHandler.Handles(message.Type))
+        {
+            await returns.HandleAsync(message, ct);
+            return;
+        }
         await (message.Type switch
         {
             OutboxTypes.UserRegistered => email.SendAsync(EmailTemplates.Welcome(

@@ -1,16 +1,17 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Domain.Returns;
 using ReapSeek.Shared.Analytics;
 
 namespace ReapSeek.Worker.Orders;
 
 public sealed record PurchaseProperties(
-    string ItemId, string OrderId, decimal Price, int Quantity, decimal Amount, string Currency, long SellerId, string Sku, string Source);
+    string ItemId, string OrderId, decimal Price, int Quantity, decimal Amount, string Currency, long SellerId, string Sku, string Source, string? ReturnId = null);
 public sealed record CaptureEvent(string Event, string DistinctId, string EventId, DateTime Timestamp, PurchaseProperties Properties);
 public sealed record CaptureRequest(string ApiKey, DateTime SentAt, List<CaptureEvent> Batch);
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(CaptureRequest))]
 public sealed partial class CaptureJsonContext : JsonSerializerContext;
 
@@ -24,6 +25,18 @@ public static class PurchaseEvents
             order.PaidAt ?? order.PlacedAt,
             new PurchaseProperties(l.ProductId.ToString(), order.Number, l.UnitPrice.Amount, l.Quantity, l.Total.Amount, l.UnitPrice.Currency,
                 p.SellerId, l.Sku, "server")))).ToList();
+}
+
+public static class RefundEvents
+{
+    public static List<CaptureEvent> For(ReturnRequest r) =>
+        r.Lines.Select(l => new CaptureEvent(
+            "refund",
+            ReapDeepIdentity.DistinctId(r.CustomerId),
+            $"return-line-{r.Id}-{l.OrderLineId}",
+            r.RefundedAt ?? r.RequestedAt,
+            new PurchaseProperties(l.ProductId.ToString(), r.OrderNumber, l.UnitPrice.Amount, l.Quantity, l.Total.Amount, l.UnitPrice.Currency,
+                r.SellerId, l.Sku, "server", r.Number))).ToList();
 }
 
 public sealed class ReapDeepIngestClient : IDisposable

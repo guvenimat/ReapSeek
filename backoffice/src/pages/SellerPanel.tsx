@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { sellerApi, type SellerPackage, type SellerProductView, type User, type Variant } from '../api'
+import { sellerApi, type SellerPackage, type SellerReturn, type SellerProductView, type User, type Variant } from '../api'
 import { PlusIcon } from '../components/icons'
 import { Badge, Card, FormError, Loading, Pagination, Stat, StatusBadge } from '../components/ui'
 import { OrderStatusBadge } from './Orders'
@@ -319,5 +319,85 @@ export function SellerProposals() {
         )}
       </Loading>
     </Card>
+  )
+}
+
+const reasonLabels: Record<string, string> = {
+  changed_mind: 'Changed their mind', wrong_size: 'Wrong size', damaged: 'Arrived damaged', not_as_described: 'Not as described', wrong_item: 'Wrong item sent',
+}
+
+export function SellerReturns({ query }: { query: URLSearchParams }) {
+  const status = query.get('status') ?? ''
+  const returns = useLoad(() => sellerApi.returns(status || undefined), [status])
+  return (
+    <Card
+      title={returns.data ? plural(returns.data.length, 'return') : 'Returns'}
+      actions={
+        <select value={status} onChange={(e) => navigate('returns', { status: e.target.value })} aria-label="Status">
+          <option value="">All</option>
+          <option value="requested">To review</option>
+          <option value="approved">On the way back</option>
+          <option value="refunded">Refunded</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      }
+    >
+      <p className="muted small">Customers can return items for 7 days after delivery. When you approve, they get a return code; the refund comes off your balance when the parcel reaches you, and the commission on it is given back.</p>
+      <Loading state={returns}>
+        {(list) => (
+          <div className="stack" data-testid="seller-returns">
+            {list.map((r) => <ReturnCard key={r.id} item={r} onChanged={returns.reload} />)}
+            {list.length === 0 && <p className="empty">No returns here.</p>}
+          </div>
+        )}
+      </Loading>
+    </Card>
+  )
+}
+
+function ReturnCard({ item, onChanged }: { item: SellerReturn; onChanged: () => void }) {
+  const action = useAction()
+  const [rejecting, setRejecting] = useState(false)
+  const [note, setNote] = useState('')
+  const approve = async () => {
+    if (await action.run(() => sellerApi.approveReturn(item.id))) onChanged()
+  }
+  const reject = async (e: FormEvent) => {
+    e.preventDefault()
+    if (await action.run(() => sellerApi.rejectReturn(item.id, note))) onChanged()
+  }
+  return (
+    <div className="package" data-return={item.id}>
+      <div className="package-head">
+        <div>
+          <strong>{item.number}</strong> <OrderStatusBadge status={item.status} />
+          <div className="muted small">Order {item.order_number} · {item.customer_name} · {formatDate(item.requested_at)}</div>
+        </div>
+        {item.status === 'requested' && (
+          <div className="row">
+            <button className="btn btn-primary btn-sm" disabled={action.busy} onClick={approve}>Approve</button>
+            <button className="btn btn-ghost btn-sm danger" disabled={action.busy} onClick={() => setRejecting(!rejecting)}>Reject</button>
+          </div>
+        )}
+      </div>
+      <div className="package-body">
+        <ul className="plain-list">
+          {item.lines.map((l) => <li key={l.sku}>{l.quantity} × {l.product_title} <span className="muted">{l.variant_label} · {l.sku}</span></li>)}
+        </ul>
+        <div className="small"><strong>{reasonLabels[item.reason] ?? item.reason}</strong>{item.comment && <div className="muted">“{item.comment}”</div>}</div>
+        <div className="small">
+          Refund {formatMoney(item.total)}
+          {item.return_tracking && <div className="muted">Return code {item.return_tracking}</div>}
+          {item.rejection_note && <div className="muted">Rejected: {item.rejection_note}</div>}
+        </div>
+      </div>
+      {rejecting && (
+        <form className="row wrap" onSubmit={reject}>
+          <input required maxLength={500} placeholder="Tell the customer why" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Rejection note" />
+          <button type="submit" className="btn btn-ghost btn-sm danger" disabled={action.busy || !note.trim()}>Reject return</button>
+        </form>
+      )}
+      <FormError error={action.error} />
+    </div>
   )
 }

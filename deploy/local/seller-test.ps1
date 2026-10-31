@@ -129,7 +129,6 @@ Check "the paid package waits for the seller with the address and items" ($packa
 Check "the commission rate is fixed on the order" ($package.commission_rate -eq 0.12)
 $balance = (S GET "/balance").Json.summary
 Check "the balance shows it in transit: 500 - 60 commission" ($balance.in_transit -eq 440 -and $balance.available -eq 0)
-Check "a package cannot be delivered before it ships" ((A POST "/packages/$($package.id)/deliver").Status -eq 400)
 $shipped = S POST "/packages/$($package.id)/ship"
 Check "shipping gets a tracking number from the carrier" ($shipped.Status -eq 200 -and $shipped.Json.status -eq "shipped" -and $shipped.Json.tracking_number -cmatch '^SC\d{10}$')
 Check "a package ships only once" ((S POST "/packages/$($package.id)/ship").Status -eq 400)
@@ -138,15 +137,16 @@ Check "the customer sees the tracking number" (@((Send $customer GET "$api/api/v
 Check "the customer gets a shipping email" (WaitFor { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=subject:%22$number%20has%20shipped%22").messages_count -eq 1 } 20)
 
 Write-Host "`n[5] Delivery and the ledger"
-$delivered = A POST "/packages/$($package.id)/deliver"
-Check "the admin marks the package delivered" ($delivered.Status -eq 200 -and $delivered.Json.status -eq "delivered")
+Check "the carrier moves the package and delivers it (signed Sandbox webhooks)" (WaitFor { (S GET "/packages/$($package.id)").Json.status -eq "delivered" } 60)
+$tracked = (Send $customer GET "$api/api/v1/orders/$number").Json.packages[0]
+Check "the customer sees every tracking step" ((@($tracked.tracking | ForEach-Object { $_.status }) -join ",") -eq "in_transit,out_for_delivery,delivered" -and $tracked.shipment_status -eq "delivered")
 $ledger = (S GET "/balance").Json
 $entries = @($ledger.entries | Where-Object { $_.order_number -eq $number })
 Check "delivery writes the sale and the commission to the ledger" ($entries.Count -eq 2 -and ($entries | Where-Object { $_.kind -eq "sale" }).amount -eq 500 -and ($entries | Where-Object { $_.kind -eq "commission" }).amount -eq -60)
 Check "the money is pending for 7 days" ($ledger.summary.pending -eq 440 -and $ledger.summary.in_transit -eq 0 -and $ledger.summary.available -eq 0)
 $availableAt = [DateTime]::Parse((Psql "SELECT to_char(min(available_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD""T""HH24:MI:SS""Z""') FROM seller_ledger WHERE order_number = '$number'")).ToUniversalTime()
 Check "it becomes available 7 days after delivery ($availableAt)" ([Math]::Abs(($availableAt - [DateTime]::UtcNow.AddDays(7)).TotalMinutes) -lt 5)
-Check "delivering twice is rejected" ((A POST "/packages/$($package.id)/deliver").Status -eq 400)
+Check "the admin can no longer mark a package delivered by hand" ((Send $admin POST "$api/api/v1/backoffice/packages/$($package.id)/deliver").Status -in 404, 405)
 $run = (A POST "/payouts/run").Json
 Check "a payout run leaves pending money alone" (@((A GET "/payouts").Json.payouts | Where-Object { $_.seller_id -eq $seller.id }).Count -eq 0)
 
@@ -193,9 +193,9 @@ $run = (& node (Join-Path $PSScriptRoot "tools\browse.mjs") $stepsFile 2>&1 | Ou
 $ErrorActionPreference = $prev
 Remove-Item $stepsFile -Force -ErrorAction SilentlyContinue
 Check "the browser run finished without errors ($($run.failure))" ($null -eq $run.failure -and @($run.errors).Count -eq 0)
-Check "a seller sees only the seller center menu" ($run.results.nav -eq "Earnings,Packages,Offers,Catalog,Proposals")
-Check "the Ship button ships the package" ((S GET "/packages/$($second.id)").Json.status -eq "shipped")
-Check "the earnings page shows the balance" ($run.results.available -cmatch "^\D0\.00$")
+Check "a seller sees only the seller center menu" ($run.results.nav -eq "Earnings,Packages,Returns,Offers,Catalog,Proposals")
+Check "the Ship button ships the package" ((S GET "/packages/$($second.id)").Json.status -in "shipped", "delivered")
+Check "the earnings page shows the balance ($($run.results.available))" ($run.results.available -cmatch "(^|[^0-9.,])0\.00$")
 
 foreach ($id in $script:products) { $null = A PATCH "/catalog/products/$id" @{ status = "archived" } }
 Check "an archived product never shows as winning the buy box" (@((S GET "/offers?q=$tag").Json.offers | Where-Object { $_.is_buy_box -or $null -ne $_.buy_box_price }).Count -eq 0)

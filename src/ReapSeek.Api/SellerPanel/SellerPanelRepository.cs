@@ -13,7 +13,6 @@ public sealed class SellerPanelRepository(NpgsqlDataSource db)
     public sealed record PackageLineRecord(Guid PackageId, string ProductTitle, string VariantLabel, string Sku, decimal UnitPrice, int Quantity);
     public sealed record BalanceRecord(decimal Pending, decimal Available, decimal PaidOut);
     public sealed record BuyBoxRecord(long VariantId, long? OfferId, decimal? Price);
-    public sealed record LedgerInsertRecord(long SellerId, Guid PackageId, string OrderNumber, string[] Kinds, decimal[] Amounts, DateTime AvailableAt);
 
     const string BuyBoxLateral = """
         LEFT JOIN LATERAL (
@@ -139,13 +138,6 @@ public sealed class SellerPanelRepository(NpgsqlDataSource db)
 
     public static async Task<decimal> CommissionRateAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid packageId) =>
         await conn.ExecuteScalarAsync<decimal>("SELECT commission_rate FROM order_packages WHERE id = @Id", new { Id = packageId }, tx);
-
-    public static Task InsertLedgerAsync(NpgsqlConnection conn, NpgsqlTransaction tx, LedgerInsertRecord entries) =>
-        conn.ExecuteAsync("""
-            INSERT INTO seller_ledger (seller_id, package_id, order_number, kind, amount, available_at)
-            SELECT @SellerId, @PackageId, @OrderNumber, k, a, @AvailableAt FROM unnest(@Kinds, @Amounts) AS e(k, a)
-            ON CONFLICT (package_id, kind) DO NOTHING
-            """, entries, tx);
 
     public async Task<SellerBalanceResponse> BalanceAsync(long sellerId, DateTime nowUtc, CancellationToken ct)
     {

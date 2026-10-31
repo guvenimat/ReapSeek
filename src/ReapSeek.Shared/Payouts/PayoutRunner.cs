@@ -25,6 +25,7 @@ public sealed class PayoutRunner : IDisposable
 
     public sealed record PendingTransferRecord(long Id, decimal Amount, string SellerName);
     public sealed record TransferDoneRecord(long Id, string Reference);
+    public sealed record PeriodRecord(DateTime PeriodEnd, DateTime Now);
 
     readonly NpgsqlDataSource _db;
     readonly ILogger<PayoutRunner> _log;
@@ -50,7 +51,7 @@ public sealed class PayoutRunner : IDisposable
             created = await conn.ExecuteScalarAsync<int>("""
                 WITH due AS (
                     SELECT seller_id, sum(amount) AS amount, count(*) AS entries FROM seller_ledger
-                    WHERE payout_id IS NULL AND available_at < @PeriodEnd
+                    WHERE payout_id IS NULL AND (available_at < @PeriodEnd OR (return_id IS NOT NULL AND available_at <= @Now))
                     GROUP BY seller_id HAVING sum(amount) > 0
                 ), created AS (
                     INSERT INTO payouts (seller_id, period_end, amount, entry_count)
@@ -59,11 +60,11 @@ public sealed class PayoutRunner : IDisposable
                     RETURNING id, seller_id
                 ), linked AS (
                     UPDATE seller_ledger l SET payout_id = c.id FROM created c
-                    WHERE l.seller_id = c.seller_id AND l.payout_id IS NULL AND l.available_at < @PeriodEnd
+                    WHERE l.seller_id = c.seller_id AND l.payout_id IS NULL AND (l.available_at < @PeriodEnd OR (l.return_id IS NOT NULL AND l.available_at <= @Now))
                     RETURNING l.id
                 )
                 SELECT count(*) FROM created
-                """, new { PeriodEnd = periodEnd }, tx);
+                """, new PeriodRecord(periodEnd, nowUtc), tx);
             await tx.CommitAsync(ct);
         }
 

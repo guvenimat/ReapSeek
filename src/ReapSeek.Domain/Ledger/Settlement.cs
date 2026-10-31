@@ -8,6 +8,8 @@ public static class LedgerKind
     public const string Sale = "sale";
     public const string Shipping = "shipping";
     public const string Commission = "commission";
+    public const string Refund = "refund";
+    public const string CommissionRefund = "commission_refund";
 }
 
 public sealed record LedgerEntry(string Kind, decimal Amount);
@@ -29,6 +31,17 @@ public static class Settlement
         var entries = new List<LedgerEntry> { new(LedgerKind.Sale, subtotal) };
         if (!package.ShippingFee.IsZero) entries.Add(new(LedgerKind.Shipping, package.ShippingFee.Amount));
         if (commission > 0) entries.Add(new(LedgerKind.Commission, -commission));
+        return entries;
+    }
+
+    public static IReadOnlyList<LedgerEntry> ForRefund(decimal refunded, decimal commissionRate)
+    {
+        if (refunded <= 0) throw new DomainException("ledger.refund", "A refund must be positive");
+        if (commissionRate is < 0 or > MaxCommissionRate)
+            throw new DomainException("ledger.commission", $"Commission rate must be between 0 and {MaxCommissionRate}");
+        var commission = Math.Round(refunded * commissionRate, 2, MidpointRounding.AwayFromZero);
+        var entries = new List<LedgerEntry> { new(LedgerKind.Refund, -refunded) };
+        if (commission > 0) entries.Add(new(LedgerKind.CommissionRefund, commission));
         return entries;
     }
 

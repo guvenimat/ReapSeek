@@ -1,19 +1,20 @@
 import { useState, type FormEvent } from 'react'
 import { api, type OrderDetail } from '../api'
-import { Badge, Card, FormError, Loading, Pagination } from '../components/ui'
-import { formatDate, formatMoney, navigate, useAction, useLoad } from '../lib'
+import { Badge, Card, Loading, Pagination } from '../components/ui'
+import { formatDate, formatMoney, navigate, useLoad } from '../lib'
 
 const statuses = ['pending_payment', 'paid', 'payment_failed', 'cancelled']
 const labels: Record<string, string> = {
   pending_payment: 'Awaiting payment', paid: 'Paid', payment_failed: 'Payment failed', cancelled: 'Cancelled',
   awaiting_payment: 'Awaiting payment', preparing: 'Preparing', shipped: 'Shipped', delivered: 'Delivered',
+  requested: 'To review', approved: 'Approved', rejected: 'Rejected', received: 'Received', refunded: 'Refunded',
   succeeded: 'Succeeded', failed: 'Failed', pending: 'Pending',
 }
 
 export function OrderStatusBadge({ status }: { status: string }) {
-  const tone = ['paid', 'delivered', 'succeeded'].includes(status) ? 'good'
+  const tone = ['paid', 'delivered', 'succeeded', 'refunded'].includes(status) ? 'good'
     : ['pending_payment', 'awaiting_payment', 'pending'].includes(status) ? 'warn'
-    : ['payment_failed', 'cancelled', 'failed'].includes(status) ? 'bad' : 'brand'
+    : ['payment_failed', 'cancelled', 'failed', 'rejected'].includes(status) ? 'bad' : ['requested'].includes(status) ? 'warn' : 'brand'
   return <Badge tone={tone}>{labels[status] ?? status}</Badge>
 }
 
@@ -69,20 +70,6 @@ export function Orders({ query }: { query: URLSearchParams }) {
   )
 }
 
-function DeliverButton({ id, onDone }: { id: string; onDone: () => void }) {
-  const action = useAction()
-  const deliver = async () => {
-    if (await action.run(() => api.deliverPackage(id))) onDone()
-  }
-  return (
-    <div className="row" data-testid="deliver-package">
-      <button className="btn btn-ghost btn-sm" disabled={action.busy} onClick={deliver}>Mark as delivered</button>
-      <span className="muted small">Until carrier tracking arrives, delivery is confirmed here. The seller is paid 7 days later.</span>
-      <FormError error={action.error} />
-    </div>
-  )
-}
-
 export function OrderDetailPage({ number }: { number: string }) {
   const order = useLoad(() => api.order(number), [number])
   return (
@@ -117,9 +104,23 @@ export function OrderDetailPage({ number }: { number: string }) {
               </table>
               <p className="muted small">Subtotal {formatMoney(p.subtotal)} · Shipping {p.shipping_fee === 0 ? 'free' : formatMoney(p.shipping_fee)}
                 {p.tracking_number && <> · Tracking <strong>{p.tracking_number}</strong></>}</p>
-              {p.status === 'shipped' && <DeliverButton id={p.id} onDone={order.reload} />}
+              {p.shipment_status && <p className="muted small">Carrier: {p.shipment_status.replaceAll('_', ' ')}</p>}
             </Card>
           ))}
+          {o.returns.length > 0 && (
+            <Card title="Returns">
+              <table className="table compact" data-testid="returns-table">
+                <thead><tr><th>Return</th><th>Seller</th><th>Reason</th><th className="num">Refund</th><th>Status</th><th>Requested</th></tr></thead>
+                <tbody>
+                  {o.returns.map((r) => (
+                    <tr key={r.id}><td className="strong">{r.number}</td><td>{r.seller_name}</td><td>{r.reason.replaceAll('_', ' ')}{r.rejection_note && <div className="muted small">{r.rejection_note}</div>}</td>
+                      <td className="num">{formatMoney(r.total)}</td><td><Badge tone={r.status === 'refunded' ? 'good' : r.status === 'rejected' ? 'bad' : 'warn'}>{r.status}</Badge></td>
+                      <td className="muted">{formatDate(r.requested_at)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
           <Card title="Payments">
             <table className="table compact" data-testid="payments-table">
               <thead><tr><th>Provider</th><th>Status</th><th>Reason</th><th>Created</th></tr></thead>

@@ -16,6 +16,7 @@ x-api-environment: &api-environment
   Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
   Payments__Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
   Payments__WebhookUrl: http://api:8080/api/v1/payments/sandbox/webhook
+  Shipping__WebhookUrl: http://api:8080/api/v1/shipping/sandbox/webhook
   ReapDeep__RecommendUrl: ${REAPDEEP_RECOMMEND_INTERNAL_URL:-http://host.docker.internal:8002}
   ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
   ReapDeep__RecommendationSecret: ${REAPDEEP_RECOMMENDATION_SECRET:-}
@@ -184,6 +185,7 @@ services:
       Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
       Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
       Sandbox__PublicUrl: http://localhost:8101
+      Sandbox__ShipmentStepSeconds: "5"
     restart: unless-stopped
 
   storefront:
