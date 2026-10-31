@@ -11,9 +11,30 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, abandoned-cart reminders, ReapDeep alerts in the back office, the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) and a shopping simulator that fills both systems with realistic behavior are in place. All planned stages are done.
+![Buying a product: search, product page, cart, 3-D Secure payment in the sandbox, confirmed order](docs/images/demo-checkout.gif)
 
-![ReapSeek storefront home page](docs/images/storefront-home.png)
+**Highlights**
+
+- **Marketplace model:** one product, many variants, competing seller offers and a buy box; orders split into per-seller packages with their own shipping, tracking, returns and payouts.
+- **Money handled carefully:** a framework-free domain model for carts, orders, returns, coupons and seller settlement, a seller ledger and weekly payouts, idempotent signed webhooks.
+- **Reliable side effects:** a transactional outbox drives search indexing, email, ReapDeep sync and refunds; failed jobs can be retried from the back office.
+- **Built to scale out:** a stateless .NET 10 Native AOT API (runs as several instances), shared state in Redis, OpenSearch for search, OpenTelemetry traces from the browser click to the worker.
+- **Analytics in the loop:** behavioral events, recommendations, RFM-targeted coupon campaigns and alerts, all through ReapDeep's public APIs.
+- **Enforced architecture:** architecture tests and [decision records](docs/adr) keep the modular monolith honest.
+- **Realistic data:** a shopping simulator creates two thousand customers and six thousand orders, so every screen and chart has something to show.
+
+## Quick start
+
+You need Docker Desktop and PowerShell. On Windows:
+
+```powershell
+git clone https://github.com/guvenimat/ReapSeek.git
+cd ReapSeek/deploy/local
+.\run-local.ps1
+docker compose --profile simulator run --rm simulator backfill
+```
+
+Then open the storefront at http://localhost:3100 and the back office at http://localhost:3101 (the admin password is in `deploy/local/.env`). Simulated shoppers sign in with `shopper-pass-1`, sellers with `seller-pass-1`; pay with the test card `4242 4242 4242 4242` and the 3-D Secure code `123456`. More in [Running locally](#running-locally).
 
 ## Architecture
 
@@ -29,6 +50,43 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 | Payments | `ReapSeek.Sandbox`, a simulated payment provider with hosted payment pages and signed webhooks |
 | Email | Mailpit (local) |
 | Analytics and recommendations | ReapDeep |
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    SF[Storefront<br/>Next.js SSR]
+    BO[Back office<br/>React SPA]
+  end
+  subgraph ReapSeek
+    API[API<br/>.NET 10 AOT<br/>modular monolith]
+    W[Worker<br/>outbox and jobs]
+    PG[(PostgreSQL<br/>data + outbox)]
+    OS[(OpenSearch)]
+    RD[(Redis)]
+    SB[Sandbox<br/>payments, carrier, bank]
+  end
+  subgraph ReapDeep
+    ING[Ingestion API]
+    REC[Recommender]
+    QRY[Query and catalog API]
+  end
+  SF --> API
+  BO --> API
+  SF -. JS SDK events .-> ING
+  API --> PG
+  API --> OS
+  API --> RD
+  API --> SB
+  API --> REC
+  API --> QRY
+  SB -. signed webhooks .-> API
+  W --> PG
+  W --> OS
+  W --> SB
+  W --> ING
+  W --> QRY
+  QRY -. alert webhooks .-> API
+```
 
 ### Code architecture
 
@@ -233,6 +291,17 @@ Suspending an account needs a reason, deletes every session of the customer in t
 
 - **One reminder per idle cart:** the worker looks for signed-in customers whose cart has not changed for an hour (20 seconds locally) and sends one email with the items at today's price. Changing the cart starts a new idle period; an empty cart, a guest cart or a cart older than a week gets nothing. The reminder is marked in the same transaction that queues it, so it never goes out twice, and ReapDeep gets a `cart_reminder_sent` event to measure recovery.
 - **Alerts from ReapDeep:** alerts are defined in ReapDeep on saved trends (`connect-reapdeep.ps1` creates "Purchases dropped", a 50% fall per day, and "Refunds spiked", more than five refunds a day). ReapDeep posts each change to `POST /api/v1/reapdeep/alerts`, signed with the alert's own secret (`X-ReapDeep-Signature: sha256=...`). ReapSeek keeps one secret per alert, rejects unknown alerts and changed bodies, records each state change once, lists them on the back office Alerts page and emails the admins.
+
+### Favorites, recently viewed and seller stores
+
+| Favorites | Seller store |
+|---|---|
+| ![Favorites page with saved products](docs/images/storefront-wishlist.png) | ![A seller's public store page](docs/images/storefront-store.png) |
+
+- **Favorites:** a heart on every product card and product page saves the product (`/api/v1/wishlist`) and sends `wishlist_added` / `wishlist_removed` to ReapDeep. The price at the moment of saving is stored with the item.
+- **Price drop emails:** a worker job compares saved prices with the live buy box price and, when a product gets at least 5% cheaper, emails the customer and records `price_drop_notified` in ReapDeep. The new price becomes the reference, so a customer is told about each further drop once.
+- **Recently viewed:** kept in the browser (no server state, nothing personal stored), shown on the home and product pages with live prices from `/api/v1/catalog/cards`.
+- **Seller stores:** `/s/{seller}` lists a seller's in-stock products with their rating, delivered orders and average handling time; seller names on product pages link there.
 
 ### Recommendations from ReapDeep
 
