@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { api, type Brand, type Category, type Offer, type ProductDetail, type ProductStatus, type Seller, type Variant } from '../api'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { adminImages, api, type Brand, type Category, type Offer, type ProductDetail, type ProductStatus, type Seller, type Variant } from '../api'
 import { TrashIcon } from '../components/icons'
+import { ProductImages } from '../components/ProductImages'
 import { Badge, Card, FormError, Loading, StatusBadge } from '../components/ui'
 import { formatDate, formatMoney, formatOptions, useAction, useLoad } from '../lib'
 
@@ -8,6 +9,7 @@ export function ProductDetailPage({ id }: { id: number }) {
   const product = useLoad(() => api.product(id), [id])
   const lookups = useLoad(() => Promise.all([api.brands(), api.categories(), api.sellers()]), [])
   const [current, setCurrent] = useState<ProductDetail>()
+  const images = useMemo(() => adminImages(id), [id])
 
   useEffect(() => setCurrent(product.data), [product.data])
 
@@ -16,6 +18,7 @@ export function ProductDetailPage({ id }: { id: number }) {
       {() => current && (
         <div className="stack" data-testid="product-detail">
           <Header product={current} onChange={setCurrent} />
+          <ProductImages images={images} variants={current.variants} onChanged={() => api.product(id).then(setCurrent)} />
           <Loading state={lookups}>
             {([brands, categories, sellers]) => (
               <>

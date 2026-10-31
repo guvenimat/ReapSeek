@@ -15,5 +15,6 @@ WORKDIR /app
 COPY --from=build /app .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
+RUN mkdir -p /data/uploads && chown app /data/uploads
 USER app
 ENTRYPOINT ["./ReapSeek.Api"]

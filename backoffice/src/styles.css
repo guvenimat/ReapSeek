@@ -969,3 +969,40 @@ pre.code {
   overflow: auto;
   margin: 4px 0 10px;
 }
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.image-tile {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.image-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  background: var(--bg);
+}
+
+.image-tile figcaption {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+.image-tile .row {
+  flex-wrap: wrap;
+  gap: 6px;
+}

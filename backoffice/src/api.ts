@@ -87,6 +87,13 @@ export type OutboxMessage = {
   id: number; type: string; payload: string; attempts: number; last_error: string | null; created_at: string; available_at: string
   failed_at: string | null; discarded_at: string | null
 }
+export type ProductImageRow = { id: number; position: number; url: string; alt: string; color: string | null; uploaded: boolean }
+export type ImageApi = {
+  list: () => Promise<ProductImageRow[]>
+  upload: (file: File, color?: string) => Promise<ProductImageRow[]>
+  remove: (imageId: number) => Promise<ProductImageRow[]>
+  makeFirst: (imageId: number) => Promise<ProductImageRow[]>
+}
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -103,6 +110,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? (method === 'POST' ? '{}' : undefined) : JSON.stringify(body),
     credentials: 'same-origin',
   })
+  return parse<T>(res)
+}
+
+async function upload<T>(path: string, form: FormData): Promise<T> {
+  return parse<T>(await fetch(path, { method: 'POST', body: form, credentials: 'same-origin' }))
+}
+
+async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => null)
   if (!res.ok) {
@@ -197,3 +212,21 @@ export const sellerApi = {
   approveReturn: (id: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/approve`),
   rejectReturn: (id: string, note: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/reject`, { note }),
 }
+
+export function imageApi(base: string): ImageApi {
+  const images = (r: { images: ProductImageRow[] }) => r.images
+  return {
+    list: () => request<{ images: ProductImageRow[] }>('GET', base).then(images),
+    upload: (file, color) => {
+      const form = new FormData()
+      form.append('file', file)
+      if (color) form.append('color', color)
+      return upload<{ images: ProductImageRow[] }>(base, form).then(images)
+    },
+    remove: (imageId) => request<{ images: ProductImageRow[] }>('DELETE', `${base}/${imageId}`).then(images),
+    makeFirst: (imageId) => request<{ images: ProductImageRow[] }>('POST', `${base}/${imageId}/first`).then(images),
+  }
+}
+
+export const adminImages = (productId: number) => imageApi(`/api/v1/backoffice/catalog/products/${productId}/images`)
+export const sellerImages = (productId: number) => imageApi(`/api/v1/seller/proposals/${productId}/images`)

@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { sellerApi, type SellerPackage, type SellerReturn, type SellerProductView, type User, type Variant } from '../api'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { sellerApi, sellerImages, type SellerPackage, type SellerReturn, type SellerProductView, type User, type Variant } from '../api'
 import { PlusIcon } from '../components/icons'
+import { ProductImages } from '../components/ProductImages'
 import { Badge, Card, FormError, Loading, Pagination, Stat, StatusBadge } from '../components/ui'
 import { OrderStatusBadge } from './Orders'
 import { formatCount, formatDate, formatMoney, formatOptions, navigate, plural, useAction, useLoad } from '../lib'
@@ -223,6 +224,7 @@ export function SellerCatalog({ query }: { query: URLSearchParams }) {
 export function SellerProduct({ id }: { id: number }) {
   const loaded = useLoad(() => sellerApi.product(id), [id])
   const [view, setView] = useState<SellerProductView>()
+  const images = useMemo(() => sellerImages(id), [id])
   useEffect(() => setView(loaded.data), [loaded.data])
 
   return (
@@ -240,6 +242,9 @@ export function SellerProduct({ id }: { id: number }) {
               </div>
             </div>
           </Card>
+          {(view.product.status === 'pending_review' || view.product.status === 'rejected') && (
+            <ProductImages images={images} variants={view.product.variants} sellerMode onChanged={() => sellerApi.product(id).then(setView)} />
+          )}
           <Card title="Your price and stock per variant">
             <table className="table" data-testid="seller-variants">
               <thead><tr><th>Variant</th><th className="num">Buy box</th><th className="num">Price</th><th className="num">List price</th><th className="num">Stock</th><th className="num">Days to ship</th><th>Status</th><th /></tr></thead>

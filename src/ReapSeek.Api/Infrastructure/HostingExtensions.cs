@@ -78,6 +78,8 @@ public static class HostingExtensions
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
         services.AddSingleton<RedisCache>();
+        services.AddSingleton<UploadStore>();
+        services.AddSingleton<ProductImageService>();
 
         services.AddSingleton<AccountRepository>();
         services.AddSingleton<SessionService>();
@@ -131,6 +133,7 @@ public static class HostingExtensions
         api.MapCampaigns();
         api.MapAlerts();
         api.MapOutboxAdmin();
+        api.MapProductImages();
         app.MapMedia();
         app.MapHealth();
         return app;

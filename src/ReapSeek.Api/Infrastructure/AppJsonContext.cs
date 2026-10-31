@@ -1,18 +1,19 @@
 using System.Text.Json.Serialization;
 using ReapSeek.Api.Alerts;
-using ReapSeek.Api.Operations;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Marketing;
+using ReapSeek.Api.Media;
+using ReapSeek.Api.Operations;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Recommendations;
-using ReapSeek.Api.Search;
 using ReapSeek.Api.Returns;
 using ReapSeek.Api.Reviews;
+using ReapSeek.Api.Search;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared.Payouts;
@@ -47,6 +48,7 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(AlertSubscriptionRequest))]
 [JsonSerializable(typeof(AlertsResponse))]
 [JsonSerializable(typeof(OutboxResponse))]
+[JsonSerializable(typeof(ProductImagesResponse))]
 [JsonSerializable(typeof(OutboxRetryRequest))]
 [JsonSerializable(typeof(OutboxRetryResult))]
 [JsonSerializable(typeof(CampaignRequest))]
