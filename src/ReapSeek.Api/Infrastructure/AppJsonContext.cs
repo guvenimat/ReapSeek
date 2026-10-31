@@ -3,6 +3,7 @@ using ReapSeek.Api.Alerts;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
+using ReapSeek.Api.Customers;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Marketing;
@@ -49,6 +50,10 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(AlertsResponse))]
 [JsonSerializable(typeof(OutboxResponse))]
 [JsonSerializable(typeof(ProductImagesResponse))]
+[JsonSerializable(typeof(CustomersResponse))]
+[JsonSerializable(typeof(CustomerDetail))]
+[JsonSerializable(typeof(CustomerAnalytics))]
+[JsonSerializable(typeof(SuspendRequest))]
 [JsonSerializable(typeof(OutboxRetryRequest))]
 [JsonSerializable(typeof(OutboxRetryResult))]
 [JsonSerializable(typeof(CampaignRequest))]

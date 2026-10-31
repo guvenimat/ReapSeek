@@ -810,6 +810,7 @@ select {
   align-content: start;
   gap: 2px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .facts strong {
@@ -1005,4 +1006,15 @@ pre.code {
 .image-tile .row {
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
 }

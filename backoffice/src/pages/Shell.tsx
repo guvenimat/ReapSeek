@@ -7,6 +7,7 @@ import { useRoute, type Route } from '../lib'
 import { Alerts } from './Alerts'
 import { Campaigns } from './Campaigns'
 import { Categories } from './Categories'
+import { CustomerDetailPage, Customers } from './Customers'
 import { Jobs } from './Jobs'
 import { OrderDetailPage, Orders } from './Orders'
 import { Overview } from './Overview'
@@ -30,7 +31,7 @@ const adminSections: Section[] = [
   { key: 'moderation', label: 'Reviews', icon: StarIcon, ready: true },
   { key: 'alerts', label: 'Alerts', icon: BellIcon, ready: true },
   { key: 'jobs', label: 'Jobs', icon: GearIcon, ready: true },
-  { key: 'customers', label: 'Customers', icon: UsersIcon, ready: false },
+  { key: 'customers', label: 'Customers', icon: UsersIcon, ready: true },
   { key: 'marketing', label: 'Marketing', icon: MegaphoneIcon, ready: true },
 ]
 
@@ -50,6 +51,8 @@ function adminPage(section: Section, route: Route, user: User): [ReactNode, stri
   if (section.key === 'products' && sub) return [<ProductDetailPage id={Number(sub)} />, 'Product']
   if (section.key === 'orders' && sub) return [<OrderDetailPage number={sub} />, 'Order']
   if (section.key === 'orders') return [<Orders query={route.query} />, section.label]
+  if (section.key === 'customers' && sub) return [<CustomerDetailPage id={Number(sub)} />, 'Customer']
+  if (section.key === 'customers') return [<Customers query={route.query} />, section.label]
   if (section.key === 'products') return [<Products query={route.query} />, section.label]
   if (section.key === 'categories') return [<Categories />, section.label]
   if (section.key === 'sellers') return [<Sellers />, section.label]

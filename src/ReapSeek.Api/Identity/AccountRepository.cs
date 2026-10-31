@@ -6,7 +6,7 @@ namespace ReapSeek.Api.Identity;
 
 public sealed class AccountRepository(NpgsqlDataSource db)
 {
-    public sealed record CredentialsRecord(long Id, string PasswordHash, string Role);
+    public sealed record CredentialsRecord(long Id, string PasswordHash, string Role, bool Suspended);
     public sealed record SellerUserRecord(long Id, string Email, string Name, DateTime CreatedAt);
 
     const string UniqueViolation = "23505";
@@ -15,7 +15,7 @@ public sealed class AccountRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<CredentialsRecord>(
-            "SELECT id, password_hash, role FROM users WHERE email = @Email", new { Email = email });
+            "SELECT id, password_hash, role, suspended_at IS NOT NULL AS suspended FROM users WHERE email = @Email", new { Email = email });
     }
 
     public async Task<long?> CreateCustomerAsync(string email, string name, string passwordHash, CancellationToken ct)
@@ -65,7 +65,7 @@ public sealed class AccountRepository(NpgsqlDataSource db)
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<UserInfo>("""
             SELECT u.id, u.email, u.name, u.role, u.seller_id FROM sessions s JOIN users u ON u.id = s.user_id
-            WHERE s.token_hash = @TokenHash AND s.audience = @Audience AND s.expires_at > now()
+            WHERE s.token_hash = @TokenHash AND s.audience = @Audience AND s.expires_at > now() AND u.suspended_at IS NULL
             """, new { TokenHash = tokenHash, Audience = audience });
     }
 
