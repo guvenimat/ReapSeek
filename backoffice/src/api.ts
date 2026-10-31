@@ -94,6 +94,20 @@ export type ImageApi = {
   remove: (imageId: number) => Promise<ProductImageRow[]>
   makeFirst: (imageId: number) => Promise<ProductImageRow[]>
 }
+export type CustomerRow = { id: number; name: string; email: string; created_at: string; suspended_at: string | null; orders: number; spent: number; last_order_at: string | null }
+export type CustomerDetail = {
+  id: number; name: string; email: string; created_at: string; suspended_at: string | null; suspended_reason: string | null; distinct_id: string
+  stats: { orders: number; spent: number; refunded: number; average_order: number; returns: number; reviews: number; first_order_at: string | null; last_order_at: string | null }
+  orders: { number: string; status: string; total: number; packages: number; placed_at: string }[]
+  returns: { number: string; order_number: string; status: string; reason: string; refund_amount: number; requested_at: string }[]
+  reviews: { product_id: number; product_title: string; rating: number; title: string; status: string; created_at: string }[]
+  coupons: { code: string; campaign: string; kind: string; value: number; expires_at: string; used_order_number: string | null }[]
+}
+export type CustomerAnalytics = {
+  status: 'ok' | 'not_connected' | 'unavailable'
+  rfm: { segment: string; segment_name: string; r: number; f: number; recency_days: number; orders: number; monetary: number; window_days: number } | null
+  activity: { event: string; timestamp: string; item_id: string | null; product_title: string | null; detail: string | null }[]
+}
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -165,6 +179,12 @@ export const api = {
   retryOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/retry`),
   discardOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/discard`),
   retryOutbox: (type?: string) => request<{ retried: number }>('POST', '/api/v1/backoffice/outbox/retry', { type: type ?? null }),
+  customers: (params: { q?: string; sort?: string; status?: string; page?: number }) =>
+    request<{ customers: CustomerRow[]; total: number; page: number; page_size: number }>('GET', `/api/v1/backoffice/customers?${qs(params)}`),
+  customer: (id: number) => request<CustomerDetail>('GET', `/api/v1/backoffice/customers/${id}`),
+  customerAnalytics: (id: number) => request<CustomerAnalytics>('GET', `/api/v1/backoffice/customers/${id}/reapdeep`),
+  suspendCustomer: (id: number, reason: string) => request<void>('POST', `/api/v1/backoffice/customers/${id}/suspend`, { reason }),
+  reinstateCustomer: (id: number) => request<void>('POST', `/api/v1/backoffice/customers/${id}/reinstate`),
   alerts: () => request<{ events: AlertEvent[]; subscriptions: number }>('GET', '/api/v1/backoffice/alerts'),
   campaigns: () => request<{ campaigns: Campaign[] }>('GET', '/api/v1/backoffice/marketing/campaigns').then((r) => r.campaigns),
   audienceCohorts: () => request<{ cohorts: AudienceCohort[] }>('GET', '/api/v1/backoffice/marketing/cohorts').then((r) => r.cohorts),

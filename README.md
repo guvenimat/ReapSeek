@@ -198,6 +198,14 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 - **Moderation:** staff hide or show reviews and questions in the back office; a hidden review drops out of the average at once.
 - **Measured in ReapDeep:** the storefront sends `review_submitted` (with the rating) and `question_asked`.
 
+### Customers
+
+Staff find customers by name or email and sort them by newest, money spent, number of orders or last order. A customer's page brings together their orders, returns, coupons and reviews from ReapSeek and their behaviour from ReapDeep: the RFM segment with recency, frequency and net revenue, and the latest events (views, searches, carts, purchases) with product names. ReapDeep is asked through its public Query API with the read key; if it is down the rest of the page still loads.
+
+Suspending an account needs a reason, deletes every session of the customer in the same transaction (and their cached copies in Redis), and blocks storefront sign-in with a clear message; orders already placed carry on. Reinstating it lets the customer sign in again.
+
+![Customer page with orders, RFM segment and recent behaviour from ReapDeep](docs/images/backoffice-customer.png)
+
 ### Campaigns targeted with ReapDeep
 
 ![Back office campaigns with audience, offer, redemptions and revenue](docs/images/backoffice-campaigns.png)
@@ -349,6 +357,7 @@ cd deploy/local
 .\engagement-test.ps1
 .\jobs-test.ps1
 .\images-test.ps1
+.\customers-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -363,6 +372,7 @@ The scripts run end to end against the running stack.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
 - `campaigns-test.ps1`: a static cohort created in ReapDeep, the audience preview (customers only), campaign validation, sending once with one email and personal code per customer, the code rules (owner, minimum basket, single use, case), checkout with the discounted total and payment, the code coming back after a failed payment, campaign revenue, the `coupon` on ReapDeep purchase events, the refund of a discounted item, and one-click codes at checkout in a headless Chrome session.
+- `customers-test.ps1`: access, search with literal wildcards, sorting by spend checked against the database, paging, the customer page and its ReapDeep segment and activity, suspension ending every session at once and blocking sign-in, reinstatement, and staff accounts kept out.
 - `images-test.ps1`: uploads as staff and as a seller, the order of photos and illustrations, the file served by the API and the storefront, the photo reaching the product page and search cards, rejected files (not an image, too small, too large, too many), path tricks, removal with the file, and a seller locked out after approval.
 - `jobs-test.ps1`: a job that gives up after ten attempts, the admin email, the Jobs list and summary, retrying and discarding one job, retrying every failed job of a type, and a failure notice that never notifies about itself.
 - `engagement-test.ps1`: one abandoned-cart reminder per idle period with the items and prices, none for emptied or guest carts, a new one after a change, the ReapDeep event; a real alert defined and fired in ReapDeep reaching the back office and the admins' inbox, unknown alerts, changed bodies and duplicate deliveries rejected.

@@ -7,6 +7,7 @@ using ReapSeek.Api.Alerts;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
+using ReapSeek.Api.Customers;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Marketing;
@@ -107,6 +108,7 @@ public static class HostingExtensions
         services.AddSingleton<ReturnService>();
         services.AddSingleton<ReviewRepository>();
         services.AddSingleton<ReapDeepAudience>();
+        services.AddSingleton<ReapDeepProfile>();
         return builder;
     }
 
@@ -134,6 +136,7 @@ public static class HostingExtensions
         api.MapAlerts();
         api.MapOutboxAdmin();
         api.MapProductImages();
+        api.MapCustomers();
         app.MapMedia();
         app.MapHealth();
         return app;

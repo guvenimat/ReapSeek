@@ -55,6 +55,7 @@ public static class IdentityEndpoints
             return ApiResults.BadRequest("email and password are required");
         var credentials = await sessions.AuthenticateAsync(req.Email, req.Password, ctx.RequestAborted);
         if (credentials is null) return ApiResults.Unauthorized("Invalid email or password");
+        if (credentials.Suspended) return ApiResults.Forbidden("This account is suspended. Contact customer support.");
         var user = await sessions.SignInAsync(ctx, SessionAudience.Storefront, credentials.Id);
         await carts.MergeGuestCartAsync(ctx, user.Id, ctx.RequestAborted);
         return ApiResults.Ok(new MeResponse(user), AppJsonContext.Default.MeResponse);
