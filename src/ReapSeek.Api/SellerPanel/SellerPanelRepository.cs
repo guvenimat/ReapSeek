@@ -175,6 +175,6 @@ public sealed class SellerPanelRepository(NpgsqlDataSource db)
             SELECT p.id, p.seller_id, s.name AS seller_name, p.period_end, p.amount, p.entry_count, p.transfer_reference, p.created_at
             FROM payouts p JOIN sellers s ON s.id = p.seller_id
             WHERE @SellerId::bigint IS NULL OR p.seller_id = @SellerId
-            ORDER BY p.created_at DESC, p.id DESC LIMIT 100
+            ORDER BY p.period_end DESC, p.id DESC LIMIT 100
             """, new { SellerId = sellerId })).AsList();
 }

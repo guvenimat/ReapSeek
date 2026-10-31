@@ -1,3 +1,4 @@
+using ReapSeek.Shared.Identity;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;

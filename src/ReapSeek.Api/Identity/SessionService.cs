@@ -1,3 +1,4 @@
+using ReapSeek.Shared.Identity;
 using System.Security.Cryptography;
 using System.Text;
 using ReapSeek.Api.Infrastructure;

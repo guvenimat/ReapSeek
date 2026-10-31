@@ -178,6 +178,28 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  simulator:
+    profiles: ["simulator"]
+    build:
+      context: ../../src
+      dockerfile: ReapSeek.Simulator/Dockerfile
+    image: reapseek-simulator:local
+    container_name: reapseek-simulator
+    command: ["live"]
+    environment:
+      ConnectionStrings__Postgres: *postgres-connection
+      ReapDeep__IngestUrl: ${REAPDEEP_INGEST_INTERNAL_URL:-http://host.docker.internal:8000}
+      ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
+      Payments__Sandbox__ApiUrl: http://sandbox:8080
+      Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
+      Simulator__ApiUrl: http://api:8080
+      Simulator__SandboxUrl: http://sandbox:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api:
+        condition: service_started
+
   sandbox:
     build:
       context: ../../src

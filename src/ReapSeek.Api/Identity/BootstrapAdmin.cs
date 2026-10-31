@@ -1,3 +1,4 @@
+using ReapSeek.Shared.Identity;
 using Npgsql;
 
 namespace ReapSeek.Api.Identity;
