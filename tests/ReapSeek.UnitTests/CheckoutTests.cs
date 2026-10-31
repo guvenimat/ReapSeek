@@ -4,6 +4,7 @@ using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Sandbox.Payments;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Orders;
 
 namespace ReapSeek.UnitTests;

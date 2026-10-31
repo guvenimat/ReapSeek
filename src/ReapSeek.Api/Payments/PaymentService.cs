@@ -5,6 +5,7 @@ using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Ordering;
+using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.Api.Payments;
 
@@ -31,7 +32,7 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
 
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
-        if (!await PaymentRepository.RecordEventAsync(conn, tx, SandboxClient.Provider, evt.Id, evt.Data.PaymentId, evt.Type, body))
+        if (!await PaymentRepository.RecordEventAsync(conn, tx, SandboxProvider.ProviderName, evt.Id, evt.Data.PaymentId, evt.Type, body))
         {
             await tx.CommitAsync(ct);
             return WebhookOutcome.Duplicate;
@@ -49,7 +50,7 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
         switch (evt.Type)
         {
             case "payment.succeeded":
-                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxClient.Provider, evt.Data.PaymentId, "succeeded", null);
+                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxProvider.ProviderName, evt.Data.PaymentId, "succeeded", null);
                 try
                 {
                     if (order.MarkPaid(evt.Data.PaymentId, Money.Of(evt.Data.Amount, evt.Data.Currency), at))
@@ -61,7 +62,7 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
                 }
                 break;
             case "payment.failed":
-                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxClient.Provider, evt.Data.PaymentId, "failed", evt.Data.FailureReason);
+                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxProvider.ProviderName, evt.Data.PaymentId, "failed", evt.Data.FailureReason);
                 if (order.Status == OrderStatus.PendingPayment) order.MarkPaymentFailed(evt.Data.FailureReason ?? "payment_failed", at);
                 break;
             default:

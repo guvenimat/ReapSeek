@@ -22,6 +22,8 @@ using ReapSeek.Api.Reviews;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
+using ReapSeek.Api.Shipping;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Caching;
@@ -84,6 +86,12 @@ public static class HostingExtensions
 
         services.AddSingleton<AccountRepository>();
         services.AddSingleton<SessionService>();
+        services.AddSingleton<SellerAccounts>();
+        services.AddSingleton<OutboxAdminRepository>();
+        services.AddSingleton<DatabaseProbe>();
+        services.AddSingleton<AlertRepository>();
+        services.AddSingleton<CampaignRepository>();
+        services.AddSingleton<CustomerRepository>();
         services.AddSingleton<AccountRecoveryService>();
         services.AddHostedService<BootstrapAdmin>();
         services.AddSingleton<CatalogRepository>();
@@ -97,7 +105,8 @@ public static class HostingExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<CartRepository>();
         services.AddSingleton<CartService>();
-        services.AddSingleton<SandboxClient>();
+        services.AddSandboxProviders();
+        services.AddSingleton<ShippingService>();
         services.AddSingleton<CheckoutService>();
         services.AddSingleton<PaymentService>();
         services.AddSingleton<OrderQueries>();
@@ -129,6 +138,8 @@ public static class HostingExtensions
         api.MapStorefrontCatalog();
         api.MapStorefrontProducts();
         api.MapGroup("/cart").MapCart();
+        api.MapCheckout();
+        api.MapPayments();
         api.MapOrdering();
         api.MapRecommendations();
         api.MapGroup("/backoffice/catalog").MapCatalogAdmin();
@@ -141,6 +152,7 @@ public static class HostingExtensions
         api.MapOutboxAdmin();
         api.MapProductImages();
         api.MapCustomers();
+        api.MapShipping();
         app.MapMedia();
         app.MapHealth();
         return app;

@@ -1,25 +1,14 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 using Dapper;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using ReapSeek.Domain.Ledger;
+using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.Shared.Payouts;
 
-public sealed record SandboxTransferRequest(decimal Amount, string Currency, string Reference, string Recipient);
-public sealed record SandboxTransfer(string Id, string Status);
-
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
-[JsonSerializable(typeof(SandboxTransferRequest))]
-[JsonSerializable(typeof(SandboxTransfer))]
-public sealed partial class PayoutJsonContext : JsonSerializerContext;
-
 public sealed record PayoutRunResult(DateTime PeriodEnd, int Created, int Transferred, int TransferFailures);
 
-public sealed class PayoutRunner : IDisposable
+public sealed class PayoutRunner
 {
     const int LockKey = 0x504159;
 
@@ -29,15 +18,13 @@ public sealed class PayoutRunner : IDisposable
 
     readonly NpgsqlDataSource _db;
     readonly ILogger<PayoutRunner> _log;
-    readonly HttpClient _http;
+    readonly IPayoutBank _bank;
 
-    public PayoutRunner(NpgsqlDataSource db, IConfiguration cfg, ILogger<PayoutRunner> log)
+    public PayoutRunner(NpgsqlDataSource db, IPayoutBank bank, ILogger<PayoutRunner> log)
     {
         _db = db;
+        _bank = bank;
         _log = log;
-        var url = cfg["Payments:Sandbox:ApiUrl"] ?? "http://localhost:8101";
-        _http = new HttpClient { BaseAddress = new Uri(url.TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(15) };
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", cfg["Payments:Sandbox:SecretKey"] ?? "");
     }
 
     public async Task<PayoutRunResult> RunAsync(DateTime nowUtc, CancellationToken ct)
@@ -77,15 +64,11 @@ public sealed class PayoutRunner : IDisposable
         {
             try
             {
-                using var res = await _http.PostAsJsonAsync("v1/transfers", new SandboxTransferRequest(p.Amount, "TRY", $"payout-{p.Id}", p.SellerName),
-                    PayoutJsonContext.Default.SandboxTransferRequest, ct);
-                res.EnsureSuccessStatusCode();
-                var transfer = await res.Content.ReadFromJsonAsync(PayoutJsonContext.Default.SandboxTransfer, ct)
-                    ?? throw new HttpRequestException("Empty transfer response");
-                await conn.ExecuteAsync("UPDATE payouts SET transfer_reference = @Reference WHERE id = @Id", new TransferDoneRecord(p.Id, transfer.Id));
+                var transferId = await _bank.TransferAsync(p.Amount, "TRY", $"payout-{p.Id}", p.SellerName, ct);
+                await conn.ExecuteAsync("UPDATE payouts SET transfer_reference = @Reference WHERE id = @Id", new TransferDoneRecord(p.Id, transferId));
                 transferred++;
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            catch (PaymentProviderException ex)
             {
                 failures++;
                 _log.LogWarning("Transfer for payout {Payout} failed, retrying on the next run: {Message}", p.Id, ex.Message);
@@ -96,5 +79,4 @@ public sealed class PayoutRunner : IDisposable
         return new PayoutRunResult(periodEnd, created, transferred, failures);
     }
 
-    public void Dispose() => _http.Dispose();
 }

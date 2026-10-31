@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Payouts;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Simulator;
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
@@ -20,8 +21,8 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) => cancel.Cancel();
 switch (command)
 {
     case "backfill":
-        using (var payouts = new PayoutRunner(db, cfg, NullLogger<PayoutRunner>.Instance))
-            await new Backfill(db, ingest, payouts).RunAsync(new WorldOptions(Int("customers", 2000), Int("days", 120), Int("seed", 42), DateTime.UtcNow));
+        using (var bank = new SandboxProvider(cfg))
+            await new Backfill(db, ingest, new PayoutRunner(db, bank, NullLogger<PayoutRunner>.Instance)).RunAsync(new WorldOptions(Int("customers", 2000), Int("days", 120), Int("seed", 42), DateTime.UtcNow));
         await SandboxHistory.SyncAsync(db, cfg.GetConnectionString("Sandbox"));
         return 0;
     case "sync-sandbox":

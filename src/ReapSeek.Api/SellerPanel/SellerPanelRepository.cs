@@ -136,9 +136,6 @@ public sealed class SellerPanelRepository(NpgsqlDataSource db)
             new { Id = packageId, SellerId = sellerId });
     }
 
-    public static async Task<decimal> CommissionRateAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid packageId) =>
-        await conn.ExecuteScalarAsync<decimal>("SELECT commission_rate FROM order_packages WHERE id = @Id", new { Id = packageId }, tx);
-
     public async Task<SellerBalanceResponse> BalanceAsync(long sellerId, DateTime nowUtc, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
