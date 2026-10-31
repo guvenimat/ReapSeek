@@ -146,6 +146,8 @@ A separate Native AOT service that behaves like a real card payment provider:
 
 ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behavior, the same way any ReapDeep customer would: through the Recommender's public API.
 
+![Popular right now shelf on the home page](docs/images/storefront-recommendations.png)
+
 | Shelf | Page | ReapDeep model | When ReapDeep has too few items |
 |---|---|---|---|
 | Popular right now | home | `popular` (30 days, views, carts and purchases weighted 1/3/5) | filled from the catalog |
