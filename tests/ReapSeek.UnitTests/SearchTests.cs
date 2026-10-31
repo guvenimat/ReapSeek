@@ -168,7 +168,7 @@ public class SearchTests
     static SearchRepository.DocumentRecord Record(decimal? price, decimal? listPrice) => new(
         7, "x-p7", "Velora Linen Dress", "Soft linen.", "active", "Velora", "velora", "women", "Women", "women/dresses", "Dresses",
         """{"Material":"Linen"}""", "Navy|Black", "S|M", "Storage: 128 GB", price, listPrice, 2, "/media/catalog/dress/navy/7.svg",
-        "Black=/media/catalog/dress/black/7.svg|Navy=/media/catalog/dress/navy/7.svg", new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
+        "Black=/media/catalog/dress/black/7.svg|Navy=/media/catalog/dress/navy/7.svg", new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc), 4.5, 12);
 
     [Fact]
     public void Documents_carry_category_ancestors_discount_and_color_images()

@@ -927,3 +927,13 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.row .grow {
+  flex: 1;
+  min-width: 240px;
+}
+
+.stars-text {
+  color: #f5a623;
+  letter-spacing: 1px;
+}

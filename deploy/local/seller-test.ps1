@@ -193,7 +193,7 @@ $run = (& node (Join-Path $PSScriptRoot "tools\browse.mjs") $stepsFile 2>&1 | Ou
 $ErrorActionPreference = $prev
 Remove-Item $stepsFile -Force -ErrorAction SilentlyContinue
 Check "the browser run finished without errors ($($run.failure))" ($null -eq $run.failure -and @($run.errors).Count -eq 0)
-Check "a seller sees only the seller center menu" ($run.results.nav -eq "Earnings,Packages,Returns,Offers,Catalog,Proposals")
+Check "a seller sees only the seller center menu" ($run.results.nav -eq "Earnings,Packages,Returns,Questions,Offers,Catalog,Proposals")
 Check "the Ship button ships the package" ((S GET "/packages/$($second.id)").Json.status -in "shipped", "delivered")
 Check "the earnings page shows the balance ($($run.results.available))" ($run.results.available -cmatch "(^|[^0-9.,])0\.00$")
 

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Stars } from '@/components/reviews/Stars'
 import { useMemo, useState } from 'react'
 import { formatPrice } from '@/lib/catalog'
 import { buyBox, type StoreOffer, type StoreProduct, type StoreVariant } from '@/lib/products'
@@ -22,7 +23,9 @@ export function deliveryDate(handlingDays: number, today: string) {
   return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
-export function ProductView({ product, initialVariantId, today }: { product: StoreProduct; initialVariantId: number; today: string }) {
+export function ProductView({ product, initialVariantId, today, rating }: {
+  product: StoreProduct; initialVariantId: number; today: string; rating: { average: number; count: number } | null
+}) {
   const [variantId, setVariantId] = useState(initialVariantId)
   const [chosenOfferId, setChosenOfferId] = useState<number | null>(null)
   const variant = product.variants.find((v) => v.id === variantId) ?? product.variants[0]
@@ -81,6 +84,11 @@ export function ProductView({ product, initialVariantId, today }: { product: Sto
       <div className="pdp-main">
         <Link href={`/search?brand=${encodeURIComponent(product.brand)}`} className="pdp-brand">{product.brand}</Link>
         <h1 data-testid="product-title">{product.title}</h1>
+        {rating && (
+          <a href="#reviews" className="pdp-rating" data-testid="product-rating">
+            <Stars value={rating.average} /> <strong>{rating.average.toFixed(1)}</strong> <span className="muted">({rating.count} review{rating.count === 1 ? '' : 's'})</span>
+          </a>
+        )}
         {product.seller_count > 1 && <p className="muted">Offered by {product.seller_count} sellers</p>}
 
         <div className="pdp-price" data-testid="product-price">

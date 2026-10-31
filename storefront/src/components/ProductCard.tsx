@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { track } from '@/lib/analytics'
 import { formatPrice, type ProductCard as Card } from '@/lib/catalog'
+import { Stars } from './reviews/Stars'
 
 export type CardTracking = { query: string; position: number }
 
@@ -27,6 +28,9 @@ export function ProductCard({ product, tracking, onSelect }: { product: Card; tr
           </div>
         ) : (
           <div className="product-price muted">Currently unavailable</div>
+        )}
+        {product.rating != null && (product.review_count ?? 0) > 0 && (
+          <p className="card-rating"><Stars value={product.rating} /> <span className="muted">({product.review_count})</span></p>
         )}
         {product.seller_count > 1 && <p className="seller-count">{product.seller_count} sellers</p>}
       </div>

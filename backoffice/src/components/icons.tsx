@@ -32,3 +32,5 @@ export const WalletIcon = () => <Icon><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1
 export const TagIcon = () => <Icon><path d="M3 12V4h8l9 9-8 8z" /><circle cx="7.5" cy="8.5" r="1.3" /></Icon>
 export const LightbulbIcon = () => <Icon><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z" /></Icon>
 export const ReturnIcon = () => <Icon><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></Icon>
+export const StarIcon = () => <Icon><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></Icon>
+export const ChatIcon = () => <Icon><path d="M4 5h16v11H9l-5 4z" /><path d="M8 10h8M8 13h5" /></Icon>

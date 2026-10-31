@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import { api, type User } from '../api'
 import {
-  BoxIcon, HomeIcon, ReturnIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
+  BoxIcon, ChatIcon, HomeIcon, ReturnIcon, StarIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
 } from '../components/icons'
 import { useRoute, type Route } from '../lib'
 import { Categories } from './Categories'
 import { OrderDetailPage, Orders } from './Orders'
 import { Overview } from './Overview'
+import { Moderation, SellerQuestions } from './Moderation'
 import { Payouts } from './Payouts'
 import { ProductDetailPage } from './ProductDetail'
 import { ProductNew } from './ProductNew'
@@ -23,6 +24,7 @@ const adminSections: Section[] = [
   { key: 'sellers', label: 'Sellers', icon: StoreIcon, ready: true },
   { key: 'orders', label: 'Orders', icon: ReceiptIcon, ready: true },
   { key: 'payouts', label: 'Payouts', icon: WalletIcon, ready: true },
+  { key: 'moderation', label: 'Reviews', icon: StarIcon, ready: true },
   { key: 'customers', label: 'Customers', icon: UsersIcon, ready: false },
   { key: 'marketing', label: 'Marketing', icon: MegaphoneIcon, ready: false },
 ]
@@ -31,6 +33,7 @@ const sellerSections: Section[] = [
   { key: '', label: 'Earnings', icon: WalletIcon, ready: true },
   { key: 'packages', label: 'Packages', icon: TruckIcon, ready: true },
   { key: 'returns', label: 'Returns', icon: ReturnIcon, ready: true },
+  { key: 'questions', label: 'Questions', icon: ChatIcon, ready: true },
   { key: 'offers', label: 'Offers', icon: TagIcon, ready: true },
   { key: 'catalog', label: 'Catalog', icon: BoxIcon, ready: true },
   { key: 'proposals', label: 'Proposals', icon: LightbulbIcon, ready: true },
@@ -46,6 +49,7 @@ function adminPage(section: Section, route: Route, user: User): [ReactNode, stri
   if (section.key === 'categories') return [<Categories />, section.label]
   if (section.key === 'sellers') return [<Sellers />, section.label]
   if (section.key === 'payouts') return [<Payouts />, section.label]
+  if (section.key === 'moderation') return [<Moderation query={route.query} />, section.label]
   return [<Overview user={user} />, section.label]
 }
 
@@ -58,6 +62,7 @@ function sellerPage(section: Section, route: Route, user: User): [ReactNode, str
   if (section.key === 'offers') return [<SellerOffers query={route.query} />, section.label]
   if (section.key === 'proposals') return [<SellerProposals />, section.label]
   if (section.key === 'returns') return [<SellerReturns query={route.query} />, section.label]
+  if (section.key === 'questions') return [<SellerQuestions query={route.query} />, section.label]
   return [<SellerHome user={user} />, section.label]
 }
 

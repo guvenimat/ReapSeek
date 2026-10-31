@@ -7,7 +7,7 @@ public sealed record ProductDocument(
     string Department, string DepartmentName, string CategoryPath, List<string> CategoryPaths, string CategoryName,
     List<string> Colors, List<string> Sizes, List<string> Options,
     decimal? Price, decimal? ListPrice, int Discount, bool InStock, int SellerCount, string? ImageUrl, DateTime CreatedAt,
-    Dictionary<string, string> ColorImages, Dictionary<string, string> Attributes);
+    Dictionary<string, string> ColorImages, Dictionary<string, string> Attributes, double? Rating = null, int ReviewCount = 0);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ProductDocument))]
@@ -17,7 +17,7 @@ public static class ProductIndex
 {
     public const string Alias = "products";
     public const string IndexPrefix = "products_";
-    public const int Version = 2;
+    public const int Version = 3;
 
     public static string NewIndexName(DateTime now) => IndexPrefix + now.ToString("yyyyMMddHHmmssfff");
 
@@ -83,6 +83,8 @@ public static class ProductIndex
               "seller_count": { "type": "integer" },
               "image_url": { "type": "keyword", "index": false },
               "created_at": { "type": "date" },
+              "rating": { "type": "float" },
+              "review_count": { "type": "integer" },
               "color_images": { "type": "object", "enabled": false },
               "attributes": { "type": "object", "enabled": false }
             }

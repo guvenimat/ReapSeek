@@ -34,6 +34,7 @@ public static class HostingExtensions
         services.AddSingleton<ReapDeepIngestClient>();
         services.AddSingleton<OrderPaidHandler>();
         services.AddSingleton<ReturnHandler>();
+        services.AddSingleton<QuestionHandler>();
         services.AddHostedService<PaymentExpiryJob>();
         services.AddSingleton<PayoutRunner>();
         services.AddHostedService<PayoutJob>();
