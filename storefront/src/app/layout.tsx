@@ -8,9 +8,11 @@ import '@/styles/components.css'
 import '@/styles/listing.css'
 import '@/styles/product.css'
 import '@/styles/orders.css'
+import '@/styles/wishlist.css'
 import { Analytics } from '@/components/analytics/Analytics'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
+import { WishlistProvider } from '@/components/wishlist/Wishlist'
 import { getCategories } from '@/lib/catalog'
 import { getCartCount } from '@/lib/orders'
 import { publicUrl } from '@/lib/products'
@@ -31,8 +33,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en">
       <body>
         <Analytics config={analytics} userId={user?.id ?? null} />
-        <Header user={user} departments={departments} cartCount={cartCount} />
-        <main className="site-main">{children}</main>
+        <WishlistProvider signedIn={user !== null}>
+          <Header user={user} departments={departments} cartCount={cartCount} />
+          <main className="site-main">{children}</main>
+        </WishlistProvider>
         <Footer />
       </body>
     </html>

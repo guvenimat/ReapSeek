@@ -27,3 +27,6 @@ export const getCartCount = async () => (await get<{ item_count: number }>('/car
 export const getAddresses = async () => (await get<{ addresses: SavedAddress[] }>('/account/addresses'))?.addresses ?? []
 export const getOrders = async () => (await get<{ orders: OrderSummary[] }>('/orders'))?.orders ?? []
 export const getOrder = (number: string) => get<OrderDetail>(`/orders/${encodeURIComponent(number)}`)
+
+export type WishlistItem = { product: import('./catalog').ProductCard; added_price: number | null; price_drop: number | null; added_at: string }
+export const getWishlist = async () => (await get<{ items: WishlistItem[] }>('/wishlist'))?.items ?? null

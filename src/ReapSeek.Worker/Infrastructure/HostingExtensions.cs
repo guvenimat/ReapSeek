@@ -44,11 +44,14 @@ public static class HostingExtensions
         services.AddSingleton<EngagementHandler>();
         services.AddSingleton<AccountEmailHandler>();
         services.AddHostedService<CartReminderJob>();
+        services.AddSingleton<ReapSeek.Worker.Wishlist.PriceDropHandler>();
+        services.AddHostedService<ReapSeek.Worker.Wishlist.PriceDropJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
         services.AddSandboxProviders();
         services.AddSingleton<PayoutRunner>();
         services.AddHostedService<PayoutJob>();
+        services.AddHostedService<ReapSeek.Worker.Maintenance.CleanupJob>();
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
         services.AddHostedService<OutboxProcessor>();

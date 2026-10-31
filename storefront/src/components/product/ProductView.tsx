@@ -132,7 +132,7 @@ export function ProductView({ product, initialVariantId, today, rating }: {
         {offer && (
           <div className="seller-card" data-testid="buy-box" data-seller={offer.seller_id}>
             <div className="seller-line">
-              <span>Sold by <strong>{offer.seller_name}</strong></span>
+              <span>Sold by <Link href={`/s/${offer.seller_slug}`} data-testid="seller-link"><strong>{offer.seller_name}</strong></Link></span>
               <span className="rating">★ {offer.seller_rating.toFixed(1)}</span>
             </div>
             <div className="delivery"><TruckIcon size={18} /><span>Ships in {offer.handling_days} {offer.handling_days === 1 ? 'day' : 'days'} · Estimated delivery <strong>{deliveryDate(offer.handling_days, today)}</strong></span></div>
@@ -154,7 +154,7 @@ export function ProductView({ product, initialVariantId, today, rating }: {
             {others.map((o) => (
               <div key={o.id} className="other-seller" data-seller={o.seller_id}>
                 <div>
-                  <strong>{o.seller_name}</strong> <span className="rating">★ {o.seller_rating.toFixed(1)}</span>
+                  <Link href={`/s/${o.seller_slug}`}><strong>{o.seller_name}</strong></Link> <span className="rating">★ {o.seller_rating.toFixed(1)}</span>
                   <div className="muted small">Delivery {deliveryDate(o.handling_days, today)}{o.low_stock !== null ? ` · Only ${o.low_stock} left` : ''}</div>
                 </div>
                 <span className="price">{formatPrice(o.price)}</span>

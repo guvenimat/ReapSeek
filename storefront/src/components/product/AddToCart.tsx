@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { track } from '@/lib/analytics'
 import { api } from '@/lib/client'
 import type { StoreOffer } from '@/lib/products'
-import { HeartIcon } from '../icons'
+import { WishlistButton } from '../wishlist/Wishlist'
 
 export function AddToCart({ productId, offer }: { productId: number; offer: StoreOffer | undefined }) {
   const router = useRouter()
@@ -42,7 +42,7 @@ export function AddToCart({ productId, offer }: { productId: number; offer: Stor
         <button type="button" className="btn btn-accent btn-lg" disabled={!offer || busy} onClick={add} data-testid="add-to-cart-button">
           {busy ? 'Adding…' : offer ? 'Add to cart' : 'Out of stock'}
         </button>
-        <button type="button" className="btn btn-ghost btn-lg icon-only" disabled aria-label="Save to favorites"><HeartIcon /></button>
+        <WishlistButton productId={productId} price={offer?.price ?? null} large />
       </div>
       {message && (
         <p className={message.ok ? 'form-success' : 'form-error'} role="status" data-testid="add-to-cart-message">

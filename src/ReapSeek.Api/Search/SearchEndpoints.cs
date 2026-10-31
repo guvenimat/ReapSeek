@@ -6,6 +6,8 @@ namespace ReapSeek.Api.Search;
 
 public static class SearchEndpoints
 {
+    const int MaxCards = 24;
+
     public static void MapStorefrontCatalog(this RouteGroupBuilder api)
     {
         api.MapGet("/catalog/categories", async (CategoryCache categories, HttpContext ctx, CancellationToken ct) =>
@@ -20,6 +22,12 @@ public static class SearchEndpoints
                 [FromQuery(Name = "in_stock")] bool? inStock, string? sort, int? page, [FromQuery(Name = "page_size")] int? pageSize) =>
             ApiResults.Ok(await search.SearchAsync(SearchQuery.Parse(q, category, brand, color, size, minPrice, maxPrice, inStock, sort, page, pageSize), ct),
                 AppJsonContext.Default.SearchResponse));
+
+        api.MapGet("/catalog/cards", async (SearchService search, string? ids, CancellationToken ct) =>
+        {
+            var list = SearchQuery.Ids(ids, MaxCards);
+            return ApiResults.Ok(new ProductCardsResponse(await search.CardsAsync(list, false, ct)), AppJsonContext.Default.ProductCardsResponse);
+        });
 
         api.MapGet("/search/suggest", async (SearchService search, string? q, CancellationToken ct) =>
         {
