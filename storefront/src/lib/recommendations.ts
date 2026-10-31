@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import type { ProductCard } from './catalog'
 
-export type Placement = 'home_popular' | 'home_trending' | 'product_similar' | 'product_bought_together' | 'cart'
+export type Placement = 'home_for_you' | 'home_popular' | 'home_trending' | 'product_similar' | 'product_bought_together' | 'cart'
 export type RecommendedProduct = { product: ProductCard; source: string }
 export type Recommendations = { placement: Placement; model: string; served_from: string; items: RecommendedProduct[] }
 
@@ -12,7 +12,7 @@ export async function getRecommendations(placement: Placement, options: { produc
   if (options.productId) qs.set('product_id', String(options.productId))
   if (options.limit) qs.set('limit', String(options.limit))
   const headers: Record<string, string> = {}
-  if (placement === 'cart') {
+  if (placement === 'cart' || placement === 'home_for_you') {
     const jar = await cookies()
     headers.cookie = ['rs_session', 'rs_cart'].flatMap((name) => {
       const value = jar.get(name)?.value

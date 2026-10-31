@@ -236,7 +236,7 @@ Check "checkout fails with 503 payment_unavailable" ($r.Status -eq 503 -and $r.J
 Check "the reserved stock is given back" ((Stock $offerA) -eq $before)
 Check "the order is closed, not left pending" ((Psql "SELECT status || '/' || close_reason FROM orders WHERE customer_id = (SELECT id FROM users WHERE email = 'declined.$tag@example.com') ORDER BY placed_at DESC LIMIT 1") -eq "payment_failed/payment_provider_unavailable")
 DockerQuiet @("start", "reapseek-sandbox")
-$null = WaitFor { (Send (NewClient) GET "$sandbox/healthz").Status -eq 200 } 30
+$null = WaitFor { try { (Send (NewClient) GET "$sandbox/healthz").Status -eq 200 } catch { $false } } 30
 
 Write-Host "`n[7] Shopping in a real browser"
 $shopper = Register "browser"

@@ -2,13 +2,13 @@ import { Suspense } from 'react'
 import { getRecommendations, type Placement } from '@/lib/recommendations'
 import { RecommendationList } from './RecommendationList'
 
-type Props = { placement: Placement; title: string; productId?: number; limit?: number }
+type Props = { placement: Placement; title: string; productId?: number; limit?: number; skeleton?: boolean }
 
 const minimumItems = 2
 
 export function RecommendationShelf(props: Props) {
   return (
-    <Suspense fallback={<ShelfSkeleton title={props.title} />}>
+    <Suspense fallback={props.skeleton === false ? null : <ShelfSkeleton title={props.title} />}>
       <Shelf {...props} />
     </Suspense>
   )

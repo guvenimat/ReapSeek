@@ -66,7 +66,7 @@ function Browse($steps) {
     ("$out" | ConvertFrom-Json)
 }
 
-if (-not $envValues.REAPDEEP_PUBLIC_KEY -or -not $envValues.REAPDEEP_READ_KEY) { throw "ReapDeep is not connected (run connect-reapdeep.ps1)" }
+if (-not $envValues.REAPDEEP_PUBLIC_KEY -or -not $envValues.REAPDEEP_READ_KEY -or -not $envValues.REAPDEEP_RECOMMENDATION_SECRET) { throw "ReapDeep is not connected (run connect-reapdeep.ps1)" }
 
 $plain = NewClient
 $admin = NewClient
@@ -82,30 +82,42 @@ $brand = (A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Vel
 $seller = (A POST "/sellers" @{ name = "Reco Seller $tag"; city = "Izmir" }).Json
 $products = @{}
 $offers = @{}
-foreach ($name in "A", "B", "C", "D") {
+foreach ($name in "A", "B", "C", "D", "E") {
     $p = (A POST "/catalog/products" @{ title = "Reco $name Dress $tag"; brand_id = $brand.id; category_id = $dresses.id; variant_axes = @{ Color = @("Black") } }).Json
     $null = A PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $p.variants[0].id; price = 200; stock = 10 }
     $null = A PATCH "/catalog/products/$($p.id)" @{ status = "active" }
     $products[$name] = $p
     $offers[$name] = $p.variants[0].id
 }
-$a = $products.A.id; $b = $products.B.id; $c = $products.C.id; $d = $products.D.id
-Check "four products are searchable" (WaitFor { (Send $plain GET "$api/api/v1/search?q=reco+dress+$tag").Json.total -eq 4 } 15)
+$a = $products.A.id; $b = $products.B.id; $c = $products.C.id; $d = $products.D.id; $e = $products.E.id
+Check "five products are searchable" (WaitFor { (Send $plain GET "$api/api/v1/search?q=reco+dress+$tag").Json.total -eq 5 } 15)
+
+function Register([string]$name) {
+    $client = NewClient
+    $null = Send $client POST "$api/api/v1/auth/register" @{ email = "$name.$tag@example.com"; name = "Reco Shopper"; password = "shopper-pass-1" }
+    $client | Add-Member -NotePropertyName Id -NotePropertyValue (Send $client GET "$api/api/v1/auth/me").Json.user.id
+    $client
+}
+$fan = Register "fan"
+$buyer = Register "buyer"
 
 $now = [DateTimeOffset]::UtcNow
 $batch = New-Object System.Collections.ArrayList
 $n = 0
-function Add-Event([string]$user, [string]$event, [long]$item, [hashtable]$extra = @{}) {
+function Add-Event([string]$user, [string]$event, [long]$item, [hashtable]$extra = @{}, [string]$distinctId = "reco-$tag-$user") {
     $script:n++
     $props = @{ item_id = "$item" } + $extra
-    $null = $batch.Add(@{ event = $event; distinct_id = "reco-$tag-$user"; event_id = "reco-$tag-$($script:n)"; timestamp = $now.AddSeconds(-600 + $script:n).ToString("o"); properties = $props })
+    $null = $batch.Add(@{ event = $event; distinct_id = $distinctId; event_id = "reco-$tag-$($script:n)"; timestamp = $now.AddSeconds(-600 + $script:n).ToString("o"); properties = $props })
 }
 foreach ($u in 1..3) { Add-Event "v$u" "product_viewed" $a; Add-Event "v$u" "product_viewed" $b }
-foreach ($u in 1..2) { Add-Event "v$u" "product_viewed" $c }
+foreach ($u in 1..2) { Add-Event "v$u" "product_viewed" $c; Add-Event "v$u" "product_viewed" $e }
 foreach ($u in 1..2) {
     Add-Event "p$u" "purchase" $a @{ order_id = "RECO-$tag-$u"; price = 200; quantity = 1; amount = 200 }
     Add-Event "p$u" "purchase" $d @{ order_id = "RECO-$tag-$u"; price = 200; quantity = 1; amount = 200 }
 }
+Add-Event "fan" "product_viewed" $a @{} "customer-$($fan.Id)"
+Add-Event "buyer" "product_viewed" $b @{} "customer-$($buyer.Id)"
+Add-Event "buyer" "purchase" $c @{ order_id = "RECO-$tag-buyer"; price = 200; quantity = 1; amount = 200 } "customer-$($buyer.Id)"
 $capture = Send $plain POST "$ingest/capture" @{ api_key = $envValues.REAPDEEP_PUBLIC_KEY; sent_at = $now.ToString("o"); batch = @($batch) }
 Check "behavior events are accepted by ReapDeep ($($batch.Count))" ($capture.Status -eq 202)
 
@@ -137,16 +149,32 @@ $null = Send $shopper POST "$api/api/v1/cart/items" @{ offer_id = ((A GET "/cata
 $cartReco = Reco "cart" "" $shopper
 Check "the cart suggests what was bought with its items" ((Ids $cartReco) -contains $d -and -not ((Ids $cartReco) -contains $a))
 
-Write-Host "`n[5] Validation"
+Write-Host "`n[5] Recommended for you"
+$forYou = $null
+Check "a signed-in shopper gets a personal list from what they viewed" (WaitFor {
+    $script:forYou = Reco "home_for_you" "" $fan
+    @(Ids $script:forYou | Where-Object { $_ -in @($b, $c, $d, $e) }).Count -eq 4 } 120)
+Check "it comes from ReapDeep's for_you model and is not padded" ($forYou.model -eq "for_you" -and @($forYou.items).Count -eq 4 -and @($forYou.items | Where-Object { $_.source -ne "for_you" }).Count -eq 0)
+Check "D ranks first: viewed and bought together with A" ((Ids $forYou)[0] -eq $d)
+Check "the list is cached per customer in Redis" ([int](Redis @("TTL", "reco:for_you:customer-$($fan.Id)")) -gt 0 -and (Reco "home_for_you" "" $fan).served_from -eq "cache")
+$buyerReco = Reco "home_for_you" "" $buyer
+Check "a purchased product is never recommended and a short list is hidden" (@($buyerReco.items).Count -eq 0 -and (Redis @("GET", "reco:for_you:customer-$($buyer.Id)")) -cmatch '"item_id":"\d+"' -and -not ((Redis @("GET", "reco:for_you:customer-$($buyer.Id)")) -cmatch """item_id"":""$c"""))
+$guestReco = Reco "home_for_you"
+Check "guests get no personal list" (@($guestReco.items).Count -eq 0 -and $guestReco.served_from -eq "none")
+
+Write-Host "`n[6] Validation"
 Check "unknown placement is 400" ((Send $plain GET "$api/api/v1/recommendations/sidebar").Status -eq 400)
 Check "a product placement needs product_id" ((Send $plain GET "$api/api/v1/recommendations/product_similar").Status -eq 400)
 Check "limit is at most 24" ((Send $plain GET "$api/api/v1/recommendations/home_popular?limit=30").Status -eq 400)
 
-Write-Host "`n[6] Storefront"
+Write-Host "`n[7] Storefront"
 $page = Send $plain GET "$storefront/p/$($products.A.slug)"
 Check "the product page renders customers also viewed with B" ($page.Text -cmatch 'data-testid="rec-product_similar"' -and $page.Text -cmatch "/p/$($products.B.slug)")
 Check "a one-item bought-together list is not shown" (-not ($page.Text -cmatch 'data-testid="rec-product_bought_together"'))
 Check "the home page has popular and trending shelves" ((Send $plain GET "$storefront/").Text -cmatch 'data-testid="rec-home_popular"')
+$fanHome = (Send $fan GET "$storefront/").Text
+Check "the home page shows Recommended for you to the signed-in shopper" ($fanHome -cmatch 'data-testid="rec-home_for_you"' -and $fanHome -cmatch "/p/$($products.D.slug)")
+Check "but not to guests or to a shopper with a short list" (-not ((Send $plain GET "$storefront/").Text -cmatch 'rec-home_for_you') -and -not ((Send $buyer GET "$storefront/").Text -cmatch 'rec-home_for_you'))
 
 $stateJs = "JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith('reapdeep_'))))"
 $run = Browse @(
@@ -172,7 +200,21 @@ Check "recommendations_shown reached ReapDeep with the placement and items" (Wai
 Check "recommendation_clicked records the item, position and model" (WaitFor {
     @(Events "recommendation_clicked" | Where-Object { $_.columns.item_id -eq "$first" -and $_.properties.position -eq 1 -and $_.properties.model -eq "co_viewed" -and $_.properties.source_item_id -eq "$a" }).Count -eq 1 } 60)
 
-Write-Host "`n[7] ReapDeep outage"
+$fanSession = ($fan.Cookies.GetCookies([Uri]$api) | Where-Object { $_.Name -ceq "rs_session" }).Value
+$fanRun = Browse @(
+    @{ cookie = @{ name = "rs_session"; value = $fanSession } },
+    @{ goto = "$browserBase/" },
+    @{ waitFor = "document.querySelector('[data-testid=rec-home_for_you] .product-card')" },
+    @{ sleep = 1500 },
+    @{ goto = "about:blank" },
+    @{ sleep = 1500 }
+)
+Check "browser run as the shopper finished without errors ($($fanRun.failure))" ($null -eq $fanRun.failure -and @($fanRun.errors).Count -eq 0)
+Check "recommendations_shown for the personal shelf reached ReapDeep under the customer id" (WaitFor {
+    @((Send $plain GET "$reapDeep/api/v1/events?distinct_id=customer-$($fan.Id)&event=recommendations_shown&limit=10" $null @{ Authorization = "Bearer $($envValues.REAPDEEP_READ_KEY)" }).Json.events |
+        Where-Object { $_.properties.placement -eq "home_for_you" -and $_.properties.model -eq "for_you" -and $_.properties.count -eq 4 }).Count -ge 1 } 60)
+
+Write-Host "`n[8] ReapDeep outage"
 ContainerQuiet @("stop", "reapdeep-recommender")
 $aged = (Redis @("GET", "reco:co_viewed:$a")) -creplace '"fetched_at":"[^"]+"', '"fetched_at":"2020-01-01T00:00:00Z"'
 $agedFile = Join-Path $env:TEMP "reapseek-reco-$tag.json"
