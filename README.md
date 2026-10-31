@@ -55,7 +55,7 @@ There is deliberately no generic repository, mediator or separate application la
 
 ### What is built so far
 
-- **Accounts:** customer registration and sign-in, PBKDF2 password hashing, password change that signs out other devices, rate-limited sign-in.
+- **Accounts:** customer registration and sign-in, PBKDF2 password hashing, password change that signs out other devices, rate-limited sign-in, email verification and password reset (below).
 - **Separate sessions for the storefront and the back office:** different cookies (`rs_session` with `SameSite=Lax` for 30 days, `rs_bo_session` with `SameSite=Strict` for 12 hours), so a customer session never opens the back office.
 - **Transactional outbox:** the API writes domain messages in the same transaction as the data; the worker claims them with `FOR UPDATE SKIP LOCKED` and a lease, retries with exponential backoff and gives up after 10 attempts. A job that gives up queues an email to the admins in the same statement, and the back office **Jobs** page shows pending, retrying, failed and discarded jobs per type with the payload and the last error, so a failure can be retried (one job or every failed job of a type) or discarded once its cause is understood.
 - **Migrations:** SQL files embedded in `ReapSeek.Shared`, applied in order under an advisory lock by a one-shot `migrate` container before the API and the worker start.
@@ -197,6 +197,14 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 - **Questions:** any signed-in shopper asks; every seller with an offer on the product is emailed and answers in the seller center (one answer per seller, under the store name). The shopper is emailed the answer.
 - **Moderation:** staff hide or show reviews and questions in the back office; a hidden review drops out of the average at once.
 - **Measured in ReapDeep:** the storefront sends `review_submitted` (with the rating) and `question_asked`.
+
+### Password reset and email verification
+
+- **Forgot password:** customers reset from the storefront, sellers from the back office sign-in page; staff accounts are not reset by email. The answer is the same whether or not the address has an account, the requests are rate-limited per client and at most three links per account and hour are sent.
+- **Tokens never stored in clear:** the API only queues a job; the worker creates the 256-bit token when it sends the email and stores its SHA-256 hash, so neither the users table, the outbox nor a database backup holds a usable link. A new link replaces the previous one; reset links work once, for 30 minutes.
+- **After a reset** every session of the account ends at once (including cached copies in Redis), the address counts as verified, and the customer gets a "your password was changed" email that links to a new reset in case it was not them. Changing the password while signed in sends the same notice. Suspended accounts get no link, and a link issued before a suspension stops working.
+- **Email verification:** the welcome email carries a confirmation link (valid for 3 days). Unverified customers can shop as usual; the account page asks them to confirm and can send a new link. Coupon campaigns only reach verified, active customers, and the audience preview says how many are left out.
+- **Staff help:** on a customer's page staff can email a reset link; they never see or set a customer's password.
 
 ### Customers
 
@@ -358,6 +366,8 @@ cd deploy/local
 .\jobs-test.ps1
 .\images-test.ps1
 .\customers-test.ps1
+.\account-test.ps1
+.ccount-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -372,6 +382,7 @@ The scripts run end to end against the running stack.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
 - `campaigns-test.ps1`: a static cohort created in ReapDeep, the audience preview (customers only), campaign validation, sending once with one email and personal code per customer, the code rules (owner, minimum basket, single use, case), checkout with the discounted total and payment, the code coming back after a failed payment, campaign revenue, the `coupon` on ReapDeep purchase events, the refund of a discounted item, and one-click codes at checkout in a headless Chrome session.
+- `account-test.ps1`: the confirmation link in the welcome email, only token hashes stored, resending from the account page in a browser, single-use and replaced links, the same answer for unknown addresses, a reset in a real browser that signs out every session, the change notice, expiry, the hourly limit, suspended accounts, a seller reset in the back office, staff accounts kept out, and staff sending a link.
 - `customers-test.ps1`: access, search with literal wildcards, sorting by spend checked against the database, paging, the customer page and its ReapDeep segment and activity, suspension ending every session at once and blocking sign-in, reinstatement, and staff accounts kept out.
 - `images-test.ps1`: uploads as staff and as a seller, the order of photos and illustrations, the file served by the API and the storefront, the photo reaching the product page and search cards, rejected files (not an image, too small, too large, too many), path tricks, removal with the file, and a seller locked out after approval.
 - `jobs-test.ps1`: a job that gives up after ten attempts, the admin email, the Jobs list and summary, retrying and discarding one job, retrying every failed job of a type, and a failure notice that never notifies about itself.

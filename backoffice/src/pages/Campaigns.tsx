@@ -10,14 +10,14 @@ export function Campaigns() {
   const cohorts = useLoad(() => api.audienceCohorts(), [])
   const action = useAction()
   const [form, setForm] = useState(empty)
-  const [audience, setAudience] = useState<number>()
+  const [audience, setAudience] = useState<{ customers: number; unreachable: number }>()
 
   const pickCohort = async (id: number) => {
     setForm({ ...form, cohort_id: id })
     setAudience(undefined)
     if (id) {
       const preview = await action.run(() => api.audiencePreview(id))
-      if (preview) setAudience(preview.customers)
+      if (preview) setAudience(preview)
     }
   }
 
@@ -79,7 +79,7 @@ export function Campaigns() {
                   {list.map((c) => <option key={c.id} value={c.id}>{c.name}{c.member_count != null ? ` (${c.member_count} people)` : ''}</option>)}
                 </select>
               </label>
-              <div className="field"><span>Reach</span><strong data-testid="audience-size">{audience === undefined ? '-' : `${formatCount(audience)} customers with an account`}</strong></div>
+              <div className="field"><span>Reach</span><strong data-testid="audience-size">{audience === undefined ? '-' : `${formatCount(audience.customers)} customers with a verified email`}</strong>{audience && audience.unreachable > 0 && <span className="muted small">{formatCount(audience.unreachable)} without a verified email or suspended are left out</span>}</div>
               <label className="field"><span>Discount</span>
                 <div className="row">
                   <input type="number" min="1" step="0.01" required value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} aria-label="Discount value" />

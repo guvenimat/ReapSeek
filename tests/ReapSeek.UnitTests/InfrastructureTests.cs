@@ -38,12 +38,14 @@ public class InfrastructureTests
     [Fact]
     public void Welcome_email_escapes_the_name_in_html()
     {
-        var email = EmailTemplates.Welcome(new UserRegistered(1, "jane@example.com", "<b>Jane</b>"), "http://localhost:3100");
+        var email = AccountEmails.Welcome("jane@example.com", "<b>Jane</b>", "http://localhost:3100", "http://localhost:3100/verify-email?token=abc");
         Assert.Equal("jane@example.com", email.To);
         Assert.Contains("&lt;b&gt;Jane&lt;/b&gt;", email.Html);
         Assert.DoesNotContain("<b>Jane</b>", email.Html);
         Assert.Contains("Hi <b>Jane</b>,", email.Text);
         Assert.Contains("http://localhost:3100", email.Text);
+        Assert.Contains("http://localhost:3100/verify-email?token=abc", email.Text);
+        Assert.DoesNotContain("Confirm", AccountEmails.Welcome("jane@example.com", "Jane", "http://localhost:3100", null).Html);
     }
 
     [Fact]

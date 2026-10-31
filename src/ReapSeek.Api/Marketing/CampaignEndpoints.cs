@@ -17,7 +17,8 @@ public sealed record CampaignRow(
 public sealed record CampaignsResponse(List<CampaignRow> Campaigns);
 public sealed record CohortsListResponse(List<AudienceCohort> Cohorts);
 public sealed record AudienceRequest(long? CohortId);
-public sealed record AudiencePreviewResponse(long CohortId, int Customers);
+public sealed record AudiencePreviewResponse(long CohortId, int Customers, int Unreachable);
+public sealed record ReachRecord(long[] Ids);
 public sealed record CustomerCoupon(string Code, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, DateTime ExpiresAt, string? Campaign);
 public sealed record CustomerCouponsResponse(List<CustomerCoupon> Coupons);
 
@@ -51,11 +52,16 @@ public static class CampaignEndpoints
         var admin = api.MapGroup("/backoffice/marketing").RequireAdmin();
         admin.MapGet("/cohorts", async (ReapDeepAudience audience, CancellationToken ct) =>
             ApiResults.Ok(new CohortsListResponse(await audience.CohortsAsync(ct)), AppJsonContext.Default.CohortsListResponse));
-        admin.MapPost("/audience", async (AudienceRequest req, ReapDeepAudience audience, CancellationToken ct) =>
+        admin.MapPost("/audience", async (AudienceRequest req, ReapDeepAudience audience, NpgsqlDataSource db, CancellationToken ct) =>
         {
             Ensure.That(req.CohortId is > 0, "cohort_id is required");
             var ids = await audience.CustomersInCohortAsync(req.CohortId!.Value, ct);
-            return ApiResults.Ok(new AudiencePreviewResponse(req.CohortId.Value, ids.Count), AppJsonContext.Default.AudiencePreviewResponse);
+            await using var conn = await db.OpenConnectionAsync(ct);
+            var reachable = await conn.ExecuteScalarAsync<int>("""
+                SELECT count(*)::int FROM users WHERE id = ANY(@Ids) AND role = 'customer' AND email_verified_at IS NOT NULL AND suspended_at IS NULL
+                """, new ReachRecord([.. ids]));
+            var known = await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM users WHERE id = ANY(@Ids) AND role = 'customer'", new ReachRecord([.. ids]));
+            return ApiResults.Ok(new AudiencePreviewResponse(req.CohortId.Value, reachable, known - reachable), AppJsonContext.Default.AudiencePreviewResponse);
         });
         admin.MapGet("/campaigns", async (NpgsqlDataSource db, CancellationToken ct) =>
         {

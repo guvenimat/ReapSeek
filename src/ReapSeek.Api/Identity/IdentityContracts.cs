@@ -4,7 +4,7 @@ public sealed record RegisterRequest(string? Email, string? Name, string? Passwo
 public sealed record LoginRequest(string? Email, string? Password);
 public sealed record PasswordChangeRequest(string? CurrentPassword, string? NewPassword);
 
-public sealed record UserInfo(long Id, string Email, string Name, string Role, long? SellerId = null)
+public sealed record UserInfo(long Id, string Email, string Name, string Role, long? SellerId = null, bool EmailVerified = true)
 {
     const string ItemKey = "reapseek.user";
 

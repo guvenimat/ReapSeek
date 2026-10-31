@@ -16,7 +16,7 @@ public sealed record CustomerReviewRow(long ProductId, string ProductTitle, int 
 public sealed record CustomerCouponRow(string Code, string Campaign, string Kind, decimal Value, DateTime ExpiresAt, string? UsedOrderNumber);
 public sealed record CustomerStats(int Orders, decimal Spent, decimal Refunded, decimal AverageOrder, int Returns, int Reviews, DateTime? FirstOrderAt, DateTime? LastOrderAt);
 public sealed record CustomerDetail(
-    long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, string DistinctId, CustomerStats Stats,
+    long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt, string DistinctId, CustomerStats Stats,
     List<CustomerOrderRow> Orders, List<CustomerReturnRow> Returns, List<CustomerReviewRow> Reviews, List<CustomerCouponRow> Coupons);
 public sealed record SuspendRequest(string? Reason);
 
@@ -43,7 +43,7 @@ public static class CustomerEndpoints
     public sealed record ListRecord(string? Pattern, string? Status, int Limit, int Offset);
     public sealed record ListRow(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, int Orders, decimal Spent, DateTime? LastOrderAt, int Total);
     public sealed record IdRecord(long Id);
-    public sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason);
+    public sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt);
     public sealed record SuspendRecord(long Id, string? Reason);
 
     public static void MapCustomers(this RouteGroupBuilder api)
@@ -77,7 +77,7 @@ public static class CustomerEndpoints
         {
             await using var conn = await db.OpenConnectionAsync(ct);
             var profile = await conn.QuerySingleOrDefaultAsync<ProfileRecord>(
-                "SELECT id, name, email, created_at, suspended_at, suspended_reason FROM users WHERE id = @Id AND role = 'customer'", new IdRecord(id));
+                "SELECT id, name, email, created_at, suspended_at, suspended_reason, email_verified_at FROM users WHERE id = @Id AND role = 'customer'", new IdRecord(id));
             if (profile is null) return ApiResults.NotFound("Customer not found");
             var args = new IdRecord(id);
             var stats = await conn.QuerySingleAsync<CustomerStats>("""
@@ -106,7 +106,7 @@ public static class CustomerEndpoints
                 FROM coupons c JOIN campaigns m ON m.id = c.campaign_id LEFT JOIN orders o ON o.id = c.used_order_id
                 WHERE c.customer_id = @Id ORDER BY c.created_at DESC LIMIT 10
                 """, args)).AsList();
-            return ApiResults.Ok(new CustomerDetail(profile.Id, profile.Name, profile.Email, profile.CreatedAt, profile.SuspendedAt, profile.SuspendedReason,
+            return ApiResults.Ok(new CustomerDetail(profile.Id, profile.Name, profile.Email, profile.CreatedAt, profile.SuspendedAt, profile.SuspendedReason, profile.EmailVerifiedAt,
                 ReapSeek.Shared.Analytics.ReapDeepIdentity.DistinctId(id), stats, orders, returns, reviews, coupons), AppJsonContext.Default.CustomerDetail);
         });
 

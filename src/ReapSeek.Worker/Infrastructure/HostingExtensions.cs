@@ -41,6 +41,7 @@ public static class HostingExtensions
         services.AddSingleton<QuestionHandler>();
         services.AddSingleton<CampaignHandler>();
         services.AddSingleton<EngagementHandler>();
+        services.AddSingleton<AccountEmailHandler>();
         services.AddHostedService<CartReminderJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
