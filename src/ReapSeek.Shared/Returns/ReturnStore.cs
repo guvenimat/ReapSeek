@@ -11,19 +11,19 @@ public static class ReturnStore
     public sealed record ReturnRecord(
         Guid Id, string Number, Guid OrderId, string OrderNumber, Guid PackageId, long SellerId, long CustomerId, string Status, string Reason, string? Comment,
         decimal CommissionRate, string Currency, DateTime RequestedAt, DateTime? DecidedAt, string? RejectionNote, string? ReturnTracking,
-        DateTime? ReceivedAt, DateTime? RefundedAt, string? RefundReference);
+        DateTime? ReceivedAt, DateTime? RefundedAt, string? RefundReference, decimal RefundAmount);
     public sealed record ReturnLineRecord(Guid OrderLineId, long ProductId, string ProductTitle, string VariantLabel, string Sku, decimal UnitPrice, int Quantity);
     public sealed record ReturnedRecord(Guid OrderLineId, int Quantity);
     public sealed record ReturnInsertRecord(
         Guid Id, string Number, Guid OrderId, string OrderNumber, Guid PackageId, long SellerId, long CustomerId, string Status, string Reason, string? Comment,
-        decimal CommissionRate, decimal Total, string Currency, DateTime RequestedAt, Guid[] LineIds, long[] ProductIds, string[] Titles, string[] Labels,
+        decimal CommissionRate, decimal Total, decimal RefundAmount, string Currency, DateTime RequestedAt, Guid[] LineIds, long[] ProductIds, string[] Titles, string[] Labels,
         string[] Skus, decimal[] Prices, int[] Quantities);
     public sealed record ReturnUpdateRecord(
         Guid Id, string Status, DateTime? DecidedAt, string? RejectionNote, string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, string? RefundReference);
 
     const string Columns = """
         id, number, order_id, order_number, package_id, seller_id, customer_id, status, reason, comment, commission_rate, currency, requested_at,
-        decided_at, rejection_note, return_tracking, received_at, refunded_at, refund_reference
+        decided_at, rejection_note, return_tracking, received_at, refunded_at, refund_reference, refund_amount
         """;
 
     public static async Task<string> NextNumberAsync(NpgsqlConnection conn, NpgsqlTransaction tx, DateTime now) =>
@@ -38,13 +38,13 @@ public static class ReturnStore
     public static async Task InsertAsync(NpgsqlConnection conn, NpgsqlTransaction tx, ReturnRequest r)
     {
         await conn.ExecuteAsync("""
-            INSERT INTO returns (id, number, order_id, order_number, package_id, seller_id, customer_id, status, reason, comment, commission_rate, total, currency, requested_at)
-            VALUES (@Id, @Number, @OrderId, @OrderNumber, @PackageId, @SellerId, @CustomerId, @Status, @Reason, @Comment, @CommissionRate, @Total, @Currency, @RequestedAt);
+            INSERT INTO returns (id, number, order_id, order_number, package_id, seller_id, customer_id, status, reason, comment, commission_rate, total, refund_amount, currency, requested_at)
+            VALUES (@Id, @Number, @OrderId, @OrderNumber, @PackageId, @SellerId, @CustomerId, @Status, @Reason, @Comment, @CommissionRate, @Total, @RefundAmount, @Currency, @RequestedAt);
             INSERT INTO return_lines (return_id, order_line_id, product_id, product_title, variant_label, sku, unit_price, quantity)
             SELECT @Id, l.id, l.product_id, l.title, l.label, l.sku, l.price, l.quantity
             FROM unnest(@LineIds, @ProductIds, @Titles, @Labels, @Skus, @Prices, @Quantities) AS l(id, product_id, title, label, sku, price, quantity);
             """, new ReturnInsertRecord(r.Id, r.Number, r.OrderId, r.OrderNumber, r.PackageId, r.SellerId, r.CustomerId, ReturnStatusRules.Name(r.Status), r.Reason,
-            r.Comment, r.CommissionRate, r.Total.Amount, r.Total.Currency, r.RequestedAt, r.Lines.Select(l => l.OrderLineId).ToArray(),
+            r.Comment, r.CommissionRate, r.Total.Amount, r.RefundAmount.Amount, r.Total.Currency, r.RequestedAt, r.Lines.Select(l => l.OrderLineId).ToArray(),
             r.Lines.Select(l => l.ProductId).ToArray(), r.Lines.Select(l => l.ProductTitle).ToArray(), r.Lines.Select(l => l.VariantLabel).ToArray(),
             r.Lines.Select(l => l.Sku).ToArray(), r.Lines.Select(l => l.UnitPrice.Amount).ToArray(), r.Lines.Select(l => l.Quantity).ToArray()), tx);
         await PublishEventsAsync(conn, tx, r);
@@ -67,7 +67,8 @@ public static class ReturnStore
             """, new { r.Id }, tx);
         return ReturnRequest.Restore(r.Id, r.Number, r.OrderId, r.OrderNumber, r.PackageId, r.SellerId, r.CustomerId, r.Reason, r.Comment, r.CommissionRate,
             lines.Select(l => new ReturnLine(l.OrderLineId, l.ProductId, l.ProductTitle, l.VariantLabel, l.Sku, Money.Of(l.UnitPrice, r.Currency), l.Quantity)),
-            ReturnStatusRules.Parse(r.Status), r.RequestedAt, r.DecidedAt, r.RejectionNote, r.ReturnTracking, r.ReceivedAt, r.RefundedAt, r.RefundReference);
+            ReturnStatusRules.Parse(r.Status), r.RequestedAt, r.DecidedAt, r.RejectionNote, r.ReturnTracking, r.ReceivedAt, r.RefundedAt, r.RefundReference,
+            Money.Of(r.RefundAmount, r.Currency));
     }
 
     public static async Task SaveAsync(NpgsqlConnection conn, NpgsqlTransaction tx, ReturnRequest r)

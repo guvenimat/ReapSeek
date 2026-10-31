@@ -7,6 +7,7 @@ using ReapSeek.Worker.CatalogSync;
 using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Orders;
 using ReapSeek.Worker.Payouts;
+using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Payouts;
 using ReapSeek.Worker.Outbox;
 
@@ -35,6 +36,8 @@ public static class HostingExtensions
         services.AddSingleton<OrderPaidHandler>();
         services.AddSingleton<ReturnHandler>();
         services.AddSingleton<QuestionHandler>();
+        services.AddSingleton<CampaignHandler>();
+        services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
         services.AddSingleton<PayoutRunner>();
         services.AddHostedService<PayoutJob>();

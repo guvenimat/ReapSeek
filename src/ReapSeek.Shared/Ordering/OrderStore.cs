@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Common;
+using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Outbox;
 
@@ -21,10 +22,10 @@ public static class OrderStore
 {
     public sealed record OrderRecord(
         Guid Id, string Number, long CustomerId, string Status, string Currency, string ShippingAddress, DateTime PlacedAt,
-        DateTime? PaidAt, string? PaymentReference, string? CloseReason);
+        DateTime? PaidAt, string? PaymentReference, string? CloseReason, decimal DiscountTotal, string? CouponCode);
     public sealed record OrderInsertRecord(
         Guid Id, string Number, long CustomerId, string Status, string Currency, decimal Subtotal, decimal ShippingTotal, decimal Total,
-        string Address, DateTime PlacedAt);
+        string Address, DateTime PlacedAt, decimal DiscountTotal, string? CouponCode);
     public sealed record PackageRecord(
         Guid Id, long SellerId, string SellerName, string Status, decimal ShippingFee, string? TrackingNumber, DateTime? ShippedAt, DateTime? DeliveredAt);
     public sealed record LineRecord(
@@ -50,10 +51,10 @@ public static class OrderStore
     {
         var row = new OrderInsertRecord(order.Id, order.Number, order.CustomerId, OrderStatusRules.Name(order.Status), order.Total.Currency,
             order.Subtotal.Amount, order.ShippingTotal.Amount, order.Total.Amount,
-            JsonSerializer.Serialize(order.Address, OrderingJsonContext.Default.ShippingAddress), order.PlacedAt);
+            JsonSerializer.Serialize(order.Address, OrderingJsonContext.Default.ShippingAddress), order.PlacedAt, order.DiscountTotal.Amount, order.Discount?.CouponCode);
         await conn.ExecuteAsync("""
-            INSERT INTO orders (id, number, customer_id, status, currency, subtotal, shipping_total, total, shipping_address, placed_at)
-            VALUES (@Id, @Number, @CustomerId, @Status, @Currency, @Subtotal, @ShippingTotal, @Total, @Address::jsonb, @PlacedAt)
+            INSERT INTO orders (id, number, customer_id, status, currency, subtotal, shipping_total, total, shipping_address, placed_at, discount_total, coupon_code)
+            VALUES (@Id, @Number, @CustomerId, @Status, @Currency, @Subtotal, @ShippingTotal, @Total, @Address::jsonb, @PlacedAt, @DiscountTotal, @CouponCode)
             """, row, tx);
         foreach (var p in order.Packages)
         {
@@ -85,7 +86,7 @@ public static class OrderStore
         await PublishEventsAsync(conn, tx, order);
     }
 
-    const string OrderColumns = "id, number, customer_id, status, currency, shipping_address::text AS shipping_address, placed_at, paid_at, payment_reference, close_reason";
+    const string OrderColumns = "id, number, customer_id, status, currency, shipping_address::text AS shipping_address, placed_at, paid_at, payment_reference, close_reason, discount_total, coupon_code";
 
     public static async Task<Order?> LoadAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid id) =>
         await RestoreAsync(conn, tx, await conn.QuerySingleOrDefaultAsync<OrderRecord>(
@@ -117,7 +118,8 @@ public static class OrderStore
                 lines.Where(l => l.PackageId == p.Id).Select(l => new OrderLine(l.Id, l.OfferId, l.ProductId, l.VariantId, l.ProductTitle,
                     l.VariantLabel, l.Sku, l.ImageUrl, Money.Of(l.UnitPrice, o.Currency), l.Quantity)),
                 Money.Of(p.ShippingFee, o.Currency), OrderStatusRules.ParsePackage(p.Status), p.TrackingNumber, p.ShippedAt, p.DeliveredAt)),
-            OrderStatusRules.ParseOrder(o.Status), o.PlacedAt, o.PaidAt, o.PaymentReference, o.CloseReason);
+            OrderStatusRules.ParseOrder(o.Status), o.PlacedAt, o.PaidAt, o.PaymentReference, o.CloseReason,
+            o.CouponCode is null ? null : new OrderDiscount(o.CouponCode, Money.Of(o.DiscountTotal, o.Currency)));
     }
 
     public static async Task SaveAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Order order)
@@ -143,6 +145,7 @@ public static class OrderStore
                 foreach (var line in order.Lines)
                     await conn.ExecuteAsync("UPDATE offers SET stock = stock + @Quantity, updated_at = now() WHERE id = @OfferId",
                         new { line.OfferId, line.Quantity }, tx);
+                await conn.ExecuteAsync("UPDATE coupons SET used_order_id = NULL, used_at = NULL WHERE used_order_id = @Id", new { order.Id }, tx);
             }
             if (e is PackageShipped or PackageDelivered)
             {

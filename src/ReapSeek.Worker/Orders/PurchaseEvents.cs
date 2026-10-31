@@ -7,7 +7,7 @@ using ReapSeek.Shared.Analytics;
 namespace ReapSeek.Worker.Orders;
 
 public sealed record PurchaseProperties(
-    string ItemId, string OrderId, decimal Price, int Quantity, decimal Amount, string Currency, long SellerId, string Sku, string Source, string? ReturnId = null);
+    string ItemId, string OrderId, decimal Price, int Quantity, decimal Amount, string Currency, long SellerId, string Sku, string Source, string? ReturnId = null, string? Coupon = null);
 public sealed record CaptureEvent(string Event, string DistinctId, string EventId, DateTime Timestamp, PurchaseProperties Properties);
 public sealed record CaptureRequest(string ApiKey, DateTime SentAt, List<CaptureEvent> Batch);
 
@@ -24,7 +24,7 @@ public static class PurchaseEvents
             $"order-line-{l.Id}",
             order.PaidAt ?? order.PlacedAt,
             new PurchaseProperties(l.ProductId.ToString(), order.Number, l.UnitPrice.Amount, l.Quantity, l.Total.Amount, l.UnitPrice.Currency,
-                p.SellerId, l.Sku, "server")))).ToList();
+                p.SellerId, l.Sku, "server", null, order.Discount?.CouponCode)))).ToList();
 }
 
 public static class RefundEvents

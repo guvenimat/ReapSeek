@@ -6,6 +6,7 @@ using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
+using ReapSeek.Api.Marketing;
 using ReapSeek.Api.Media;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Payments;
@@ -17,6 +18,7 @@ using ReapSeek.Api.Reviews;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
+using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Shared.Payouts;
 using ReapSeek.Shared.Search;
@@ -94,6 +96,7 @@ public static class HostingExtensions
         services.AddSingleton<PayoutRunner>();
         services.AddSingleton<ReturnService>();
         services.AddSingleton<ReviewRepository>();
+        services.AddSingleton<ReapDeepAudience>();
         return builder;
     }
 
@@ -117,6 +120,7 @@ public static class HostingExtensions
         api.MapSellerPanel();
         api.MapReturns();
         api.MapReviews();
+        api.MapCampaigns();
         app.MapMedia();
         app.MapHealth();
         return app;

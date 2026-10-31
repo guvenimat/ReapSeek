@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Marketing follows in the next stage.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Abandoned-cart emails and ReapDeep alerts in the back office follow next.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -37,7 +37,7 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 | Area | Style | Why |
 |---|---|---|
 | Catalog, search, accounts, back office reads | Feature folders, services and SQL read models | Mostly CRUD and queries. The rules (buy box, listing visibility) are best expressed in SQL, close to the data; an object model would only add mapping. |
-| Cart, orders, payments, returns, seller settlement | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
+| Cart, orders, payments, returns, coupons, seller settlement | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
 | Side effects (email, search indexing, ReapDeep sync, purchase events, cache invalidation) | Transactional outbox, processed by the worker | A side effect never happens for a change that was rolled back, and none is lost when an external system is down. |
 | State shared between API instances (rate limits, session and page caches) | Redis, always optional | Instances keep no state of their own that another instance could contradict. If Redis is down the API keeps working from PostgreSQL. |
 
@@ -45,6 +45,7 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 
 - **Value objects:** `Money` (non-negative, one currency, rounded half away from zero), `ShippingAddress` (validated on creation).
 - **Aggregates:** `Cart` (lines, merge of a guest cart on sign-in) and `Order` with its `SellerPackage`s. State changes go through methods such as `Order.MarkPaid(reference, amount, at)`, which checks the transition, the amount and replays of the same payment.
+- **Coupons:** `Coupon.DiscountFor` checks the owner, single use, expiry and minimum basket and computes a percentage (rounded, optionally capped) or fixed discount; `Order.Place` takes it as an `OrderDiscount`, and the total is items + shipping - discount.
 - **Returns:** `ReturnRequest` checks the 7-day window after delivery, the quantity still returnable per line and the reason, and moves through requested → approved or rejected → received → refunded. `MarkRefunded` returns the ledger entries for the refund.
 - **Settlement:** `Settlement.ForPackage` turns a delivered package into ledger entries (sale, shipping fee, commission) and `PayoutPeriod` finds the Monday that closes a payout week.
 - **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`, `PackageShipped`, `PackageDelivered`, and `ReturnRequested` ... `ReturnRefunded`. The persistence layer (`ReapSeek.Shared/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
@@ -183,6 +184,15 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 - **Moderation:** staff hide or show reviews and questions in the back office; a hidden review drops out of the average at once.
 - **Measured in ReapDeep:** the storefront sends `review_submitted` (with the rating) and `question_asked`.
 
+### Campaigns targeted with ReapDeep
+
+![Back office campaigns with audience, offer, redemptions and revenue](docs/images/backoffice-campaigns.png)
+
+- **Audiences come from ReapDeep:** staff pick a ReapDeep cohort, which can be an RFM segment ("Customers at risk", "Champions and loyal customers", created by `connect-reapdeep.ps1`) or any rule built in ReapDeep. ReapSeek reads the members through ReapDeep's public cohort API with a read key, keeps the `customer-{id}` identities and drops anonymous visitors; the form shows the reach before anything is sent.
+- **Personal, single-use codes:** sending issues one code per customer (`RS-XXXXXXXX`, unique per campaign and customer) in one transaction and queues one email per code through the outbox, so a retry never mails twice.
+- **At checkout:** the code is checked against its owner, expiry and minimum basket, the discount is reserved with the order in the same transaction, and a failed or expired payment gives it back. Customers can pick their codes with one click. ReapSeek pays the discount: sellers are settled on the full price, and a return refunds only what was paid for the item.
+- **Measured:** each campaign shows paid orders and revenue, and the `purchase` events carry the `coupon`, so conversion can be analysed per cohort in ReapDeep.
+
 ### Recommendations from ReapDeep
 
 ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behavior, the same way any ReapDeep customer would: through the Recommender's public API.
@@ -222,7 +232,8 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 | `review_submitted` | a review is posted or edited | `item_id`, `rating`, `edited` |
 | `question_asked` | a question is asked | `item_id` |
 | `refund` (server) | a return is refunded | `item_id`, `order_id`, `return_id`, `price`, `quantity`, `amount`, `currency`, `seller_id`, `sku` |
-| `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id` |
+| `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id`, `coupon` |
+| `coupon_applied` | a code is applied at checkout | `code`, `discount` |
 
 `item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations. Purchases are sent from the server rather than the browser, so they are counted even when the customer closes the tab after paying; each line has a stable `event_id`, so a retry never counts twice.
 
@@ -292,6 +303,7 @@ cd deploy/local
 .\seller-test.ps1
 .\returns-test.ps1
 .\reviews-test.ps1
+.\campaigns-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -305,6 +317,7 @@ The scripts run end to end against the running stack.
 - `seller-test.ps1`: seller logins and role separation, product proposals with approval and rejection, offers and the buy box, a paid order shipped with a Sandbox tracking number and a shipping email, delivery writing the ledger, the 7-day hold, the weekly payout with a Sandbox transfer and its idempotency, and a headless Chrome session that ships a package from the seller center.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
+- `campaigns-test.ps1`: a static cohort created in ReapDeep, the audience preview (customers only), campaign validation, sending once with one email and personal code per customer, the code rules (owner, minimum basket, single use, case), checkout with the discounted total and payment, the code coming back after a failed payment, campaign revenue, the `coupon` on ReapDeep purchase events, the refund of a discounted item, and one-click codes at checkout in a headless Chrome session.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License

@@ -26,7 +26,7 @@ public sealed record OrderPaymentView(string Provider, string Status, string? Fa
 public sealed record OrderDetail(
     string Number, string Status, DateTime PlacedAt, DateTime? PaidAt, DateTime PaymentDeadline, string? CloseReason, ShippingAddress Address,
     decimal Subtotal, decimal ShippingTotal, decimal Total, string Currency, List<OrderPackageView> Packages, List<OrderPaymentView> Payments,
-    long CustomerId, string? CustomerEmail, string? PaymentUrl, List<ReturnView> Returns);
+    long CustomerId, string? CustomerEmail, string? PaymentUrl, List<ReturnView> Returns, decimal DiscountTotal = 0, string? CouponCode = null);
 
 public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
 {
@@ -93,7 +93,7 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
         var shipments = (await conn.QueryAsync<ShipmentRecord>("SELECT id, shipment_status FROM order_packages WHERE order_id = @Id", new { order.Id }))
             .ToDictionary(s => s.Id, s => s.ShipmentStatus);
         var returns = (await conn.QueryAsync<ReturnRowRecord>("""
-            SELECT r.id, r.number, r.package_id, p.seller_name, r.status, r.reason, r.comment, r.total, r.requested_at, r.rejection_note, r.return_tracking,
+            SELECT r.id, r.number, r.package_id, p.seller_name, r.status, r.reason, r.comment, r.refund_amount AS total, r.requested_at, r.rejection_note, r.return_tracking,
                 r.received_at, r.refunded_at
             FROM returns r JOIN order_packages p ON p.id = r.package_id WHERE r.order_id = @Id ORDER BY r.requested_at
             """, new { order.Id })).AsList();
@@ -125,7 +125,8 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
             returns.Select(r => new ReturnView(r.Id, r.Number, r.PackageId, r.SellerName, r.Status, r.Reason, r.Comment, r.Total, r.RequestedAt, r.RejectionNote,
                 r.ReturnTracking, r.ReceivedAt, r.RefundedAt,
                 returnLines.Where(l => l.ReturnId == r.Id).Select(l => new ReturnLineView(l.OrderLineId, l.ProductTitle, l.VariantLabel, l.Quantity,
-                    l.UnitPrice * l.Quantity)).ToList(), Events(r.ReturnTracking))).ToList());
+                    l.UnitPrice * l.Quantity)).ToList(), Events(r.ReturnTracking))).ToList(),
+            order.DiscountTotal.Amount, order.Discount?.CouponCode);
     }
 
     static OrderSummary ToSummary(SummaryRecord r) =>

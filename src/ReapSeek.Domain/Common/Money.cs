@@ -32,6 +32,13 @@ public readonly record struct Money : IComparable<Money>
         return new Money(a.Amount + b.Amount, a.Currency);
     }
 
+    public static Money operator -(Money a, Money b)
+    {
+        EnsureSameCurrency(a, b);
+        if (b.Amount > a.Amount) throw new DomainException("money.negative", "An amount cannot be negative");
+        return new Money(a.Amount - b.Amount, a.Currency);
+    }
+
     public static Money operator *(Money a, int quantity)
     {
         if (quantity < 0) throw new DomainException("money.quantity", "Quantity cannot be negative");

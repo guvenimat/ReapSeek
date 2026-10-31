@@ -72,6 +72,12 @@ export type ModerationData = {
   reviews: { id: number; product_id: number; product_title: string; rating: number; title: string; body: string; author: string; status: 'visible' | 'hidden'; created_at: string }[]
   questions: { id: number; product_id: number; product_title: string; body: string; author: string; status: 'visible' | 'hidden'; answer_count: number; created_at: string }[]
 }
+export type Campaign = {
+  id: number; name: string; cohort_id: number; cohort_name: string; kind: 'percent' | 'fixed'; value: number; min_subtotal: number; max_discount: number | null
+  valid_days: number; subject: string; message: string; status: 'draft' | 'sending' | 'sent' | 'failed'; recipients: number; redeemed: number; revenue: number
+  error: string | null; created_at: string; sent_at: string | null
+}
+export type AudienceCohort = { id: number; name: string; description: string; status: string; member_count: number | null; calculated_at: string | null }
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -130,6 +136,11 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
+  campaigns: () => request<{ campaigns: Campaign[] }>('GET', '/api/v1/backoffice/marketing/campaigns').then((r) => r.campaigns),
+  audienceCohorts: () => request<{ cohorts: AudienceCohort[] }>('GET', '/api/v1/backoffice/marketing/cohorts').then((r) => r.cohorts),
+  audiencePreview: (cohortId: number) => request<{ cohort_id: number; customers: number }>('POST', '/api/v1/backoffice/marketing/audience', { cohort_id: cohortId }),
+  createCampaign: (body: Record<string, unknown>) => request<Campaign>('POST', '/api/v1/backoffice/marketing/campaigns', body),
+  sendCampaign: (id: number) => request<Campaign>('POST', `/api/v1/backoffice/marketing/campaigns/${id}/send`),
   moderation: (status?: string) => request<ModerationData>('GET', `/api/v1/backoffice/moderation?${qs({ status })}`),
   moderate: (kind: 'reviews' | 'questions', id: number, status: 'visible' | 'hidden') => request<void>('PATCH', `/api/v1/backoffice/${kind}/${id}`, { status }),
   payouts: () => request<{ payouts: Payout[] }>('GET', '/api/v1/backoffice/payouts').then((r) => r.payouts),

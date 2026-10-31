@@ -24,12 +24,15 @@ public static class OutboxTypes
     public const string ReturnRefunded = "return_refunded";
     public const string QuestionAsked = "question_asked";
     public const string QuestionAnswered = "question_answered";
+    public const string CampaignSend = "campaign_send";
+    public const string CouponIssued = "coupon_issued";
 }
 
 public sealed record UserRegistered(long UserId, string Email, string Name);
 public sealed record ProductsChanged(List<long> ProductIds);
 public sealed record CatalogReindex(string Reason);
 public sealed record OrderEventMessage(Guid OrderId, string Number, long CustomerId, string? Reason, DateTime OccurredAt);
+public sealed record CampaignMessage(long CampaignId, long? CouponId);
 public sealed record QuestionEventMessage(long QuestionId, long? AnswerId);
 public sealed record ReturnEventMessage(Guid ReturnId, string Number, DateTime OccurredAt);
 public sealed record PackageEventMessage(Guid OrderId, string Number, long CustomerId, Guid PackageId, string? TrackingNumber, DateTime OccurredAt);
@@ -42,6 +45,7 @@ public sealed record PackageEventMessage(Guid OrderId, string Number, long Custo
 [JsonSerializable(typeof(PackageEventMessage))]
 [JsonSerializable(typeof(ReturnEventMessage))]
 [JsonSerializable(typeof(QuestionEventMessage))]
+[JsonSerializable(typeof(CampaignMessage))]
 public sealed partial class OutboxJsonContext : JsonSerializerContext;
 
 public static class OutboxWriter

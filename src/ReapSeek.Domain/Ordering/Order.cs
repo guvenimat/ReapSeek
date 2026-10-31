@@ -1,4 +1,5 @@
 using ReapSeek.Domain.Common;
+using ReapSeek.Domain.Marketing;
 
 namespace ReapSeek.Domain.Ordering;
 
@@ -74,8 +75,9 @@ public sealed class Order : AggregateRoot
     readonly List<SellerPackage> _packages;
 
     Order(Guid id, string number, long customerId, ShippingAddress address, IEnumerable<SellerPackage> packages, OrderStatus status,
-        DateTime placedAt, DateTime? paidAt, string? paymentReference, string? closeReason)
+        DateTime placedAt, DateTime? paidAt, string? paymentReference, string? closeReason, OrderDiscount? discount)
     {
+        Discount = discount;
         Id = id;
         Number = number;
         CustomerId = customerId;
@@ -98,15 +100,17 @@ public sealed class Order : AggregateRoot
     public DateTime? PaidAt { get; private set; }
     public string? PaymentReference { get; private set; }
     public string? CloseReason { get; private set; }
+    public OrderDiscount? Discount { get; }
+    public Money DiscountTotal => Discount?.Amount ?? Money.Zero(Subtotal.Currency);
 
     public IEnumerable<OrderLine> Lines => _packages.SelectMany(p => p.Lines);
     public Money Subtotal => Money.Sum(_packages.Select(p => p.Subtotal));
     public Money ShippingTotal => Money.Sum(_packages.Select(p => p.ShippingFee));
-    public Money Total => Subtotal + ShippingTotal;
+    public Money Total => Subtotal + ShippingTotal - DiscountTotal;
     public DateTime PaymentDeadline => PlacedAt + PaymentWindow;
 
     public static Order Place(Guid id, string number, long customerId, ShippingAddress address, IReadOnlyList<OrderItem> items,
-        ShippingPolicy shipping, Func<Guid> newId, DateTime now)
+        ShippingPolicy shipping, Func<Guid> newId, DateTime now, OrderDiscount? discount = null)
     {
         if (items.Count == 0) throw new DomainException("order.empty", "An order needs at least one item");
         if (items.Count > MaxLines) throw new DomainException("order.max_lines", $"An order can have at most {MaxLines} items");
@@ -131,14 +135,16 @@ public sealed class Order : AggregateRoot
             })
             .ToList();
 
-        var order = new Order(id, number, customerId, address, packages, OrderStatus.PendingPayment, now, null, null, null);
+        if (discount is not null && discount.Amount > Money.Sum(packages.Select(p => p.Subtotal), discount.Amount.Currency))
+            throw new DomainException("order.discount", "The discount cannot be larger than the items");
+        var order = new Order(id, number, customerId, address, packages, OrderStatus.PendingPayment, now, null, null, null, discount);
         order.Raise(new OrderPlaced(id, number, customerId, now));
         return order;
     }
 
     public static Order Restore(Guid id, string number, long customerId, ShippingAddress address, IEnumerable<SellerPackage> packages,
-        OrderStatus status, DateTime placedAt, DateTime? paidAt, string? paymentReference, string? closeReason) =>
-        new(id, number, customerId, address, packages, status, placedAt, paidAt, paymentReference, closeReason);
+        OrderStatus status, DateTime placedAt, DateTime? paidAt, string? paymentReference, string? closeReason, OrderDiscount? discount = null) =>
+        new(id, number, customerId, address, packages, status, placedAt, paidAt, paymentReference, closeReason, discount);
 
     public void AttachPayment(string paymentReference)
     {

@@ -637,3 +637,53 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.order-summary .discount dd {
+  color: var(--success);
+}
+
+.coupon-box {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.coupon-row {
+  display: flex;
+  gap: 8px;
+}
+
+.coupon-row input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+}
+
+.my-coupons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.coupon-chip {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px dashed var(--brand);
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.inline-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}

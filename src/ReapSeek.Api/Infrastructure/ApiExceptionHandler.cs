@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Common;
 using ReapSeek.Shared;
+using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Ordering;
 using ReapSeek.Shared.Search;
 
@@ -19,6 +20,7 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> log) : IExc
             ConflictException e => (StatusCodes.Status409Conflict, e.Message, e.Code),
             InsufficientStockException => (StatusCodes.Status409Conflict, "An item in your cart just sold out. Please review your cart.", "out_of_stock"),
             PaymentProviderException => (StatusCodes.Status503ServiceUnavailable, "Payments are temporarily unavailable. Your order was not placed.", "payment_unavailable"),
+            AudienceUnavailableException => (StatusCodes.Status503ServiceUnavailable, "ReapDeep is not reachable, so audiences cannot be loaded right now.", "reapdeep_unavailable"),
             ShippingProviderException => (StatusCodes.Status503ServiceUnavailable, "The carrier is temporarily unavailable. Try shipping again in a moment.", "shipping_unavailable"),
             BadHttpRequestException e => (e.StatusCode, "Invalid request body", (string?)null),
             OpenSearchException or HttpRequestException => (StatusCodes.Status503ServiceUnavailable, "Search is temporarily unavailable", null),

@@ -86,6 +86,7 @@ export default async function OrderPage({ params }: Props) {
           <dl>
             <div><dt>Items</dt><dd>{formatPrice(order.subtotal)}</dd></div>
             <div><dt>Shipping</dt><dd>{order.shipping_total === 0 ? 'Free' : formatPrice(order.shipping_total)}</dd></div>
+            {order.discount_total > 0 && <div className="discount"><dt>Discount ({order.coupon_code})</dt><dd>−{formatPrice(order.discount_total)}</dd></div>}
             <div className="total"><dt>Total</dt><dd>{formatPrice(order.total)}</dd></div>
           </dl>
           <h3>Delivery address</h3>

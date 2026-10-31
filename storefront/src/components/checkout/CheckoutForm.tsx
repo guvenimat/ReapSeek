@@ -11,6 +11,9 @@ type AddressForm = { full_name: string; phone: string; city: string; district: s
 
 const emptyAddress = (name: string): AddressForm => ({ full_name: name, phone: '', city: '', district: '', line: '', postal_code: '' })
 
+type CouponPreview = { code: string; discount: number; total: number; expires_at: string }
+type MyCoupon = { code: string; kind: 'percent' | 'fixed'; value: number; min_subtotal: number; max_discount: number | null; expires_at: string; campaign: string | null }
+
 export function CheckoutForm({ cart: initialCart, addresses, customerName }: { cart: Cart; addresses: SavedAddress[]; customerName: string }) {
   const [cart, setCart] = useState(initialCart)
   const [selected, setSelected] = useState<number | 'new'>(addresses[0]?.id ?? 'new')
@@ -18,6 +21,28 @@ export function CheckoutForm({ cart: initialCart, addresses, customerName }: { c
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const tracked = useRef(false)
+  const [code, setCode] = useState('')
+  const [coupon, setCoupon] = useState<CouponPreview | null>(null)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [myCoupons, setMyCoupons] = useState<MyCoupon[]>([])
+  const total = coupon?.total ?? cart.total
+
+  useEffect(() => {
+    api<{ coupons: MyCoupon[] }>('GET', '/account/coupons').then((r) => setMyCoupons(r.coupons)).catch(() => undefined)
+  }, [])
+
+  async function applyCoupon(value: string) {
+    setCouponError(null)
+    try {
+      const preview = await api<CouponPreview>('GET', `/checkout/coupon?code=${encodeURIComponent(value.trim())}`)
+      setCoupon(preview)
+      setCode(preview.code)
+      track('coupon_applied', { code: preview.code, discount: preview.discount })
+    } catch (err) {
+      setCoupon(null)
+      setCouponError((err as Error).message)
+    }
+  }
 
   useEffect(() => {
     if (tracked.current) return
@@ -34,10 +59,14 @@ export function CheckoutForm({ cart: initialCart, addresses, customerName }: { c
     setBusy(true)
     setError(null)
     try {
-      const res = await api<{ order_number: string; payment_url: string }>('POST', '/checkout', { address, expected_total: cart.total })
+      const res = await api<{ order_number: string; payment_url: string }>('POST', '/checkout', { address, expected_total: total, coupon_code: coupon?.code ?? null })
       window.location.assign(res.payment_url)
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'price_changed') setCart(await api<Cart>('GET', '/cart'))
+      if (err instanceof ApiError && err.code === 'price_changed') {
+        setCart(await api<Cart>('GET', '/cart'))
+        if (coupon) await applyCoupon(coupon.code)
+      }
+      if (err instanceof ApiError && err.code?.startsWith('coupon.')) setCoupon(null)
       setError((err as Error).message)
       setBusy(false)
     }
@@ -101,11 +130,33 @@ export function CheckoutForm({ cart: initialCart, addresses, customerName }: { c
         <dl>
           <div><dt>Items ({cart.item_count})</dt><dd>{formatPrice(cart.subtotal)}</dd></div>
           <div><dt>Shipping</dt><dd>{cart.shipping_total === 0 ? 'Free' : formatPrice(cart.shipping_total)}</dd></div>
-          <div className="total"><dt>Total</dt><dd data-testid="checkout-total">{formatPrice(cart.total)}</dd></div>
+          {coupon && <div className="discount" data-testid="checkout-discount"><dt>Discount ({coupon.code})</dt><dd>−{formatPrice(coupon.discount)}</dd></div>}
+          <div className="total"><dt>Total</dt><dd data-testid="checkout-total">{formatPrice(total)}</dd></div>
         </dl>
+        <div className="coupon-box" data-testid="coupon-box">
+          {coupon ? (
+            <p className="small">Code <strong>{coupon.code}</strong> applied. <button type="button" className="inline-link" onClick={() => { setCoupon(null); setCode('') }}>Remove</button></p>
+          ) : (
+            <div className="coupon-row">
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Discount code" aria-label="Discount code" name="coupon" maxLength={40} />
+              <button type="button" className="btn btn-secondary" disabled={!code.trim()} onClick={() => void applyCoupon(code)}>Apply</button>
+            </div>
+          )}
+          {couponError && <p className="form-error" role="alert" data-testid="coupon-error">{couponError}</p>}
+          {!coupon && myCoupons.length > 0 && (
+            <div className="my-coupons">
+              <span className="muted small">Your codes:</span>
+              {myCoupons.map((c) => (
+                <button key={c.code} type="button" className="coupon-chip" onClick={() => void applyCoupon(c.code)} data-code={c.code}>
+                  {c.kind === 'percent' ? `${c.value}% off` : `${formatPrice(c.value)} off`}{c.min_subtotal > 0 ? ` over ${formatPrice(c.min_subtotal)}` : ''}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {error && <p className="form-error" role="alert" data-testid="checkout-error">{error}</p>}
         <button type="submit" className="btn btn-accent btn-block" disabled={busy || !cart.can_checkout} data-testid="pay-button">
-          {busy ? 'Redirecting to payment…' : `Pay ${formatPrice(cart.total)}`}
+          {busy ? 'Redirecting to payment…' : `Pay ${formatPrice(total)}`}
         </button>
         <p className="muted small">You will enter your card on the payment provider&apos;s secure page. ReapSeek never sees your card number.</p>
         <Link href="/cart" className="inline-link small">Back to cart</Link>

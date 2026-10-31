@@ -88,7 +88,7 @@ public sealed class ReturnHandler : IDisposable
         var paymentId = await conn.ExecuteScalarAsync<string?>("SELECT payment_reference FROM orders WHERE id = @Id", new { Id = request.OrderId })
             ?? throw new InvalidOperationException($"Order {request.OrderNumber} has no payment");
         using var res = await _sandbox.PostAsJsonAsync($"v1/payments/{Uri.EscapeDataString(paymentId)}/refunds",
-            new SandboxRefundRequest(request.Total.Amount, $"return-{request.Id}"), RefundJsonContext.Default.SandboxRefundRequest, ct);
+            new SandboxRefundRequest(request.RefundAmount.Amount, $"return-{request.Id}"), RefundJsonContext.Default.SandboxRefundRequest, ct);
         if (!res.IsSuccessStatusCode)
             throw new HttpRequestException($"The payment provider returned {(int)res.StatusCode} for the refund of {request.Number}: {await res.Content.ReadAsStringAsync(ct)}");
         var refund = await res.Content.ReadFromJsonAsync(RefundJsonContext.Default.SandboxRefund, ct) ?? throw new HttpRequestException("Empty refund response");
@@ -102,7 +102,7 @@ public sealed class ReturnHandler : IDisposable
         await LedgerStore.InsertAsync(conn, tx, new LedgerInsertRecord(locked.SellerId, locked.PackageId, locked.Id, locked.OrderNumber,
             entries.Select(e => e.Kind).ToArray(), entries.Select(e => e.Amount).ToArray(), now));
         await tx.CommitAsync(ct);
-        _log.LogInformation("Refunded {Amount} for {Return} ({Refund})", locked.Total, locked.Number, refund.Id);
+        _log.LogInformation("Refunded {Amount} for {Return} ({Refund})", locked.RefundAmount, locked.Number, refund.Id);
     }
 
     static async Task<PersonRecord> CustomerAsync(NpgsqlConnection conn, ReturnRequest request) =>
