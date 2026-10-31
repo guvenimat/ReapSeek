@@ -1,33 +1,16 @@
-using System.Collections.Concurrent;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
 namespace ReapSeek.Sandbox.Payments;
-
-public sealed class PaymentStore
-{
-    readonly ConcurrentDictionary<string, Payment> _payments = new(StringComparer.Ordinal);
-
-    public Payment Add(Payment payment)
-    {
-        _payments[payment.Id] = payment;
-        return payment;
-    }
-
-    public Payment? Find(string id) => _payments.GetValueOrDefault(id);
-
-    public static string NewId(string prefix) => $"{prefix}_{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12))}";
-}
 
 public sealed class WebhookDispatcher(IConfiguration cfg, IHttpClientFactory http, ILogger<WebhookDispatcher> log)
 {
     static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15)];
     readonly string _secret = cfg["Sandbox:WebhookSecret"] ?? throw new InvalidOperationException("Sandbox:WebhookSecret is not set");
 
-    public void Send(Payment payment) => _ = Task.Run(() => DeliverAsync(payment, PaymentStore.NewId("evt")));
+    public void Send(PaymentRecord payment) => _ = Task.Run(() => DeliverAsync(payment, PaymentStore.NewId("evt")));
 
-    public Task DeliverAsync(Payment payment, string eventId) =>
+    public Task DeliverAsync(PaymentRecord payment, string eventId) =>
         PostAsync(payment.WebhookUrl, eventId, payment.Id, JsonSerializer.Serialize(new WebhookEvent(eventId, $"payment.{payment.Status}", DateTime.UtcNow,
             new WebhookData(payment.Id, payment.Reference, payment.Amount, payment.Currency, payment.Status, payment.FailureReason, payment.CardLast4)),
             SandboxJsonContext.Default.WebhookEvent));

@@ -35,7 +35,7 @@ public static class SandboxPages
         <footer>Simulated payment provider. No real card is charged.</footer></main></body></html>
         """;
 
-    public static string CardForm(Payment p, string? error, string? holder) => Page("Pay securely", $"""
+    public static string CardForm(PaymentRecord p, string? error, string? holder) => Page("Pay securely", $"""
         <section class="card" data-testid="card-form">
           <h1>Pay securely</h1>
           <p class="muted">{WebUtility.HtmlEncode(p.Description)}</p>
@@ -55,7 +55,7 @@ public static class SandboxPages
         </section>
         """);
 
-    public static string Authentication(Payment p, string? error) => Page("3-D Secure", $"""
+    public static string Authentication(PaymentRecord p, string? error) => Page("3-D Secure", $"""
         <section class="card" data-testid="three-ds">
           <h1>Confirm this payment</h1>
           <p class="muted">Your bank sent a code to the phone number on file for the {WebUtility.HtmlEncode(p.CardBrand)} card ending in {WebUtility.HtmlEncode(p.CardLast4)}.</p>
@@ -69,7 +69,7 @@ public static class SandboxPages
         </section>
         """);
 
-    public static string Result(Payment p)
+    public static string Result(PaymentRecord p)
     {
         var ok = p.Status == PaymentStatus.Succeeded;
         var message = ok ? "Payment approved" : p.FailureReason switch

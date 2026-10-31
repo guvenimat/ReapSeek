@@ -13,16 +13,16 @@ public static class PaymentStatus
     public const string Failed = "failed";
 }
 
-public sealed class Payment
+public sealed class PaymentRecord
 {
-    public required string Id { get; init; }
-    public required decimal Amount { get; init; }
-    public required string Currency { get; init; }
-    public required string Reference { get; init; }
-    public required string Description { get; init; }
-    public required string ReturnUrl { get; init; }
-    public required string WebhookUrl { get; init; }
-    public required DateTime CreatedAt { get; init; }
+    public string Id { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "";
+    public string Reference { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string ReturnUrl { get; set; } = "";
+    public string WebhookUrl { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
     public string Status { get; set; } = PaymentStatus.RequiresPaymentMethod;
     public string? CardBrand { get; set; }
     public string? CardLast4 { get; set; }
