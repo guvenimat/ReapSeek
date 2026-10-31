@@ -368,3 +368,5 @@ The scripts run end to end against the running stack.
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+The local stack runs third-party images unmodified as separate containers; they are not part of this repository: PostgreSQL (PostgreSQL License), Redis (RSALv2/SSPLv1/AGPLv3), OpenSearch (Apache 2.0), Mailpit (MIT) and `grafana/otel-lgtm` (Apache 2.0, with Grafana, Loki and Tempo under AGPLv3 and Prometheus under Apache 2.0).
