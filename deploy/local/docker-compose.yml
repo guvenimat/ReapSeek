@@ -161,6 +161,8 @@ services:
       ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
       Orders__ExpiryCheckSeconds: "10"
       Payouts__CheckSeconds: "60"
+      Carts__ReminderAfterSeconds: "20"
+      Carts__ReminderCheckSeconds: "5"
       Payments__Sandbox__ApiUrl: http://sandbox:8080
       Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
     extra_hosts:

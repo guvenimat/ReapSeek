@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Abandoned-cart emails and ReapDeep alerts in the back office follow next.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, abandoned-cart reminders, ReapDeep alerts in the back office, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. A shopping simulator that fills ReapDeep with realistic behavior comes last.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -193,6 +193,13 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 - **At checkout:** the code is checked against its owner, expiry and minimum basket, the discount is reserved with the order in the same transaction, and a failed or expired payment gives it back. Customers can pick their codes with one click. ReapSeek pays the discount: sellers are settled on the full price, and a return refunds only what was paid for the item.
 - **Measured:** each campaign shows paid orders and revenue, and the `purchase` events carry the `coupon`, so conversion can be analysed per cohort in ReapDeep.
 
+### Abandoned carts and ReapDeep alerts
+
+![ReapDeep alerts in the back office](docs/images/backoffice-alerts.png)
+
+- **One reminder per idle cart:** the worker looks for signed-in customers whose cart has not changed for an hour (20 seconds locally) and sends one email with the items at today's price. Changing the cart starts a new idle period; an empty cart, a guest cart or a cart older than a week gets nothing. The reminder is marked in the same transaction that queues it, so it never goes out twice, and ReapDeep gets a `cart_reminder_sent` event to measure recovery.
+- **Alerts from ReapDeep:** alerts are defined in ReapDeep on saved trends (for example "Purchases dropped", a 50% fall per day, created by `connect-reapdeep.ps1`). ReapDeep posts each change to `POST /api/v1/reapdeep/alerts`, signed with the alert's own secret (`X-ReapDeep-Signature: sha256=...`). ReapSeek keeps one secret per alert, rejects unknown alerts and changed bodies, records each state change once, lists them on the back office Alerts page and emails the admins.
+
 ### Recommendations from ReapDeep
 
 ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behavior, the same way any ReapDeep customer would: through the Recommender's public API.
@@ -233,6 +240,7 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 | `question_asked` | a question is asked | `item_id` |
 | `refund` (server) | a return is refunded | `item_id`, `order_id`, `return_id`, `price`, `quantity`, `amount`, `currency`, `seller_id`, `sku` |
 | `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id`, `coupon` |
+| `cart_reminder_sent` (server) | an abandoned-cart email is sent | `quantity`, `amount` |
 | `coupon_applied` | a code is applied at checkout | `code`, `discount` |
 
 `item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations. Purchases are sent from the server rather than the browser, so they are counted even when the customer closes the tab after paying; each line has a stable `event_id`, so a retry never counts twice.
@@ -304,6 +312,7 @@ cd deploy/local
 .\returns-test.ps1
 .\reviews-test.ps1
 .\campaigns-test.ps1
+.\engagement-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -318,6 +327,7 @@ The scripts run end to end against the running stack.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
 - `campaigns-test.ps1`: a static cohort created in ReapDeep, the audience preview (customers only), campaign validation, sending once with one email and personal code per customer, the code rules (owner, minimum basket, single use, case), checkout with the discounted total and payment, the code coming back after a failed payment, campaign revenue, the `coupon` on ReapDeep purchase events, the refund of a discounted item, and one-click codes at checkout in a headless Chrome session.
+- `engagement-test.ps1`: one abandoned-cart reminder per idle period with the items and prices, none for emptied or guest carts, a new one after a change, the ReapDeep event; a real alert defined and fired in ReapDeep reaching the back office and the admins' inbox, unknown alerts, changed bodies and duplicate deliveries rejected.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License
