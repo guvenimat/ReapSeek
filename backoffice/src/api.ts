@@ -96,7 +96,7 @@ export type ImageApi = {
 }
 export type CustomerRow = { id: number; name: string; email: string; created_at: string; suspended_at: string | null; orders: number; spent: number; last_order_at: string | null }
 export type CustomerDetail = {
-  id: number; name: string; email: string; created_at: string; suspended_at: string | null; suspended_reason: string | null; distinct_id: string
+  id: number; name: string; email: string; created_at: string; suspended_at: string | null; suspended_reason: string | null; email_verified_at: string | null; distinct_id: string
   stats: { orders: number; spent: number; refunded: number; average_order: number; returns: number; reviews: number; first_order_at: string | null; last_order_at: string | null }
   orders: { number: string; status: string; total: number; packages: number; placed_at: string }[]
   returns: { number: string; order_number: string; status: string; reason: string; refund_amount: number; requested_at: string }[]
@@ -179,6 +179,10 @@ export const api = {
   retryOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/retry`),
   discardOutboxMessage: (id: number) => request<void>('POST', `/api/v1/backoffice/outbox/${id}/discard`),
   retryOutbox: (type?: string) => request<{ retried: number }>('POST', '/api/v1/backoffice/outbox/retry', { type: type ?? null }),
+  forgotPassword: (email: string) => request<void>('POST', '/api/v1/backoffice/auth/password/forgot', { email }),
+  checkResetToken: (token: string) => request<{ valid: boolean }>('GET', `/api/v1/auth/password/reset?${qs({ token })}`).then((r) => r.valid),
+  resetPassword: (token: string, password: string) => request<void>('POST', '/api/v1/auth/password/reset', { token, password }),
+  sendCustomerReset: (id: number) => request<void>('POST', `/api/v1/backoffice/customers/${id}/password-reset`),
   customers: (params: { q?: string; sort?: string; status?: string; page?: number }) =>
     request<{ customers: CustomerRow[]; total: number; page: number; page_size: number }>('GET', `/api/v1/backoffice/customers?${qs(params)}`),
   customer: (id: number) => request<CustomerDetail>('GET', `/api/v1/backoffice/customers/${id}`),
@@ -188,7 +192,7 @@ export const api = {
   alerts: () => request<{ events: AlertEvent[]; subscriptions: number }>('GET', '/api/v1/backoffice/alerts'),
   campaigns: () => request<{ campaigns: Campaign[] }>('GET', '/api/v1/backoffice/marketing/campaigns').then((r) => r.campaigns),
   audienceCohorts: () => request<{ cohorts: AudienceCohort[] }>('GET', '/api/v1/backoffice/marketing/cohorts').then((r) => r.cohorts),
-  audiencePreview: (cohortId: number) => request<{ cohort_id: number; customers: number }>('POST', '/api/v1/backoffice/marketing/audience', { cohort_id: cohortId }),
+  audiencePreview: (cohortId: number) => request<{ cohort_id: number; customers: number; unreachable: number }>('POST', '/api/v1/backoffice/marketing/audience', { cohort_id: cohortId }),
   createCampaign: (body: Record<string, unknown>) => request<Campaign>('POST', '/api/v1/backoffice/marketing/campaigns', body),
   sendCampaign: (id: number) => request<Campaign>('POST', `/api/v1/backoffice/marketing/campaigns/${id}/send`),
   moderation: (status?: string) => request<ModerationData>('GET', `/api/v1/backoffice/moderation?${qs({ status })}`),

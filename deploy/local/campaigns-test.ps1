@@ -65,6 +65,11 @@ function Customer([string]$name, [string]$display) {
     $c = NewClient
     $null = Send $c POST "$api/api/v1/auth/register" @{ email = "$name.$tag@example.com"; name = $display; password = "buyer-pass-1" }
     $c | Add-Member -NotePropertyName Id -NotePropertyValue (Send $c GET "$api/api/v1/auth/me").Json.user.id
+    $address = "$name.$tag@example.com"
+    $null = WaitFor { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=to:$address").messages_count -ge 1 } 20
+    $mailId = (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=to:$address").messages[0].ID
+    $token = [regex]::Match((Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/message/$mailId").Text, "verify-email\?token=([A-Za-z0-9_-]{43})").Groups[1].Value
+    $null = Send $c POST "$api/api/v1/auth/email/verify" @{ token = $token }
     $c
 }
 $ada = Customer "ada" "Ada Kaya"

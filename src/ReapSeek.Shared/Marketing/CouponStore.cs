@@ -42,7 +42,7 @@ public static class CouponStore
             INSERT INTO coupons (code, campaign_id, customer_id, kind, value, min_subtotal, max_discount, expires_at)
             SELECT c.code, @CampaignId, c.customer_id, @Kind, @Value, @MinSubtotal, @MaxDiscount, @ExpiresAt
             FROM unnest(@CustomerIds, @Codes) AS c(customer_id, code)
-            WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = c.customer_id AND u.role = 'customer')
+            WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = c.customer_id AND u.role = 'customer' AND u.email_verified_at IS NOT NULL AND u.suspended_at IS NULL)
             ON CONFLICT (campaign_id, customer_id) DO NOTHING
             """, issue, tx);
 }

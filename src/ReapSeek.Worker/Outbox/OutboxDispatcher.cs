@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.Caching;
 using ReapSeek.Worker.CatalogSync;
@@ -9,11 +7,10 @@ using ReapSeek.Worker.Search;
 
 namespace ReapSeek.Worker.Outbox;
 
-public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
-    OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, EngagementHandler engagement, IConfiguration cfg)
+public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
+    OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, EngagementHandler engagement, AccountEmailHandler accounts)
 {
     const string CatalogGroup = "catalog";
-    readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
 
     public static string GroupOf(OutboxRepository.MessageRecord message) =>
         CatalogSyncHandler.Handles(message.Type) ? CatalogGroup : $"message:{message.Id}";
@@ -50,8 +47,7 @@ public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator 
         }
         await (message.Type switch
         {
-            OutboxTypes.UserRegistered => email.SendAsync(EmailTemplates.Welcome(
-                Deserialize(message, OutboxJsonContext.Default.UserRegistered), _storefrontUrl), ct),
+            OutboxTypes.UserRegistered or OutboxTypes.AccountEmail => accounts.HandleAsync(message, ct),
             OutboxTypes.OrderPaid => orderPaid.HandleAsync(message, ct),
             OutboxTypes.PackageShipped => orderPaid.HandleShippedAsync(message, ct),
             OutboxTypes.PackageDelivered => Task.CompletedTask,
@@ -59,7 +55,4 @@ public sealed class OutboxDispatcher(EmailSender email, ProductCacheInvalidator 
             _ => throw new NotSupportedException($"Unknown outbox message type: {message.Type}"),
         });
     }
-
-    static T Deserialize<T>(OutboxRepository.MessageRecord message, JsonTypeInfo<T> type) =>
-        JsonSerializer.Deserialize(message.Payload, type) ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
 }

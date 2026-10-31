@@ -161,6 +161,10 @@ export function CustomerDetailPage({ id }: { id: number }) {
 function Profile({ customer: c, onChanged }: { customer: CustomerDetail; onChanged: () => void }) {
   const action = useAction()
   const [reason, setReason] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const sendReset = async () => {
+    if ((await action.run(() => api.sendCustomerReset(c.id))) !== undefined) setResetSent(true)
+  }
   const suspend = async () => {
     await action.run(() => api.suspendCustomer(c.id, reason.trim()))
     setReason('')
@@ -173,7 +177,8 @@ function Profile({ customer: c, onChanged }: { customer: CustomerDetail; onChang
   return (
     <Card title={<>{c.name} {c.suspended_at && <Badge tone="bad">Suspended</Badge>}</>} testId="customer-profile">
       <div className="facts">
-        <div><span className="muted small">Email</span><div>{c.email}</div></div>
+        <div><span className="muted small">Email</span><div>{c.email}</div>
+          <span>{c.email_verified_at ? <Badge tone="good">Verified</Badge> : <Badge tone="warn">Not verified</Badge>}</span></div>
         <div><span className="muted small">Joined</span><div>{formatDate(c.created_at)}</div></div>
         <div><span className="muted small">First order</span><div>{c.stats.first_order_at ? formatDate(c.stats.first_order_at) : '-'}</div></div>
         <div><span className="muted small">ReapDeep id</span><div className="mono">{c.distinct_id}</div></div>
@@ -189,6 +194,13 @@ function Profile({ customer: c, onChanged }: { customer: CustomerDetail; onChang
           <input placeholder="Reason (required to suspend)" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Suspension reason" />
           <button type="submit" className="btn btn-ghost danger" disabled={action.busy || !reason.trim()}>Suspend account</button>
         </form>
+      )}
+      {!c.suspended_at && (
+        <p className="small">
+          {resetSent ? <span data-testid="reset-sent">A password reset link was emailed to the customer.</span>
+            : <button className="link" disabled={action.busy} onClick={sendReset} data-testid="send-reset">Email a password reset link</button>}
+          <span className="muted"> · Staff never see or set customer passwords.</span>
+        </p>
       )}
       <p className="muted small">Suspending signs the customer out everywhere and blocks storefront sign-in. Orders already placed are not affected.</p>
     </Card>

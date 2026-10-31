@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-export type User = { id: number; email: string; name: string; role: string }
+export type User = { id: number; email: string; name: string; role: string; email_verified: boolean }
 
 const apiUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:8100'
 const sessionCookie = 'rs_session'
@@ -17,6 +17,15 @@ export async function getCurrentUser(): Promise<User | null> {
     return ((await res.json()) as { user: User }).user
   } catch {
     return null
+  }
+}
+
+export async function checkResetToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/auth/password/reset?token=${encodeURIComponent(token)}`, { cache: 'no-store' })
+    return res.ok && ((await res.json()) as { valid: boolean }).valid
+  } catch {
+    return false
   }
 }
 

@@ -53,6 +53,7 @@ export function AuthForm({ mode, next }: { mode: Mode; next: string }) {
           <input name="password" type="password" autoComplete={isLogin ? 'current-password' : 'new-password'} required
             minLength={isLogin ? undefined : 8} maxLength={1024} />
           {!isLogin && <small className="hint">At least 8 characters</small>}
+          {isLogin && <small className="hint"><Link href="/forgot-password" data-testid="forgot-link">Forgot your password?</Link></small>}
         </label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>

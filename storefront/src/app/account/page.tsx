@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ChangePasswordForm, SignOutButton } from '@/components/AccountActions'
+import { VerifyEmailNotice } from '@/components/AccountRecovery'
 import { formatPrice } from '@/lib/catalog'
 import { getOrders, orderStatusLabel } from '@/lib/orders'
 import { getCurrentUser } from '@/lib/session'
@@ -22,6 +23,7 @@ export default async function AccountPage() {
         </div>
         <SignOutButton />
       </div>
+      {!user.email_verified && <VerifyEmailNotice />}
       <div className="account-grid">
         <section className="panel">
           <h2>Orders</h2>

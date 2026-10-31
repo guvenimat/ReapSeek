@@ -89,8 +89,8 @@ public sealed class Backfill(NpgsqlDataSource db, Ingest ingest, PayoutRunner pa
     static async Task<Dictionary<string, long>> InsertCustomersAsync(NpgsqlConnection conn, World world, string hash)
     {
         var rows = await conn.QueryAsync<CustomerIdRecord>("""
-            INSERT INTO users (email, name, password_hash, role, created_at)
-            SELECT e, n, @Hash, 'customer', c FROM unnest(@Emails, @Names, @CreatedAt) AS u(e, n, c)
+            INSERT INTO users (email, name, password_hash, role, created_at, email_verified_at)
+            SELECT e, n, @Hash, 'customer', c, c FROM unnest(@Emails, @Names, @CreatedAt) AS u(e, n, c)
             RETURNING id, email
             """, new CustomerInsertRecord(world.Customers.Select(c => c.Email).ToArray(), world.Customers.Select(c => c.Name).ToArray(), hash,
             world.Customers.Select(c => c.SignedUpAt).ToArray()));
@@ -102,7 +102,7 @@ public sealed class Backfill(NpgsqlDataSource db, Ingest ingest, PayoutRunner pa
         var hash = PasswordHasher.Hash(SimAccounts.SellerPassword);
         foreach (var s in await conn.QueryAsync<SellerRecord>("SELECT id, name FROM sellers s WHERE status = 'active' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.seller_id = s.id)"))
             await conn.ExecuteAsync("""
-                INSERT INTO users (email, name, password_hash, role, seller_id) VALUES (@Email, @Name, @Hash, 'seller', @SellerId) ON CONFLICT (email) DO NOTHING
+                INSERT INTO users (email, name, password_hash, role, seller_id, email_verified_at) VALUES (@Email, @Name, @Hash, 'seller', @SellerId, now()) ON CONFLICT (email) DO NOTHING
                 """, new { Email = SimAccounts.SellerEmail(s.Id), Name = s.Name, Hash = hash, SellerId = s.Id });
     }
 

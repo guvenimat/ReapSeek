@@ -457,3 +457,16 @@
     grid-template-columns: 1fr;
   }
 }
+
+.verify-notice {
+  margin-bottom: 20px;
+}
+
+.auth-card h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.auth-card .muted + .btn {
+  margin-top: 16px;
+}

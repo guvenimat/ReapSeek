@@ -84,6 +84,7 @@ public static class HostingExtensions
 
         services.AddSingleton<AccountRepository>();
         services.AddSingleton<SessionService>();
+        services.AddSingleton<AccountRecoveryService>();
         services.AddHostedService<BootstrapAdmin>();
         services.AddSingleton<CatalogRepository>();
         services.AddSingleton<CatalogService>();
@@ -120,8 +121,11 @@ public static class HostingExtensions
         app.UseMiddleware<UserAccessMiddleware>();
 
         var api = app.MapGroup("/api/v1");
-        api.MapGroup("/auth").MapStorefrontAuth();
-        api.MapGroup("/backoffice/auth").MapBackofficeAuth();
+        var storefrontAuth = api.MapGroup("/auth");
+        var backofficeAuth = api.MapGroup("/backoffice/auth");
+        storefrontAuth.MapStorefrontAuth();
+        backofficeAuth.MapBackofficeAuth();
+        storefrontAuth.MapAccountRecovery(backofficeAuth, api);
         api.MapStorefrontCatalog();
         api.MapStorefrontProducts();
         api.MapGroup("/cart").MapCart();

@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Shared.Identity;
 using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Api.Identity;
@@ -64,7 +65,7 @@ public sealed class AccountRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.QuerySingleOrDefaultAsync<UserInfo>("""
-            SELECT u.id, u.email, u.name, u.role, u.seller_id FROM sessions s JOIN users u ON u.id = s.user_id
+            SELECT u.id, u.email, u.name, u.role, u.seller_id, u.email_verified_at IS NOT NULL AS email_verified FROM sessions s JOIN users u ON u.id = s.user_id
             WHERE s.token_hash = @TokenHash AND s.audience = @Audience AND s.expires_at > now() AND u.suspended_at IS NULL
             """, new { TokenHash = tokenHash, Audience = audience });
     }
@@ -96,6 +97,8 @@ public sealed class AccountRepository(NpgsqlDataSource db)
         var revoked = (await conn.QueryAsync<string>(
             "DELETE FROM sessions WHERE user_id = @UserId AND token_hash <> @Keep RETURNING token_hash",
             new { UserId = userId, Keep = keepTokenHash }, tx)).ToArray();
+        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AccountEmail, new AccountEmailMessage(userId, AccountEmailKinds.PasswordChanged),
+            OutboxJsonContext.Default.AccountEmailMessage);
         await tx.CommitAsync(ct);
         return revoked;
     }
