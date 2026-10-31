@@ -13,6 +13,7 @@ using ReapSeek.Api.Products;
 using ReapSeek.Api.Recommendations;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Returns;
+using ReapSeek.Api.Reviews;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
@@ -92,6 +93,7 @@ public static class HostingExtensions
         services.AddSingleton<SellerPanelService>();
         services.AddSingleton<PayoutRunner>();
         services.AddSingleton<ReturnService>();
+        services.AddSingleton<ReviewRepository>();
         return builder;
     }
 
@@ -114,6 +116,7 @@ public static class HostingExtensions
         api.MapGroup("/backoffice/sellers").MapSellersAdmin();
         api.MapSellerPanel();
         api.MapReturns();
+        api.MapReviews();
         app.MapMedia();
         app.MapHealth();
         return app;

@@ -6,7 +6,7 @@ public sealed record SearchRequest(
 
 public sealed record ProductCard(
     long Id, string Slug, string Title, string Brand, string CategoryName, decimal? Price, decimal? ListPrice,
-    int Discount, bool InStock, int SellerCount, string? ImageUrl);
+    int Discount, bool InStock, int SellerCount, string? ImageUrl, double? Rating = null, int ReviewCount = 0);
 
 public sealed record ProductCategory(string Path, string Name);
 
@@ -31,5 +31,6 @@ public static class SearchSort
     public const string PriceDesc = "price_desc";
     public const string Newest = "newest";
     public const string Discount = "discount";
-    public static readonly string[] All = [Relevance, PriceAsc, PriceDesc, Newest, Discount];
+    public const string Rating = "rating";
+    public static readonly string[] All = [Relevance, PriceAsc, PriceDesc, Newest, Discount, Rating];
 }

@@ -5,11 +5,14 @@ import { cache } from 'react'
 import { TrackEvent } from '@/components/analytics/Analytics'
 import { ProductView } from '@/components/product/ProductView'
 import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
+import { ReviewsSection } from '@/components/reviews/ReviewsSection'
+import { getReviews } from '@/lib/reviews'
 import { buyBox, getProduct, initialVariant, publicUrl, type StoreProduct } from '@/lib/products'
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }
 
 const load = cache(getProduct)
+const loadReviews = cache(getReviews)
 
 function summary(product: StoreProduct) {
   const text = product.description || `${product.title} from ${product.brand}.`
@@ -37,6 +40,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const offer = buyBox(variant)
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date())
   const leaf = product.categories[product.categories.length - 1]
+  const reviews = await loadReviews(product.id)
+  const rating = reviews && reviews.summary.count > 0 ? { average: reviews.summary.average ?? 0, count: reviews.summary.count } : null
 
   const jsonLd = [
     {
@@ -49,6 +54,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       category: product.categories.map((c) => c.name).join(' > '),
       image: product.images.map((i) => `${publicUrl}${i.url}`),
       url: `${publicUrl}/p/${product.slug}`,
+      ...(rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: rating.average, reviewCount: rating.count, bestRating: 5, worstRating: 1 } } : {}),
       offers: {
         '@type': 'AggregateOffer',
         priceCurrency: 'TRY',
@@ -79,7 +85,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         ))}
       </nav>
 
-      <ProductView product={product} initialVariantId={variant.id} today={today} />
+      <ProductView product={product} initialVariantId={variant.id} today={today} rating={rating} />
 
       <section className="pdp-details" data-testid="product-details">
         <div>
@@ -95,6 +101,8 @@ export default async function ProductPage({ params, searchParams }: Props) {
           </dl>
         )}
       </section>
+
+      <ReviewsSection productId={product.id} slug={product.slug} />
 
       <RecommendationShelf placement="product_bought_together" title="Frequently bought together" productId={product.id} />
       <RecommendationShelf placement="product_similar" title="Customers also viewed" productId={product.id} />

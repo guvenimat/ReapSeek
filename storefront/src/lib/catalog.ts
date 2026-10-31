@@ -1,7 +1,7 @@
 export type CategoryNode = { id: number; slug: string; name: string; path: string; depth: number; image_kind: string; children: CategoryNode[] }
 export type ProductCard = {
   id: number; slug: string; title: string; brand: string; category_name: string; price: number | null; list_price: number | null
-  discount: number; in_stock: boolean; seller_count: number; image_url: string | null
+  discount: number; in_stock: boolean; seller_count: number; image_url: string | null; rating?: number | null; review_count?: number
 }
 export type FacetValue = { value: string; label: string; count: number; selected: boolean }
 export type SearchResult = {

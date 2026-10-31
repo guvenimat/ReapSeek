@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Reviews, questions and marketing follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Marketing follows in the next stage.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -171,6 +171,18 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 - **Refund:** when the carrier reports the return as delivered to the seller, the worker refunds the card through the Sandbox payment API (idempotent per return) and writes `refund` and `commission_refund` entries to the seller ledger; shipping fees are not refunded. A server-side `refund` event per item goes to ReapDeep, which nets it out of the customer's spend in RFM.
 - **Payouts and refunds:** refund entries are settled in the next payout even if the sale is still in its hold, so a seller is never paid for goods that came back. A seller whose balance is negative is not paid until new sales cover it.
 
+### Reviews and questions
+
+| Reviews from verified buyers | Questions answered by sellers |
+|---|---|
+| ![Product reviews with average, distribution and verified purchases](docs/images/storefront-reviews.png) | ![Questions and seller answers on a product page](docs/images/storefront-questions.png) |
+
+- **Only buyers review:** a customer can review a product once one of their packages with it was delivered; one review per customer and product, editable later. Each review shows the variant bought and "Verified purchase", and the author as first name and initial.
+- **Ratings everywhere:** the average and count are indexed in OpenSearch (refreshed through the outbox when a review is written or hidden), shown on product cards and as a "Top rated" sort, and the product page carries `aggregateRating` in its structured data.
+- **Questions:** any signed-in shopper asks; every seller with an offer on the product is emailed and answers in the seller center (one answer per seller, under the store name). The shopper is emailed the answer.
+- **Moderation:** staff hide or show reviews and questions in the back office; a hidden review drops out of the average at once.
+- **Measured in ReapDeep:** the storefront sends `review_submitted` (with the rating) and `question_asked`.
+
 ### Recommendations from ReapDeep
 
 ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behavior, the same way any ReapDeep customer would: through the Recommender's public API.
@@ -207,6 +219,8 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 | `checkout_started` | the checkout page is opened | `value`, `items`, `sellers` |
 | `recommendations_shown` | a recommendation shelf is shown | `placement`, `model`, `source_item_id`, `item_ids`, `count`, `served_from` |
 | `recommendation_clicked` | a recommended product is clicked | `placement`, `model`, `source_item_id`, `item_id`, `position`, `source`, `price` |
+| `review_submitted` | a review is posted or edited | `item_id`, `rating`, `edited` |
+| `question_asked` | a question is asked | `item_id` |
 | `refund` (server) | a return is refunded | `item_id`, `order_id`, `return_id`, `price`, `quantity`, `amount`, `currency`, `seller_id`, `sku` |
 | `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id` |
 
@@ -277,6 +291,7 @@ cd deploy/local
 .\recommendations-test.ps1
 .\seller-test.ps1
 .\returns-test.ps1
+.\reviews-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -289,6 +304,7 @@ The scripts run end to end against the running stack.
 - `scale-test.ps1` (needs the second instance: `docker compose --profile scale up -d`): the sign-in limit shared between two instances, sign-out and password change taking effect on the other instance at once, product page and category tree invalidation across instances, and a Redis outage.
 - `seller-test.ps1`: seller logins and role separation, product proposals with approval and rejection, offers and the buy box, a paid order shipped with a Sandbox tracking number and a shipping email, delivery writing the ledger, the 7-day hold, the weekly payout with a Sandbox transfer and its idempotency, and a headless Chrome session that ships a package from the seller center.
 - `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
+- `reviews-test.ps1`: who may review (only after delivery, never guests or non-buyers), validation, one editable review per customer, the average and distribution, sorting, the rating in search and in the product page's structured data, questions and seller answers with both emails, answer rights, moderation that updates the average and search, and a headless Chrome session that edits a review and asks a question on the product page, with the events checked in ReapDeep.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License

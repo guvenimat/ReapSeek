@@ -12,7 +12,7 @@ public static class SearchQuery
     const int MaxFilterValues = 10;
     const int MaxQueryLength = 100;
     static readonly string[] SizeOrder = ["XS", "S", "M", "L", "XL", "XXL"];
-    static readonly string[] CardFields = ["id", "slug", "title", "brand", "category_name", "price", "list_price", "discount", "in_stock", "seller_count", "image_url", "color_images"];
+    static readonly string[] CardFields = ["id", "slug", "title", "brand", "category_name", "price", "list_price", "discount", "in_stock", "seller_count", "image_url", "color_images", "rating", "review_count"];
 
     public static SearchRequest Parse(string? q, string? category, string[]? brand, string[]? color, string[]? size,
         decimal? minPrice, decimal? maxPrice, bool? inStock, string? sort, int? page, int? pageSize)
@@ -173,7 +173,7 @@ public static class SearchQuery
             var image = colors.Select(c => s["color_images"]?[c]?.GetValue<string>()).FirstOrDefault(u => u is not null) ?? s["image_url"]?.GetValue<string>();
             return new ProductCard(s["id"]!.GetValue<long>(), Str(s["slug"]), Str(s["title"]), Str(s["brand"]), Str(s["category_name"]),
                 Decimal(s["price"]), Decimal(s["list_price"]), s["discount"]?.GetValue<int>() ?? 0, s["in_stock"]?.GetValue<bool>() ?? false,
-                s["seller_count"]?.GetValue<int>() ?? 0, image);
+                s["seller_count"]?.GetValue<int>() ?? 0, image, s["rating"]?.GetValue<double>(), s["review_count"]?.GetValue<int>() ?? 0);
         }).ToList();
 
     static JsonObject TextQuery(string q) => new()
@@ -233,6 +233,7 @@ public static class SearchQuery
             SearchSort.PriceDesc => Arr(Desc("in_stock"), new JsonObject { ["price"] = new JsonObject { ["order"] = "desc", ["missing"] = "_last" } }, Asc("id")),
             SearchSort.Newest => Arr(Desc("created_at"), Asc("id")),
             SearchSort.Discount => Arr(Desc("in_stock"), Desc("discount"), Asc("price"), Asc("id")),
+            SearchSort.Rating => Arr(Desc("in_stock"), new JsonObject { ["rating"] = new JsonObject { ["order"] = "desc", ["missing"] = "_last" } }, Desc("review_count"), Asc("id")),
             _ when r.Query is not null => Arr(Desc("_score"), Desc("in_stock"), Desc("seller_count"), Asc("id")),
             _ => Arr(Desc("in_stock"), Desc("seller_count"), Desc("discount"), Desc("created_at"), Asc("id")),
         };

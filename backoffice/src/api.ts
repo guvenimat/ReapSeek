@@ -65,6 +65,13 @@ export type SellerReturn = {
   total: number; requested_at: string; rejection_note: string | null; return_tracking: string | null; received_at: string | null; refunded_at: string | null
   customer_name: string; lines: { product_title: string; variant_label: string; sku: string; quantity: number; unit_price: number }[]
 }
+export type SellerQuestion = {
+  id: number; product_id: number; product_title: string; product_slug: string; body: string; author: string; created_at: string; my_answer: string | null; answer_count: number
+}
+export type ModerationData = {
+  reviews: { id: number; product_id: number; product_title: string; rating: number; title: string; body: string; author: string; status: 'visible' | 'hidden'; created_at: string }[]
+  questions: { id: number; product_id: number; product_title: string; body: string; author: string; status: 'visible' | 'hidden'; answer_count: number; created_at: string }[]
+}
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -123,6 +130,8 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
+  moderation: (status?: string) => request<ModerationData>('GET', `/api/v1/backoffice/moderation?${qs({ status })}`),
+  moderate: (kind: 'reviews' | 'questions', id: number, status: 'visible' | 'hidden') => request<void>('PATCH', `/api/v1/backoffice/${kind}/${id}`, { status }),
   payouts: () => request<{ payouts: Payout[] }>('GET', '/api/v1/backoffice/payouts').then((r) => r.payouts),
   runPayouts: () => request<{ period_end: string; created: number; transferred: number; transfer_failures: number }>('POST', '/api/v1/backoffice/payouts/run'),
   reviewProduct: (id: number, decision: 'approve' | 'reject', note?: string) =>
@@ -155,6 +164,9 @@ export const sellerApi = {
   packages: (params: { status?: string; page?: number }) =>
     request<{ packages: SellerPackage[]; total: number; page: number; page_size: number }>('GET', `${seller}/packages?${qs(params)}`),
   ship: (id: string) => request<SellerPackage>('POST', `${seller}/packages/${id}/ship`),
+  questions: (answered?: boolean) =>
+    request<{ questions: SellerQuestion[] }>('GET', `${seller}/questions?${qs({ answered: answered === undefined ? undefined : String(answered) })}`).then((r) => r.questions),
+  answer: (id: number, body: string) => request<{ questions: SellerQuestion[] }>('PUT', `${seller}/questions/${id}/answer`, { body }),
   returns: (status?: string) => request<{ returns: SellerReturn[] }>('GET', `${seller}/returns?${qs({ status })}`).then((r) => r.returns),
   approveReturn: (id: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/approve`),
   rejectReturn: (id: string, note: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/reject`, { note }),

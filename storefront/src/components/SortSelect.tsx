@@ -7,6 +7,7 @@ const options = [
   { value: 'price_asc', label: 'Price: low to high' },
   { value: 'price_desc', label: 'Price: high to low' },
   { value: 'discount', label: 'Biggest discount' },
+  { value: 'rating', label: 'Top rated' },
   { value: 'newest', label: 'Newest' },
 ]
 

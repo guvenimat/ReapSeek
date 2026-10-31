@@ -10,7 +10,7 @@ public sealed class SearchRepository(NpgsqlDataSource db)
     public sealed record DocumentRecord(
         long Id, string Slug, string Title, string Description, string Status, string Brand, string BrandSlug,
         string Department, string DepartmentName, string CategoryPath, string CategoryName, string Attributes,
-        string? Colors, string? Sizes, string? Options, decimal? Price, decimal? ListPrice, int SellerCount, string? ImageUrl, string? ColorImages, DateTime CreatedAt);
+        string? Colors, string? Sizes, string? Options, decimal? Price, decimal? ListPrice, int SellerCount, string? ImageUrl, string? ColorImages, DateTime CreatedAt, double? Rating, int ReviewCount);
 
     public async Task<List<long>> ActiveProductIdsAsync(CancellationToken ct)
     {
@@ -38,7 +38,9 @@ public sealed class SearchRepository(NpgsqlDataSource db)
                 (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_url,
                 (SELECT string_agg(i.color || '=' || i.url, '|' ORDER BY i.position) FROM product_images i
                  WHERE i.product_id = p.id AND i.color IS NOT NULL) AS color_images,
-                p.created_at
+                p.created_at,
+                (SELECT round(avg(r.rating), 1)::float8 FROM reviews r WHERE r.product_id = p.id AND r.status = 'visible') AS rating,
+                (SELECT count(*)::int FROM reviews r WHERE r.product_id = p.id AND r.status = 'visible') AS review_count
             FROM products p
             JOIN brands b ON b.id = p.brand_id
             JOIN categories c ON c.id = p.category_id
@@ -65,7 +67,7 @@ public sealed class SearchRepository(NpgsqlDataSource db)
             r.CategoryPath, paths, r.CategoryName, Split(r.Colors), Split(r.Sizes), Split(r.Options),
             r.Price, discount > 0 ? r.ListPrice : null, discount, r.Price is not null, r.SellerCount, r.ImageUrl, r.CreatedAt,
             ColorImages(r.ColorImages),
-            JsonSerializer.Deserialize(r.Attributes, WorkerJsonContext.Default.DictionaryStringString) ?? []);
+            JsonSerializer.Deserialize(r.Attributes, WorkerJsonContext.Default.DictionaryStringString) ?? [], r.Rating, r.ReviewCount);
     }
 
     static Dictionary<string, string> ColorImages(string? joined)
