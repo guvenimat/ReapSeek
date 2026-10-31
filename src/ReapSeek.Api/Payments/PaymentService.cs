@@ -3,6 +3,7 @@ using Npgsql;
 using ReapSeek.Api.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Ordering;
 
 namespace ReapSeek.Api.Payments;
@@ -67,8 +68,15 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
                 await tx.CommitAsync(ct);
                 return WebhookOutcome.Ignored;
         }
+        var becamePaid = order.DomainEvents.OfType<OrderPaid>().Any();
         await OrderStore.SaveAsync(conn, tx, order);
         await tx.CommitAsync(ct);
+        if (becamePaid)
+        {
+            Telemetry.OrdersPaid.Add(1);
+            Telemetry.Revenue.Add((double)order.Total.Amount);
+        }
+        if (evt.Type == "payment.failed") Telemetry.PaymentsFailed.Add(1, new KeyValuePair<string, object?>("reason", evt.Data.FailureReason ?? "payment_failed"));
         log.LogInformation("Applied {Type} to order {Order}, now {Status}", evt.Type, order.Number, OrderStatusRules.Name(order.Status));
         return WebhookOutcome.Applied;
     }

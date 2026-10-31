@@ -81,6 +81,16 @@ The API keeps no state in process memory, so any number of instances can serve t
 - **Redis is never required.** If it is unreachable, reads go to PostgreSQL, each instance falls back to its own in-memory rate limit, and errors are logged; the test suite stops Redis and checks that the storefront, sign-in and search keep working.
 - **Why not a two-level cache:** an in-process copy on each instance would need a broadcast to stay correct after sign-out or a price change; one shared copy is simpler and fast enough here.
 
+### Observability
+
+The API, the worker and the payment sandbox export traces, metrics and logs with OpenTelemetry (OTLP) to a local Grafana stack (`grafana/otel-lgtm`: Tempo, Prometheus, Loki and Grafana in one container) at http://localhost:3102. Telemetry is off when `OTEL_EXPORTER_OTLP_ENDPOINT` is not set.
+
+- **One trace across processes and the outbox:** HTTP calls carry the W3C `traceparent`, and every outbox row stores the trace of the request that queued it. The worker continues that trace when it handles the job, so a payment reads as one trace: the 3-D Secure form post in the sandbox, its webhook to the API, the database writes, the `outbox order_paid` job in the worker and its call to ReapDeep.
+- **Metrics:** ASP.NET Core, HttpClient, Npgsql and .NET runtime metrics, plus business and job metrics (`reapseek.orders.placed`, `reapseek.orders.paid`, `reapseek.orders.revenue`, `reapseek.payments.failed` by reason, `reapseek.outbox.processed` by type and outcome, `reapseek.outbox.delay` from enqueue to done).
+- **Dashboard:** the provisioned *ReapSeek overview* dashboard (`deploy/local/grafana/reapseek-overview.json`) shows the checkout funnel, revenue, failed payments, requests and p95 latency per route, outgoing calls per host, background jobs per type, retries and give-ups, database latency and connections, memory, and recent warnings and errors from the logs.
+
+![ReapSeek overview dashboard in Grafana](docs/images/grafana-overview.png)
+
 ### Marketplace catalog
 
 The catalog follows the model of large marketplaces: one canonical **product** (title, brand, category, attributes, images) has **variants** (every combination of its axes, such as color and size, each with a SKU), and any number of **sellers** compete on each variant with their own **offer** (price, list price, stock, handling time).
@@ -315,6 +325,7 @@ To feed ReapDeep, start the [ReapDeep](https://github.com/guvenimat/ReapDeep) st
 | API | http://localhost:8100 |
 | Payment sandbox | http://localhost:8101 |
 | Mailpit | http://localhost:8025 |
+| Grafana (traces, metrics, logs) | http://localhost:3102 |
 | OpenSearch | http://localhost:9200 |
 | Redis | localhost:6380 (password in `deploy/local/.env`) |
 
@@ -357,3 +368,5 @@ The scripts run end to end against the running stack.
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+The local stack runs third-party images unmodified as separate containers; they are not part of this repository: PostgreSQL (PostgreSQL License), Redis (RSALv2/SSPLv1/AGPLv3), OpenSearch (Apache 2.0), Mailpit (MIT) and `grafana/otel-lgtm` (Apache 2.0, with Grafana, Loki and Tempo under AGPLv3 and Prometheus under Apache 2.0).

@@ -1,5 +1,5 @@
-using ReapSeek.Shared.Identity;
 using ReapSeek.Api.Identity;
+using ReapSeek.Shared.Identity;
 using ReapSeek.Shared.Migrations;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.Notifications;

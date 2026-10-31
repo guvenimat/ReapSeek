@@ -2,7 +2,10 @@ name: reapseek
 
 x-postgres-connection: &postgres-connection Host=postgres;Database=reapseek;Username=reapseek;Password=${POSTGRES_PASSWORD:?Missing .env - run run-local.ps1 or copy .env.example to .env}
 x-redis-connection: &redis-connection redis:6379,password=${REDIS_PASSWORD:?Missing .env - run run-local.ps1}
+x-otel-endpoint: &otel-endpoint http://lgtm:4317
 x-api-environment: &api-environment
+  OTEL_EXPORTER_OTLP_ENDPOINT: *otel-endpoint
+  OTEL_METRIC_EXPORT_INTERVAL: "10000"
   ConnectionStrings__Postgres: *postgres-connection
   ConnectionStrings__Redis: *redis-connection
   Auth__BootstrapEmail: ${ADMIN_EMAIL:?Missing .env - run run-local.ps1 or copy .env.example to .env}
@@ -149,6 +152,8 @@ services:
     environment:
       ConnectionStrings__Postgres: *postgres-connection
       ConnectionStrings__Redis: *redis-connection
+      OTEL_EXPORTER_OTLP_ENDPOINT: *otel-endpoint
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
       Smtp__Host: mailpit
       Smtp__Port: "1025"
       Storefront__PublicUrl: http://localhost:3100
@@ -214,10 +219,22 @@ services:
       Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
       Sandbox__PublicUrl: http://localhost:8101
       Sandbox__ShipmentStepSeconds: "5"
+      OTEL_EXPORTER_OTLP_ENDPOINT: *otel-endpoint
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
       ConnectionStrings__Sandbox: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=${POSTGRES_PASSWORD:?Missing .env - run run-local.ps1}
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
+
+  lgtm:
+    image: grafana/otel-lgtm:0.37.0
+    container_name: reapseek-lgtm
+    ports:
+      - "127.0.0.1:3102:3000"
+    volumes:
+      - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/reapseek.yaml:ro
+      - ./grafana/reapseek-overview.json:/otel-lgtm/reapseek-overview.json:ro
     restart: unless-stopped
 
   storefront:

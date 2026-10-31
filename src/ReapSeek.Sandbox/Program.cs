@@ -1,7 +1,9 @@
 using Npgsql;
+using ReapSeek.Sandbox;
 using ReapSeek.Sandbox.Payments;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+builder.AddTelemetry();
 builder.AddSandbox();
 builder.AddLogistics();
 

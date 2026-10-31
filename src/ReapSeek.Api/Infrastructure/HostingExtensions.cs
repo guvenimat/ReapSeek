@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using ReapSeek.Api.Alerts;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
@@ -14,14 +16,15 @@ using ReapSeek.Api.Orders;
 using ReapSeek.Api.Payments;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Recommendations;
-using ReapSeek.Api.Search;
 using ReapSeek.Api.Returns;
 using ReapSeek.Api.Reviews;
+using ReapSeek.Api.Search;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Caching;
+using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Payouts;
 using ReapSeek.Shared.Search;
 
@@ -38,6 +41,9 @@ public static class HostingExtensions
         var cfg = builder.Configuration;
         var services = builder.Services;
 
+        builder.AddReapSeekTelemetry("reapseek-api")?
+            .WithTracing(t => t.AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/healthz")))
+            .WithMetrics(m => m.AddAspNetCoreInstrumentation());
         services.ConfigureHttpJsonOptions(o =>
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);

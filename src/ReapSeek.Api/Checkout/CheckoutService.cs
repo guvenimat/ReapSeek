@@ -9,6 +9,7 @@ using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Marketing;
+using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Ordering;
 
 namespace ReapSeek.Api.Checkout;
@@ -88,6 +89,7 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
                 payment.Currency, payment.RedirectUrl);
             await tx.CommitAsync(ct);
         }
+        Telemetry.OrdersPlaced.Add(1);
         log.LogInformation("Placed order {Order} for {Total}", order.Number, order.Total);
         return new PlaceOrderResponse(order.Number, payment.RedirectUrl, order.Total.Amount, order.Total.Currency);
     }

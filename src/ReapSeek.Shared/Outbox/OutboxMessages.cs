@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Dapper;
 using Npgsql;
+using ReapSeek.Shared.Observability;
 
 namespace ReapSeek.Shared.Outbox;
 
@@ -57,9 +58,11 @@ public sealed record PackageEventMessage(Guid OrderId, string Number, long Custo
 [JsonSerializable(typeof(OutboxFailedMessage))]
 public sealed partial class OutboxJsonContext : JsonSerializerContext;
 
+public sealed record OutboxInsertRecord(string Type, string Payload, string? TraceParent);
+
 public static class OutboxWriter
 {
     public static Task EnqueueAsync<T>(NpgsqlConnection conn, NpgsqlTransaction tx, string type, T payload, JsonTypeInfo<T> typeInfo) =>
-        conn.ExecuteAsync("INSERT INTO outbox (type, payload) VALUES (@Type, @Payload::jsonb)",
-            new { Type = type, Payload = JsonSerializer.Serialize(payload, typeInfo) }, tx);
+        conn.ExecuteAsync("INSERT INTO outbox (type, payload, trace_parent) VALUES (@Type, @Payload::jsonb, @TraceParent)",
+            new OutboxInsertRecord(type, JsonSerializer.Serialize(payload, typeInfo), Telemetry.CurrentTraceParent()), tx);
 }
