@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using ReapSeek.Api.Alerts;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
@@ -121,6 +122,7 @@ public static class HostingExtensions
         api.MapReturns();
         api.MapReviews();
         api.MapCampaigns();
+        api.MapAlerts();
         app.MapMedia();
         app.MapHealth();
         return app;

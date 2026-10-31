@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { api, type User } from '../api'
 import {
-  BoxIcon, ChatIcon, HomeIcon, ReturnIcon, StarIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
+  BellIcon, BoxIcon, ChatIcon, HomeIcon, ReturnIcon, StarIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
 } from '../components/icons'
 import { useRoute, type Route } from '../lib'
+import { Alerts } from './Alerts'
 import { Campaigns } from './Campaigns'
 import { Categories } from './Categories'
 import { OrderDetailPage, Orders } from './Orders'
@@ -26,6 +27,7 @@ const adminSections: Section[] = [
   { key: 'orders', label: 'Orders', icon: ReceiptIcon, ready: true },
   { key: 'payouts', label: 'Payouts', icon: WalletIcon, ready: true },
   { key: 'moderation', label: 'Reviews', icon: StarIcon, ready: true },
+  { key: 'alerts', label: 'Alerts', icon: BellIcon, ready: true },
   { key: 'customers', label: 'Customers', icon: UsersIcon, ready: false },
   { key: 'marketing', label: 'Marketing', icon: MegaphoneIcon, ready: true },
 ]
@@ -51,6 +53,7 @@ function adminPage(section: Section, route: Route, user: User): [ReactNode, stri
   if (section.key === 'sellers') return [<Sellers />, section.label]
   if (section.key === 'payouts') return [<Payouts />, section.label]
   if (section.key === 'marketing') return [<Campaigns />, section.label]
+  if (section.key === 'alerts') return [<Alerts />, section.label]
   if (section.key === 'moderation') return [<Moderation query={route.query} />, section.label]
   return [<Overview user={user} />, section.label]
 }

@@ -78,6 +78,10 @@ export type Campaign = {
   error: string | null; created_at: string; sent_at: string | null
 }
 export type AudienceCohort = { id: number; name: string; description: string; status: string; member_count: number | null; calculated_at: string | null }
+export type AlertEvent = {
+  id: number; alert_id: number; alert_name: string; state: string; condition: string; threshold: number; time_window: string; value: number
+  previous_value: number | null; message: string; insight_name: string; checked_at: string; received_at: string
+}
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
 
@@ -136,6 +140,7 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
+  alerts: () => request<{ events: AlertEvent[]; subscriptions: number }>('GET', '/api/v1/backoffice/alerts'),
   campaigns: () => request<{ campaigns: Campaign[] }>('GET', '/api/v1/backoffice/marketing/campaigns').then((r) => r.campaigns),
   audienceCohorts: () => request<{ cohorts: AudienceCohort[] }>('GET', '/api/v1/backoffice/marketing/cohorts').then((r) => r.cohorts),
   audiencePreview: (cohortId: number) => request<{ cohort_id: number; customers: number }>('POST', '/api/v1/backoffice/marketing/audience', { cohort_id: cohortId }),

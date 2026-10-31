@@ -2,6 +2,8 @@ param(
     [string]$ReapDeepEnv = (Join-Path $PSScriptRoot "..\..\..\ReapDeep\deploy\local\.env"),
     [string]$ReapDeepApi = "http://localhost:8001",
     [string]$ProjectName = "ReapSeek",
+    [string]$ReapSeekApi = "http://127.0.0.1:8100",
+    [string]$AlertWebhookUrl = "http://host.docker.internal:8100/api/v1/reapdeep/alerts",
     [switch]$NewKeys
 )
 
@@ -104,4 +106,25 @@ docker compose up -d worker api storefront
 if ($LASTEXITCODE -ne 0) { throw "docker compose up failed." }
 docker compose run --rm migrate --reindex
 if ($LASTEXITCODE -ne 0) { throw "Requesting a catalog sync failed." }
+$ErrorActionPreference = "Stop"
+
+$alertName = "Purchases dropped"
+$alert = @((Call GET "/alerts" $null $projectId).alerts | Where-Object { $_.name -eq $alertName }) | Select-Object -First 1
+if (-not $alert) {
+    $insight = Call POST "/insights" @{ name = "Purchases per day"; kind = "trends"; query = @{ series = @(@{ event = "purchase"; metric = "total" }); filters = @(); chart = "line" } } $projectId
+    $alert = Call POST "/alerts" @{ name = $alertName; insight_id = $insight.id; condition = "decrease"; threshold = 50; window = "day"; webhook_url = $AlertWebhookUrl } $projectId
+    Write-Host "Created the ReapDeep alert '$alertName'"
+}
+$reapSeek = New-Object System.Net.Http.HttpClient((New-Object System.Net.Http.HttpClientHandler -Property @{ CookieContainer = New-Object System.Net.CookieContainer }))
+function ReapSeekCall([string]$method, [string]$path, $body) {
+    $req = New-Object System.Net.Http.HttpRequestMessage((New-Object System.Net.Http.HttpMethod($method)), "$ReapSeekApi/api/v1$path")
+    $req.Content = New-Object System.Net.Http.StringContent((ConvertTo-Json $body -Compress), [Text.Encoding]::UTF8, "application/json")
+    $r = $reapSeek.SendAsync($req).Result
+    if (-not $r.IsSuccessStatusCode) { throw "$method $path failed with $([int]$r.StatusCode): $($r.Content.ReadAsStringAsync().Result)" }
+}
+$ready = $false
+for ($i = 0; $i -lt 30 -and -not $ready; $i++) { try { $ready = (Invoke-WebRequest -UseBasicParsing "$ReapSeekApi/healthz").StatusCode -eq 200 } catch { Start-Sleep 2 } }
+ReapSeekCall POST "/backoffice/auth/login" @{ email = $local.ADMIN_EMAIL; password = $local.ADMIN_PASSWORD }
+ReapSeekCall PUT "/backoffice/alerts/subscriptions" @{ alert_id = $alert.id; secret = $alert.secret }
+Write-Host "ReapDeep alert '$alertName' (id $($alert.id)) delivers to ReapSeek"
 Write-Host "ReapSeek is connected to ReapDeep project $projectId. The ReapDeep public key is $($detail.public_key)." -ForegroundColor Green
