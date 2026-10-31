@@ -4,6 +4,7 @@ using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Shared;
+using ReapSeek.Shared.Ledger;
 using ReapSeek.Shared.Ordering;
 
 namespace ReapSeek.Api.SellerPanel;
@@ -61,7 +62,7 @@ public sealed class SellerPanelService(
     public async Task<SellerPackageRow> ShipAsync(long sellerId, Guid packageId, CancellationToken ct)
     {
         var orderId = await panel.OrderOfPackageAsync(packageId, sellerId, ct) ?? throw new NotFoundException("Package not found");
-        var shipment = await sandbox.CreateShipmentAsync(packageId.ToString(), ct);
+        var shipment = await sandbox.CreateShipmentAsync(packageId.ToString(), "outbound", ct);
         await using (var conn = await db.OpenConnectionAsync(ct))
         await using (var tx = await conn.BeginTransactionAsync(ct))
         {
@@ -73,20 +74,13 @@ public sealed class SellerPanelService(
         return (await panel.PackageAsync(sellerId, packageId, ct))!;
     }
 
-    public async Task<SellerPackageRow> DeliverAsync(Guid packageId, CancellationToken ct)
+    public async Task DeliverAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid orderId, Guid packageId, DateTime deliveredAt)
     {
-        var orderId = await panel.OrderOfPackageAsync(packageId, null, ct) ?? throw new NotFoundException("Package not found");
-        await using (var conn = await db.OpenConnectionAsync(ct))
-        await using (var tx = await conn.BeginTransactionAsync(ct))
-        {
-            var order = await OrderStore.LoadAsync(conn, tx, orderId) ?? throw new NotFoundException("Package not found");
-            var package = order.DeliverPackage(packageId, clock.GetUtcNow().UtcDateTime);
-            var entries = Settlement.ForPackage(package, await SellerPanelRepository.CommissionRateAsync(conn, tx, packageId));
-            await OrderStore.SaveAsync(conn, tx, order);
-            await SellerPanelRepository.InsertLedgerAsync(conn, tx, new SellerPanelRepository.LedgerInsertRecord(package.SellerId, package.Id, order.Number,
-                entries.Select(e => e.Kind).ToArray(), entries.Select(e => e.Amount).ToArray(), Settlement.AvailableAt(package.DeliveredAt!.Value, _hold)));
-            await tx.CommitAsync(ct);
-        }
-        return (await panel.PackageAsync(null, packageId, ct))!;
+        var order = await OrderStore.LoadAsync(conn, tx, orderId) ?? throw new NotFoundException("Package not found");
+        var package = order.DeliverPackage(packageId, deliveredAt);
+        var entries = Settlement.ForPackage(package, await SellerPanelRepository.CommissionRateAsync(conn, tx, packageId));
+        await OrderStore.SaveAsync(conn, tx, order);
+        await LedgerStore.InsertAsync(conn, tx, new LedgerInsertRecord(package.SellerId, package.Id, null, order.Number,
+            entries.Select(e => e.Kind).ToArray(), entries.Select(e => e.Amount).ToArray(), Settlement.AvailableAt(deliveredAt, _hold)));
     }
 }

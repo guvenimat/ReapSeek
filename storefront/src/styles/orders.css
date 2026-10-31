@@ -494,3 +494,146 @@
     grid-template-columns: 1fr;
   }
 }
+
+.tracking {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.tracking-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tracking-steps li {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-faint);
+  position: relative;
+  padding-top: 16px;
+}
+
+.tracking-steps li::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--border);
+}
+
+.tracking-steps li .dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.tracking-steps li.done,
+.tracking-steps li.current {
+  color: var(--text);
+}
+
+.tracking-steps li.done::before {
+  background: var(--success);
+}
+
+.tracking-steps li.done .dot,
+.tracking-steps li.current .dot {
+  background: var(--success);
+}
+
+.tracking-steps li.current .dot {
+  box-shadow: 0 0 0 4px var(--success-soft);
+}
+
+.return-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.return-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.return-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.return-form .field {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.return-form select,
+.return-form textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.return-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.return-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.return-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.return-lines {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.status-pill.return-refunded {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status-pill.return-rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .tracking-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}

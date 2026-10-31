@@ -116,6 +116,7 @@ $product = (Bo POST "/catalog/products" @{ title = "Scale Dress $tag"; brand_id 
 $variant = $product.variants[0].id
 $null = Bo PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $variant; price = 300; stock = 10 }
 $null = Bo PATCH "/catalog/products/$($product.id)" @{ status = "active" }
+$null = WaitFor { (Psql "SELECT count(*) FROM outbox WHERE type = 'products_changed' AND processed_at IS NULL AND failed_at IS NULL") -eq "0" } 20
 function Page([string]$base) { Send $probe GET "$base/api/v1/catalog/products/$($product.slug)" }
 function PriceOn([string]$base) { $p = (Page $base).Json; if ($p) { [double]$p.variants[0].offers[0].price } else { $null } }
 Check "B serves the new product" ((PriceOn $b) -eq 300)

@@ -12,13 +12,25 @@ export type OrderSummary = {
   number: string; status: string; total: number; currency: string; item_count: number; package_count: number; image_url: string | null
   placed_at: string; paid_at: string | null
 }
-export type OrderLine = { product_id: number; product_title: string; variant_label: string; sku: string; image_url: string | null; unit_price: number; quantity: number; total: number }
-export type OrderPackage = { seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null; lines: OrderLine[] }
+export type OrderLine = {
+  id: string; product_id: number; product_title: string; variant_label: string; sku: string; image_url: string | null; unit_price: number; quantity: number; total: number
+  returnable_quantity: number
+}
+export type TrackingEvent = { kind: 'outbound' | 'return'; status: string; occurred_at: string }
+export type OrderPackage = {
+  id: string; seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null; lines: OrderLine[]
+  shipment_status: string | null; shipped_at: string | null; delivered_at: string | null; return_deadline: string | null; returnable: boolean; tracking: TrackingEvent[]
+}
+export type OrderReturn = {
+  id: string; number: string; package_id: string; seller_name: string; status: string; reason: string; comment: string | null; total: number; requested_at: string
+  rejection_note: string | null; return_tracking: string | null; received_at: string | null; refunded_at: string | null
+  lines: { order_line_id: string; product_title: string; variant_label: string; quantity: number; total: number }[]; tracking: TrackingEvent[]
+}
 export type OrderDetail = {
   number: string; status: string; placed_at: string; paid_at: string | null; payment_deadline: string; close_reason: string | null
   address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
   subtotal: number; shipping_total: number; total: number; currency: string; packages: OrderPackage[]
-  payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]; payment_url: string | null
+  payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]; payment_url: string | null; returns: OrderReturn[]
 }
 
 export const orderStatusLabel: Record<string, string> = {
@@ -30,6 +42,17 @@ export const orderStatusLabel: Record<string, string> = {
   preparing: 'Preparing',
   shipped: 'Shipped',
   delivered: 'Delivered',
+}
+
+export const shipmentSteps = ['label_created', 'in_transit', 'out_for_delivery', 'delivered'] as const
+export const shipmentLabel: Record<string, string> = {
+  label_created: 'Handed to the carrier', in_transit: 'In transit', out_for_delivery: 'Out for delivery', delivered: 'Delivered',
+}
+export const returnStatusLabel: Record<string, string> = {
+  requested: 'Waiting for the seller', approved: 'Approved, send it back', rejected: 'Not accepted', received: 'Received, refunding', refunded: 'Refunded',
+}
+export const returnReasons: Record<string, string> = {
+  changed_mind: 'I changed my mind', wrong_size: 'Wrong size', damaged: 'Arrived damaged', not_as_described: 'Not as described', wrong_item: 'Wrong item sent',
 }
 
 export const failureLabel: Record<string, string> = {

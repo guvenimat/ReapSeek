@@ -2,6 +2,8 @@ using System.Net;
 using System.Globalization;
 using System.Text;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Domain.Returns;
+using ReapSeek.Worker.Orders;
 using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Worker.Notifications;
@@ -32,6 +34,66 @@ public static class EmailTemplates
               <p style="color:#6b7080;font-size:12px">The ReapSeek team</p>
             </div>
             """);
+    }
+
+    public static EmailMessage ReturnUpdate(ReturnRequest r, ReturnHandler.PersonRecord customer, string storefrontUrl)
+    {
+        var orderUrl = $"{storefrontUrl}/account/orders/{r.OrderNumber}";
+        var items = string.Join(", ", r.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"));
+        var amount = $"{r.Total.Amount.ToString("N2", CultureInfo.InvariantCulture)} {r.Total.Currency}";
+        var (subject, headline, body) = r.Status switch
+        {
+            ReturnStatus.Approved => ($"Your return {r.Number} is approved", "Your return is approved",
+                $"Drop the package at any Sandbox Cargo point with the return code {r.ReturnTracking}. We refund {amount} to your card when it reaches the seller."),
+            ReturnStatus.Rejected => ($"Your return {r.Number} was not accepted", "Your return was not accepted",
+                $"The seller did not accept the return: {r.RejectionNote}"),
+            ReturnStatus.Refunded => ($"We refunded {amount} for return {r.Number}", "Your refund is on its way",
+                $"The seller received your return. We refunded {amount} to the card you paid with; it can take a few days to appear."),
+            _ => ($"Your return {r.Number}", "Your return", $"Your return is {ReturnStatusRules.Name(r.Status)}."),
+        };
+        var text = $"""
+            Hi {customer.Name},
+
+            {body}
+            Items: {items}
+
+            Order: {orderUrl}
+
+            The ReapSeek team
+            """;
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330">
+              <h1 style="color:#5b2bd6;font-size:22px">{WebUtility.HtmlEncode(headline)}</h1>
+              <p>Hi {WebUtility.HtmlEncode(customer.Name)}, {WebUtility.HtmlEncode(body)}</p>
+              <p style="font-size:13px;color:#6b7080">Return {WebUtility.HtmlEncode(r.Number)} for order {WebUtility.HtmlEncode(r.OrderNumber)}: {WebUtility.HtmlEncode(items)}</p>
+              <p><a href="{WebUtility.HtmlEncode(orderUrl)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">View your order</a></p>
+              <p style="color:#6b7080;font-size:12px">The ReapSeek team</p>
+            </div>
+            """;
+        return new EmailMessage(customer.Email, subject, text, html);
+    }
+
+    public static EmailMessage ReturnRequestedForSeller(ReturnRequest r, string email, string name, string backofficeUrl)
+    {
+        var url = $"{backofficeUrl}/#/returns";
+        var items = string.Join(", ", r.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"));
+        var text = $"""
+            Hi {name},
+
+            A customer asked to return items from order {r.OrderNumber} (return {r.Number}, reason: {r.Reason.Replace('_', ' ')}).
+            Items: {items}
+
+            Approve or reject it in the seller center: {url}
+            """;
+        var html = $"""
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330">
+              <h1 style="color:#5b2bd6;font-size:22px">New return request</h1>
+              <p>A customer asked to return items from order <strong>{WebUtility.HtmlEncode(r.OrderNumber)}</strong> ({WebUtility.HtmlEncode(r.Reason.Replace('_', ' '))}).</p>
+              <p style="font-size:13px;color:#6b7080">{WebUtility.HtmlEncode(items)}</p>
+              <p><a href="{WebUtility.HtmlEncode(url)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Review the return</a></p>
+            </div>
+            """;
+        return new EmailMessage(email, $"Return request {r.Number} for order {r.OrderNumber}", text, html);
     }
 
     public static EmailMessage PackageShipped(Order order, SellerPackage package, string email, string name, string storefrontUrl)

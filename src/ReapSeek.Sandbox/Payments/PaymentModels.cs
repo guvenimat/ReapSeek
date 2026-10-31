@@ -45,6 +45,9 @@ public sealed record WebhookEvent(string Id, string Type, DateTime Created, Webh
 [JsonSerializable(typeof(WebhookEvent))]
 [JsonSerializable(typeof(CreateShipmentRequest))]
 [JsonSerializable(typeof(ShipmentResponse))]
+[JsonSerializable(typeof(ShipmentWebhookEvent))]
+[JsonSerializable(typeof(CreateRefundRequest))]
+[JsonSerializable(typeof(RefundResponse))]
 [JsonSerializable(typeof(CreateTransferRequest))]
 [JsonSerializable(typeof(TransferResponse))]
 public sealed partial class SandboxJsonContext : JsonSerializerContext;

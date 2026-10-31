@@ -59,8 +59,6 @@ public static class SellerPanelEndpoints
             ApiResults.Ok(await panel.BalanceAsync(SellerOf(user), clock.GetUtcNow().UtcDateTime, ct), AppJsonContext.Default.SellerBalanceResponse));
 
         var admin = api.MapGroup("/backoffice").RequireAdmin();
-        admin.MapPost("/packages/{id:guid}/deliver", async (Guid id, SellerPanelService service, CancellationToken ct) =>
-            ApiResults.Ok(await service.DeliverAsync(id, ct), AppJsonContext.Default.SellerPackageRow));
         admin.MapGet("/payouts", async (SellerPanelRepository panel, CancellationToken ct) =>
             ApiResults.Ok(new PayoutsResponse(await panel.PayoutsAsync(null, ct)), AppJsonContext.Default.PayoutsResponse));
         admin.MapPost("/payouts/run", async (PayoutRunner payouts, TimeProvider clock, CancellationToken ct) =>

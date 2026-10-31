@@ -35,9 +35,10 @@ export type OrderDetail = {
   number: string; status: string; placed_at: string; paid_at: string | null; payment_deadline: string; close_reason: string | null
   address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
   subtotal: number; shipping_total: number; total: number; currency: string; customer_id: number; customer_email: string | null
-  packages: { id: string; seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null
+  packages: { id: string; shipment_status: string | null; seller_id: number; seller_name: string; status: string; subtotal: number; shipping_fee: number; tracking_number: string | null
     lines: { product_id: number; product_title: string; variant_label: string; sku: string; image_url: string | null; unit_price: number; quantity: number; total: number }[] }[]
   payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]
+  returns: { id: string; number: string; seller_name: string; status: string; reason: string; total: number; requested_at: string; rejection_note: string | null; return_tracking: string | null }[]
 }
 export type SellerAccount = { id: number; name: string; slug: string; city: string; status: string; commission_rate: number; rating: number }
 export type SellerOffer = {
@@ -58,6 +59,11 @@ export type Payout = { id: number; seller_id: number; seller_name: string; perio
 export type Balance = {
   summary: { in_transit: number; pending: number; available: number; paid_out: number; next_payout_at: string }
   entries: LedgerEntry[]; payouts: Payout[]
+}
+export type SellerReturn = {
+  id: string; number: string; order_number: string; status: 'requested' | 'approved' | 'rejected' | 'received' | 'refunded'; reason: string; comment: string | null
+  total: number; requested_at: string; rejection_note: string | null; return_tracking: string | null; received_at: string | null; refunded_at: string | null
+  customer_name: string; lines: { product_title: string; variant_label: string; sku: string; quantity: number; unit_price: number }[]
 }
 export type SellerUser = { id: number; email: string; name: string; created_at: string }
 export type OfferInput = { seller_id: number; variant_id: number; price: number; list_price: number | null; stock: number; handling_days: number; status: string }
@@ -117,7 +123,6 @@ export const api = {
   orders: (params: { status?: string; q?: string; page?: number }) => request<OrdersPage>('GET', `/api/v1/backoffice/orders?${qs(params)}`),
   order: (number: string) => request<OrderDetail>('GET', `/api/v1/backoffice/orders/${encodeURIComponent(number)}`),
 
-  deliverPackage: (id: string) => request<SellerPackage>('POST', `/api/v1/backoffice/packages/${id}/deliver`),
   payouts: () => request<{ payouts: Payout[] }>('GET', '/api/v1/backoffice/payouts').then((r) => r.payouts),
   runPayouts: () => request<{ period_end: string; created: number; transferred: number; transfer_failures: number }>('POST', '/api/v1/backoffice/payouts/run'),
   reviewProduct: (id: number, decision: 'approve' | 'reject', note?: string) =>
@@ -150,4 +155,7 @@ export const sellerApi = {
   packages: (params: { status?: string; page?: number }) =>
     request<{ packages: SellerPackage[]; total: number; page: number; page_size: number }>('GET', `${seller}/packages?${qs(params)}`),
   ship: (id: string) => request<SellerPackage>('POST', `${seller}/packages/${id}/ship`),
+  returns: (status?: string) => request<{ returns: SellerReturn[] }>('GET', `${seller}/returns?${qs({ status })}`).then((r) => r.returns),
+  approveReturn: (id: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/approve`),
+  rejectReturn: (id: string, note: string) => request<SellerReturn>('POST', `${seller}/returns/${id}/reject`, { note }),
 }

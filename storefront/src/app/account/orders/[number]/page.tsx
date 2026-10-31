@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { formatPrice } from '@/lib/catalog'
+import { ReturnForm } from '@/components/orders/ReturnForm'
+import { Tracking } from '@/components/orders/Tracking'
+import { returnReasons, returnStatusLabel } from '@/lib/order-types'
 import { failureLabel, getOrder, orderStatusLabel } from '@/lib/orders'
 import { getCurrentUser } from '@/lib/session'
 
@@ -9,6 +12,7 @@ type Props = { params: Promise<{ number: string }> }
 
 export const metadata: Metadata = { title: 'Order', robots: { index: false } }
 
+const day = (value: string) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/Istanbul' })
 const date = (value: string) => new Date(value).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })
 
 export default async function OrderPage({ params }: Props) {
@@ -38,7 +42,7 @@ export default async function OrderPage({ params }: Props) {
       <div className="order-grid">
         <div className="order-packages">
           {order.packages.map((p, i) => (
-            <section key={p.seller_id} className="panel">
+            <section key={p.id} className="panel" data-package={p.id}>
               <header className="package-head">
                 <strong>Package {i + 1} · {p.seller_name}</strong>
                 <span className={`status-pill ${p.status}`}>{orderStatusLabel[p.status] ?? p.status}</span>
@@ -50,9 +54,32 @@ export default async function OrderPage({ params }: Props) {
                   <strong>{formatPrice(l.total)}</strong>
                 </div>
               ))}
-              <p className="muted small">Shipping {p.shipping_fee === 0 ? 'free' : formatPrice(p.shipping_fee)}{p.tracking_number ? ` · Tracking ${p.tracking_number}` : ''}</p>
+              <p className="muted small">Shipping {p.shipping_fee === 0 ? 'free' : formatPrice(p.shipping_fee)}</p>
+              {p.tracking_number && <Tracking number={p.tracking_number} current={p.shipment_status} events={p.tracking} startedAt={p.shipped_at} />}
+              {p.returnable && p.return_deadline && <ReturnForm orderNumber={order.number} pkg={p} deadline={day(p.return_deadline)} />}
+              {!p.returnable && p.return_deadline && <p className="muted small">The return window closed on {day(p.return_deadline)}.</p>}
             </section>
           ))}
+          {order.returns.length > 0 && (
+            <section className="panel" data-testid="returns">
+              <header className="package-head"><strong>Returns</strong></header>
+              {order.returns.map((r) => (
+                <div key={r.id} className="return-item" data-return={r.number}>
+                  <div className="return-item-head">
+                    <span><strong>{r.number}</strong> · {r.seller_name} · {returnReasons[r.reason] ?? r.reason}</span>
+                    <span className={`status-pill return-${r.status}`} data-testid="return-status">{returnStatusLabel[r.status] ?? r.status}</span>
+                  </div>
+                  <ul className="return-lines">
+                    {r.lines.map((l) => <li key={l.order_line_id}>{l.quantity} × {l.product_title} <span className="muted small">{l.variant_label}</span></li>)}
+                  </ul>
+                  <p className="small">Refund {formatPrice(r.total)}{r.refunded_at ? ` · refunded ${date(r.refunded_at)}` : ''}</p>
+                  {r.status === 'approved' && <p className="notice">Drop the parcel at any Sandbox Cargo point with the return code <strong>{r.return_tracking}</strong>.</p>}
+                  {r.status === 'rejected' && <p className="notice warn">The seller did not accept this return: {r.rejection_note}</p>}
+                  {r.return_tracking && r.status !== 'approved' && <Tracking number={r.return_tracking} current={r.tracking.at(-1)?.status ?? null} events={r.tracking} startedAt={null} />}
+                </div>
+              ))}
+            </section>
+          )}
         </div>
         <aside className="order-summary">
           <h2>Summary</h2>

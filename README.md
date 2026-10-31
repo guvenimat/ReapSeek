@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, earnings) with a seller ledger and weekly payouts, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases) are in place. After-sales and marketing follow in stages.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. Reviews, questions and marketing follow in stages.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -37,7 +37,7 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 | Area | Style | Why |
 |---|---|---|
 | Catalog, search, accounts, back office reads | Feature folders, services and SQL read models | Mostly CRUD and queries. The rules (buy box, listing visibility) are best expressed in SQL, close to the data; an object model would only add mapping. |
-| Cart, orders, payments, seller settlement | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
+| Cart, orders, payments, returns, seller settlement | Rich domain model in `ReapSeek.Domain` | These carry the business invariants: quantity and line limits, per-seller packages and shipping, money arithmetic, the order state machine, idempotent payment confirmation. Getting them wrong costs money, so they live in aggregates that cannot be put into an invalid state. |
 | Side effects (email, search indexing, ReapDeep sync, purchase events, cache invalidation) | Transactional outbox, processed by the worker | A side effect never happens for a change that was rolled back, and none is lost when an external system is down. |
 | State shared between API instances (rate limits, session and page caches) | Redis, always optional | Instances keep no state of their own that another instance could contradict. If Redis is down the API keeps working from PostgreSQL. |
 
@@ -45,8 +45,9 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 
 - **Value objects:** `Money` (non-negative, one currency, rounded half away from zero), `ShippingAddress` (validated on creation).
 - **Aggregates:** `Cart` (lines, merge of a guest cart on sign-in) and `Order` with its `SellerPackage`s. State changes go through methods such as `Order.MarkPaid(reference, amount, at)`, which checks the transition, the amount and replays of the same payment.
+- **Returns:** `ReturnRequest` checks the 7-day window after delivery, the quantity still returnable per line and the reason, and moves through requested → approved or rejected → received → refunded. `MarkRefunded` returns the ledger entries for the refund.
 - **Settlement:** `Settlement.ForPackage` turns a delivered package into ledger entries (sale, shipping fee, commission) and `PayoutPeriod` finds the Monday that closes a payout week.
-- **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`, `PackageShipped`, `PackageDelivered`. The persistence layer (`ReapSeek.Shared/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
+- **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`, `PackageShipped`, `PackageDelivered`, and `ReturnRequested` ... `ReturnRefunded`. The persistence layer (`ReapSeek.Shared/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
 - **Unit tested** without a database: every rule has a test in `DomainTests.cs`.
 
 There is deliberately no generic repository, mediator or separate application layer: the endpoints call a service, the service loads an aggregate, calls one of its methods and saves it.
@@ -131,7 +132,7 @@ Search and every category page run on OpenSearch. The worker keeps one document 
 
 A separate Native AOT service that behaves like a real card payment provider:
 
-- It also plays the carrier and the bank: `POST /v1/shipments` returns a tracking number and `POST /v1/transfers` pays a seller.
+- It also plays the carrier and the bank: `POST /v1/shipments` returns a tracking number and then moves the parcel through its steps on a timer (5 seconds locally), sending a signed webhook for each; `POST /v1/payments/{id}/refunds` refunds part of a payment; `POST /v1/transfers` pays a seller.
 - `POST /v1/payments` with a secret key creates a payment and returns a hosted page URL; the page asks for the card and then for a 3-D Secure code (`123456`).
 - Test cards: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` is declined, `4000 0000 0000 9995` has insufficient funds.
 - Results arrive as webhooks signed with HMAC-SHA256 in the `Sandbox-Signature: t=...,v1=...` format, retried after 1, 5 and 15 seconds. ReapSeek rejects signatures older than five minutes, records every event id so a replayed webhook is applied once, and checks that the paid amount matches the order.
@@ -154,9 +155,21 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 
 - **Offers:** a seller finds a product in the catalog and sets price, list price, stock and handling days per variant. They see the current buy box price but never their competitors' stock.
 - **Product proposals:** a product that is not in the catalog yet is proposed as `pending_review`; the seller can price it at once, and it goes on sale when staff approve it. A rejection needs a note, which the seller sees.
-- **Shipping:** a paid package appears under "Packages to ship" with the address and items. "Ship" asks the Sandbox carrier for a tracking number, moves the package to `shipped` through the `Order` aggregate and emails the customer. Until carrier tracking arrives (after-sales stage), staff confirm delivery in the order view.
+- **Shipping:** a paid package appears under "Packages to ship" with the address and items. "Ship" asks the Sandbox carrier for a tracking number, moves the package to `shipped` through the `Order` aggregate and emails the customer. The carrier then reports every step (in transit, out for delivery, delivered) as a signed webhook; delivery is never set by hand.
 - **Ledger:** when a package is delivered, the sale, the shipping fee and the commission (rate fixed on the package when the order is placed, rounded half away from zero) are written to `seller_ledger` in the same transaction. The money stays pending for 7 days, the return window.
 - **Payouts:** every Monday at 00:00 Turkey time the worker pays each seller the entries that became available before that Monday, as one `payouts` row and a Sandbox bank transfer. The run is idempotent (one payout per seller and week, transfers retried until they succeed) and staff can trigger it from the back office.
+
+### Tracking, returns and refunds
+
+| Order page: tracking and a return | Seller center: returns |
+|---|---|
+| ![Order page with carrier tracking and a refunded return](docs/images/storefront-returns.png) | ![Seller returns waiting for a decision](docs/images/seller-returns.png) |
+
+- **Tracking:** carrier events arrive at `POST /api/v1/shipping/sandbox/webhook`, signed like the payment webhooks. Every event id is stored, so a replay is applied once. The customer's order page shows each step; the `delivered` event delivers the package through the `Order` aggregate and writes the seller ledger in the same transaction.
+- **Asking for a return:** for 7 days after delivery the customer picks items and quantities and a reason on the order page. Items already in an open or finished return cannot be asked for twice; a rejected item can.
+- **The seller decides:** the request appears under Returns in the seller center (and by email). Approving asks the carrier for a return code, which the customer gets by email; rejecting needs a note the customer sees.
+- **Refund:** when the carrier reports the return as delivered to the seller, the worker refunds the card through the Sandbox payment API (idempotent per return) and writes `refund` and `commission_refund` entries to the seller ledger; shipping fees are not refunded. A server-side `refund` event per item goes to ReapDeep, which nets it out of the customer's spend in RFM.
+- **Payouts and refunds:** refund entries are settled in the next payout even if the sale is still in its hold, so a seller is never paid for goods that came back. A seller whose balance is negative is not paid until new sales cover it.
 
 ### Recommendations from ReapDeep
 
@@ -194,6 +207,7 @@ The storefront uses the ReapDeep JS SDK (vendored as `storefront/vendor/reapdeep
 | `checkout_started` | the checkout page is opened | `value`, `items`, `sellers` |
 | `recommendations_shown` | a recommendation shelf is shown | `placement`, `model`, `source_item_id`, `item_ids`, `count`, `served_from` |
 | `recommendation_clicked` | a recommended product is clicked | `placement`, `model`, `source_item_id`, `item_id`, `position`, `source`, `price` |
+| `refund` (server) | a return is refunded | `item_id`, `order_id`, `return_id`, `price`, `quantity`, `amount`, `currency`, `seller_id`, `sku` |
 | `purchase` | sent by the worker when an order is paid, one per order line | `item_id`, `order_id`, `price`, `quantity`, `amount`, `seller_id` |
 
 `item_id` is the ReapSeek product id, the same key the catalog sync uses, so ReapDeep can join behavior with the catalog for recommendations. Purchases are sent from the server rather than the browser, so they are counted even when the customer closes the tab after paying; each line has a stable `event_id`, so a retry never counts twice.
@@ -262,6 +276,7 @@ cd deploy/local
 .\scale-test.ps1
 .\recommendations-test.ps1
 .\seller-test.ps1
+.\returns-test.ps1
 ```
 
 The scripts run end to end against the running stack.
@@ -273,6 +288,7 @@ The scripts run end to end against the running stack.
 - `recommendations-test.ps1`: sends controlled views and orders to ReapDeep, waits for it to retrain, then checks every shelf: ranking, the same-category fill, bought-together without padding, live prices and stock on cached lists, cart merging, the personal list (ranking, no purchased products, hidden when short, nothing for guests), validation, the server-rendered pages, `recommendations_shown` and `recommendation_clicked` from a real browser, and a Recommender outage (stale list, then catalog fallback).
 - `scale-test.ps1` (needs the second instance: `docker compose --profile scale up -d`): the sign-in limit shared between two instances, sign-out and password change taking effect on the other instance at once, product page and category tree invalidation across instances, and a Redis outage.
 - `seller-test.ps1`: seller logins and role separation, product proposals with approval and rejection, offers and the buy box, a paid order shipped with a Sandbox tracking number and a shipping email, delivery writing the ledger, the 7-day hold, the weekly payout with a Sandbox transfer and its idempotency, and a headless Chrome session that ships a package from the seller center.
+- `returns-test.ps1`: carrier tracking to delivery, the return rules (window, quantities, reasons, ownership), seller approval and rejection with emails, the return parcel reaching the seller, the card refund, the ledger and the next payout after a refund, the `refund` event in ReapDeep, a forged and a replayed carrier webhook, and a headless Chrome session where the customer asks for a return and the seller approves it.
 - `checkout-test.ps1`: cart rules, prices and stock changes, the guest cart merge, checkout validation, a full payment with 3-D Secure (stock, packages, webhook signature and replay, cart cleanup, confirmation email, back office, `purchase` events in ReapDeep), declined cards, the payment timeout, a payment provider outage, and a headless Chrome session that buys a product from the product page to the confirmation page.
 
 ## License
