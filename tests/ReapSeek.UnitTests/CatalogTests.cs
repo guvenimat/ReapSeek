@@ -176,10 +176,10 @@ public class CatalogTests
     [Fact]
     public void Catalog_messages_are_batched_and_others_run_alone()
     {
-        var a = new OutboxRepository.MessageRecord(1, OutboxTypes.ProductsChanged, "{}", 1);
-        var b = new OutboxRepository.MessageRecord(2, OutboxTypes.CatalogReindex, "{}", 1);
-        var c = new OutboxRepository.MessageRecord(3, OutboxTypes.UserRegistered, "{}", 1);
-        var d = new OutboxRepository.MessageRecord(4, OutboxTypes.UserRegistered, "{}", 1);
+        var a = new OutboxRepository.MessageRecord(1, OutboxTypes.ProductsChanged, "{}", 1, DateTime.UnixEpoch, null);
+        var b = new OutboxRepository.MessageRecord(2, OutboxTypes.CatalogReindex, "{}", 1, DateTime.UnixEpoch, null);
+        var c = new OutboxRepository.MessageRecord(3, OutboxTypes.UserRegistered, "{}", 1, DateTime.UnixEpoch, null);
+        var d = new OutboxRepository.MessageRecord(4, OutboxTypes.UserRegistered, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(b));
         Assert.NotEqual(OutboxDispatcher.GroupOf(c), OutboxDispatcher.GroupOf(d));
     }

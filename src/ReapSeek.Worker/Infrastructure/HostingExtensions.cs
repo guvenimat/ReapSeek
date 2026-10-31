@@ -8,6 +8,7 @@ using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Orders;
 using ReapSeek.Worker.Payouts;
 using ReapSeek.Shared.Analytics;
+using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Payouts;
 using ReapSeek.Worker.Outbox;
 
@@ -19,6 +20,8 @@ public static class HostingExtensions
     {
         var cfg = builder.Configuration;
         var services = builder.Services;
+
+        builder.AddReapSeekTelemetry("reapseek-worker");
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
         services.AddSingleton<RedisCache>();

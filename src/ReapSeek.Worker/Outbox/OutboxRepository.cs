@@ -5,7 +5,7 @@ namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxRepository(NpgsqlDataSource db)
 {
-    public sealed record MessageRecord(long Id, string Type, string Payload, int Attempts);
+    public sealed record MessageRecord(long Id, string Type, string Payload, int Attempts, DateTime CreatedAt, string? TraceParent);
 
     public async Task<List<MessageRecord>> ClaimAsync(int batchSize, DateTime leaseUntil, CancellationToken ct)
     {
@@ -18,7 +18,7 @@ public sealed class OutboxRepository(NpgsqlDataSource db)
                 ORDER BY id LIMIT @BatchSize
                 FOR UPDATE SKIP LOCKED
             )
-            RETURNING id, type, payload::text AS payload, attempts
+            RETURNING id, type, payload::text AS payload, attempts, created_at, trace_parent
             """, new { BatchSize = batchSize, LeaseUntil = leaseUntil });
         return rows.OrderBy(r => r.Id).ToList();
     }
