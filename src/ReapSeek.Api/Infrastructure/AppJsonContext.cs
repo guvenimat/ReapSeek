@@ -4,6 +4,7 @@ using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Checkout;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
+using ReapSeek.Api.Marketing;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Products;
 using ReapSeek.Api.Recommendations;
@@ -39,6 +40,14 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(CatalogStats))]
 [JsonSerializable(typeof(SellerRow))]
 [JsonSerializable(typeof(SellerAccount))]
+[JsonSerializable(typeof(CouponPreview))]
+[JsonSerializable(typeof(CampaignRequest))]
+[JsonSerializable(typeof(CampaignRow))]
+[JsonSerializable(typeof(CampaignsResponse))]
+[JsonSerializable(typeof(CohortsListResponse))]
+[JsonSerializable(typeof(AudienceRequest))]
+[JsonSerializable(typeof(AudiencePreviewResponse))]
+[JsonSerializable(typeof(CustomerCouponsResponse))]
 [JsonSerializable(typeof(ReviewsResponse))]
 [JsonSerializable(typeof(MyReviewResponse))]
 [JsonSerializable(typeof(ProductReviewRequest))]

@@ -66,8 +66,9 @@ public sealed class ReturnRequest : AggregateRoot
 
     ReturnRequest(Guid id, string number, Guid orderId, string orderNumber, Guid packageId, long sellerId, long customerId, string reason, string? comment,
         decimal commissionRate, IEnumerable<ReturnLine> lines, ReturnStatus status, DateTime requestedAt, DateTime? decidedAt, string? rejectionNote,
-        string? returnTracking, DateTime? receivedAt, DateTime? refundedAt, string? refundReference)
+        string? returnTracking, DateTime? receivedAt, DateTime? refundedAt, string? refundReference, Money? refundAmount)
     {
+        RefundAmount = refundAmount ?? Money.Sum(lines.Select(l => l.Total));
         Id = id;
         Number = number;
         OrderId = orderId;
@@ -109,6 +110,14 @@ public sealed class ReturnRequest : AggregateRoot
     public DateTime? RefundedAt { get; private set; }
     public string? RefundReference { get; private set; }
     public Money Total => Money.Sum(_lines.Select(l => l.Total));
+    public Money RefundAmount { get; }
+
+    public static Money RefundFor(Money linesTotal, Money orderSubtotal, Money orderDiscount)
+    {
+        if (orderDiscount.IsZero || orderSubtotal.IsZero) return linesTotal;
+        var share = Math.Round(linesTotal.Amount * orderDiscount.Amount / orderSubtotal.Amount, 2, MidpointRounding.AwayFromZero);
+        return Money.Of(linesTotal.Amount - share, linesTotal.Currency);
+    }
 
     public static DateTime Deadline(DateTime deliveredAt) => deliveredAt + Window;
 
@@ -138,17 +147,18 @@ public sealed class ReturnRequest : AggregateRoot
             return new ReturnLine(line.Id, line.ProductId, line.ProductTitle, line.VariantLabel, line.Sku, line.UnitPrice, item.Quantity);
         }).ToList();
 
+        var refund = RefundFor(Money.Sum(lines.Select(l => l.Total), order.Subtotal.Currency), order.Subtotal, order.DiscountTotal);
         var request = new ReturnRequest(id, number, order.Id, order.Number, package.Id, package.SellerId, customerId, reason, note, commissionRate, lines,
-            ReturnStatus.Requested, now, null, null, null, null, null, null);
+            ReturnStatus.Requested, now, null, null, null, null, null, null, refund);
         request.Raise(new ReturnRequested(id, number, package.SellerId, now));
         return request;
     }
 
     public static ReturnRequest Restore(Guid id, string number, Guid orderId, string orderNumber, Guid packageId, long sellerId, long customerId, string reason,
         string? comment, decimal commissionRate, IEnumerable<ReturnLine> lines, ReturnStatus status, DateTime requestedAt, DateTime? decidedAt,
-        string? rejectionNote, string? returnTracking, DateTime? receivedAt, DateTime? refundedAt, string? refundReference) =>
+        string? rejectionNote, string? returnTracking, DateTime? receivedAt, DateTime? refundedAt, string? refundReference, Money? refundAmount = null) =>
         new(id, number, orderId, orderNumber, packageId, sellerId, customerId, reason, comment, commissionRate, lines, status, requestedAt, decidedAt,
-            rejectionNote, returnTracking, receivedAt, refundedAt, refundReference);
+            rejectionNote, returnTracking, receivedAt, refundedAt, refundReference, refundAmount);
 
     public void Approve(long sellerId, string returnTracking, DateTime now)
     {

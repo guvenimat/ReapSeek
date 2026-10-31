@@ -36,7 +36,7 @@ $client = New-Object System.Net.Http.HttpClient($handler)
 function Call([string]$method, [string]$path, $body = $null, [string]$project = $null) {
     $req = New-Object System.Net.Http.HttpRequestMessage((New-Object System.Net.Http.HttpMethod($method)), "$ReapDeepApi/api/v1$path")
     if ($project) { $req.Headers.Add("X-Project-Id", $project) }
-    if ($null -ne $body) { $req.Content = New-Object System.Net.Http.StringContent((ConvertTo-Json $body -Compress), [Text.Encoding]::UTF8, "application/json") }
+    if ($null -ne $body) { $req.Content = New-Object System.Net.Http.StringContent((ConvertTo-Json $body -Compress -Depth 10), [Text.Encoding]::UTF8, "application/json") }
     $r = $client.SendAsync($req).Result
     $text = $r.Content.ReadAsStringAsync().Result
     if (-not $r.IsSuccessStatusCode) { throw "$method $path failed with $([int]$r.StatusCode): $text" }
@@ -83,6 +83,19 @@ if ($NewKeys -or -not $sameProject -or -not $local.REAPDEEP_RECOMMENDATION_SECRE
     }
 }
 Set-EnvValues $updates
+
+$audiences = @(
+    @{ name = "Champions and loyal customers"; segments = @("champions", "loyal") },
+    @{ name = "Customers at risk"; segments = @("at_risk", "cant_lose", "about_to_sleep") },
+    @{ name = "New customers"; segments = @("new_customers", "promising") }
+)
+$existing = @((Call GET "/cohorts" $null $projectId).cohorts | ForEach-Object { $_.name })
+foreach ($a in $audiences) {
+    if ($existing -contains $a.name) { continue }
+    $definition = @{ groups = @(@{ conditions = @(@{ type = "rfm_segment"; segments = $a.segments; within_days = 365; event = "purchase" }) }) }
+    $null = Call POST "/cohorts" @{ name = $a.name; kind = "dynamic"; definition = $definition } $projectId
+    Write-Host "Created the ReapDeep cohort '$($a.name)' for campaigns"
+}
 Write-Host "Updated deploy/local/.env: $(($updates.Keys | Sort-Object) -join ', ')"
 
 Write-Host "Restarting the worker and the API with the new settings"

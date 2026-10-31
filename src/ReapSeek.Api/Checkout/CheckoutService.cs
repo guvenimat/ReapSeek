@@ -5,8 +5,10 @@ using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Common;
+using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared;
+using ReapSeek.Shared.Marketing;
 using ReapSeek.Shared.Ordering;
 
 namespace ReapSeek.Api.Checkout;
@@ -33,8 +35,17 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
             var offers = await CartRepository.OffersAsync(conn, tx, cart.Lines.Select(l => l.OfferId).ToArray(), forUpdate: true);
             var view = CartPricing.Build(cart, offers, ShippingPolicy.Standard);
             if (!view.CanCheckout) throw new ConflictException("Some items in your cart are unavailable or low on stock", "cart_needs_attention");
-            if (view.Total != req.ExpectedTotal)
-                throw new ConflictException($"Prices changed while you were checking out. The new total is {view.Total:0.00} {view.Currency}.", "price_changed");
+            OrderDiscount? discount = null;
+            long? couponId = null;
+            if (req.CouponCode?.Trim() is { Length: > 0 } code)
+            {
+                var found = await CouponStore.FindAsync(conn, tx, code, forUpdate: true) ?? throw new DomainException("coupon.not_found", "This code is not valid");
+                couponId = found.Id;
+                discount = new OrderDiscount(found.Coupon.Code, found.Coupon.DiscountFor(Money.Of(view.Subtotal), customer.Id, now));
+            }
+            var expected = view.Total - (discount?.Amount.Amount ?? 0);
+            if (expected != req.ExpectedTotal)
+                throw new ConflictException($"Prices changed while you were checking out. The new total is {expected:0.00} {view.Currency}.", "price_changed");
 
             var byId = offers.ToDictionary(o => o.OfferId);
             var items = cart.Lines.Select(l =>
@@ -45,10 +56,11 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
             }).ToList();
 
             var number = await OrderStore.NextNumberAsync(conn, tx, now);
-            order = Order.Place(Guid.CreateVersion7(), number, customer.Id, address, items, ShippingPolicy.Standard, Guid.CreateVersion7, now);
-            if (order.Total.Amount != view.Total) throw new InvalidOperationException("Order total differs from the cart total");
+            order = Order.Place(Guid.CreateVersion7(), number, customer.Id, address, items, ShippingPolicy.Standard, Guid.CreateVersion7, now, discount);
+            if (order.Total.Amount != expected) throw new InvalidOperationException("Order total differs from the cart total");
             await OrderStore.ReserveStockAsync(conn, tx, items.Select(i => (i.OfferId, i.Quantity)));
             await OrderStore.InsertAsync(conn, tx, order);
+            if (couponId is { } id) await CouponStore.RedeemAsync(conn, tx, id, order.Id, now);
             await SaveAddressAsync(conn, tx, customer.Id, address);
             await tx.CommitAsync(ct);
         }
@@ -78,6 +90,19 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
         }
         log.LogInformation("Placed order {Order} for {Total}", order.Number, order.Total);
         return new PlaceOrderResponse(order.Number, payment.RedirectUrl, order.Total.Amount, order.Total.Currency);
+    }
+
+    public async Task<CouponPreview> PreviewCouponAsync(UserInfo customer, string? code, CancellationToken ct)
+    {
+        var text = Ensure.NotBlank(code, "code", 40);
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var cart = await CartRepository.FindAsync(conn, null, new CartOwner(customer.Id, null));
+        if (cart is null || cart.Lines.Count == 0) throw new ConflictException("Your cart is empty", "cart_empty");
+        var offers = await CartRepository.OffersAsync(conn, null, cart.Lines.Select(l => l.OfferId).ToArray(), forUpdate: false);
+        var view = CartPricing.Build(cart, offers, ShippingPolicy.Standard);
+        var found = await CouponStore.FindAsync(conn, null, text, forUpdate: false) ?? throw new DomainException("coupon.not_found", "This code is not valid");
+        var discount = found.Coupon.DiscountFor(Money.Of(view.Subtotal), customer.Id, clock.GetUtcNow().UtcDateTime);
+        return new CouponPreview(found.Coupon.Code, discount.Amount, view.Total - discount.Amount, found.Coupon.ExpiresAt);
     }
 
     public async Task<List<SavedAddress>> AddressesAsync(long customerId, CancellationToken ct)

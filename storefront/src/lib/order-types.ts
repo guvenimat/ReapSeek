@@ -31,6 +31,7 @@ export type OrderDetail = {
   address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
   subtotal: number; shipping_total: number; total: number; currency: string; packages: OrderPackage[]
   payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]; payment_url: string | null; returns: OrderReturn[]
+  discount_total: number; coupon_code: string | null
 }
 
 export const orderStatusLabel: Record<string, string> = {

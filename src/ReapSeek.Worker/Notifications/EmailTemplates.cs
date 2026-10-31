@@ -40,7 +40,7 @@ public static class EmailTemplates
     {
         var orderUrl = $"{storefrontUrl}/account/orders/{r.OrderNumber}";
         var items = string.Join(", ", r.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"));
-        var amount = $"{r.Total.Amount.ToString("N2", CultureInfo.InvariantCulture)} {r.Total.Currency}";
+        var amount = $"{r.RefundAmount.Amount.ToString("N2", CultureInfo.InvariantCulture)} {r.RefundAmount.Currency}";
         var (subject, headline, body) = r.Status switch
         {
             ReturnStatus.Approved => ($"Your return {r.Number} is approved", "Your return is approved",

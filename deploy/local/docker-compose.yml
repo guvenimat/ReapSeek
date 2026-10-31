@@ -20,6 +20,8 @@ x-api-environment: &api-environment
   ReapDeep__RecommendUrl: ${REAPDEEP_RECOMMEND_INTERNAL_URL:-http://host.docker.internal:8002}
   ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
   ReapDeep__RecommendationSecret: ${REAPDEEP_RECOMMENDATION_SECRET:-}
+  ReapDeep__ApiUrl: ${REAPDEEP_API_URL:-http://host.docker.internal:8001}
+  ReapDeep__ReadKey: ${REAPDEEP_READ_KEY:-}
   Recommendations__CacheSeconds: "30"
 
 services:
@@ -153,6 +155,7 @@ services:
       Outbox__PollMilliseconds: "500"
       ReapDeep__ApiUrl: ${REAPDEEP_API_URL:-http://host.docker.internal:8001}
       ReapDeep__CatalogKey: ${REAPDEEP_CATALOG_KEY:-}
+      ReapDeep__ReadKey: ${REAPDEEP_READ_KEY:-}
       OpenSearch__Url: http://opensearch:9200
       ReapDeep__IngestUrl: ${REAPDEEP_INGEST_INTERNAL_URL:-http://host.docker.internal:8000}
       ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
