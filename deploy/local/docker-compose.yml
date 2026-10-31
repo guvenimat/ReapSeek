@@ -14,6 +14,7 @@ x-api-environment: &api-environment
   Auth__AttemptsPerMinute: "20"
   ForwardedHeaders__TrustedNetworks: 172.16.0.0/12
   OpenSearch__Url: http://opensearch:9200
+  Media__UploadPath: /data/uploads
   Storefront__PublicUrl: http://localhost:3100
   Payments__Sandbox__ApiUrl: http://sandbox:8080
   Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
@@ -110,6 +111,8 @@ services:
     ports:
       - "127.0.0.1:8100:8080"
     environment: *api-environment
+    volumes:
+      - uploads-data:/data/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -130,6 +133,8 @@ services:
     ports:
       - "127.0.0.1:8102:8080"
     environment: *api-environment
+    volumes:
+      - uploads-data:/data/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -267,4 +272,5 @@ services:
 
 volumes:
   postgres-data:
+  uploads-data:
   opensearch-data:
