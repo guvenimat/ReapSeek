@@ -11,7 +11,7 @@ ReapSeek is the flagship customer of [ReapDeep](https://github.com/guvenimat/Rea
 - RFM segments and cohorts for coupon targeting and email campaigns;
 - ReapDeep alerts, delivered to ReapSeek as signed webhooks.
 
-> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, abandoned-cart reminders, ReapDeep alerts in the back office, and the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) are in place. A shopping simulator that fills ReapDeep with realistic behavior comes last.
+> Status: accounts, the marketplace catalog (sellers, products, variants, offers, buy box), the back office, search with faceted category pages, product pages, the cart, checkout with card payments and 3-D Secure, orders split into seller packages, recommendations from ReapDeep on the home, product and cart pages (including a personal "Recommended for you" shelf), the seller center (offers, product proposals, shipping, returns, earnings) with a seller ledger and weekly payouts, carrier tracking and returns with card refunds, verified-buyer reviews and seller-answered questions, coupon campaigns targeted at ReapDeep cohorts and RFM segments, abandoned-cart reminders, ReapDeep alerts in the back office, the ReapDeep integration (catalog sync, behavioral events, identity, purchases and refunds) and a shopping simulator that fills both systems with realistic behavior are in place. All planned stages are done.
 
 ![ReapSeek storefront home page](docs/images/storefront-home.png)
 
@@ -198,13 +198,15 @@ Sellers sign in to the same back office as staff and see only their own data (`/
 ![ReapDeep alerts in the back office](docs/images/backoffice-alerts.png)
 
 - **One reminder per idle cart:** the worker looks for signed-in customers whose cart has not changed for an hour (20 seconds locally) and sends one email with the items at today's price. Changing the cart starts a new idle period; an empty cart, a guest cart or a cart older than a week gets nothing. The reminder is marked in the same transaction that queues it, so it never goes out twice, and ReapDeep gets a `cart_reminder_sent` event to measure recovery.
-- **Alerts from ReapDeep:** alerts are defined in ReapDeep on saved trends (for example "Purchases dropped", a 50% fall per day, created by `connect-reapdeep.ps1`). ReapDeep posts each change to `POST /api/v1/reapdeep/alerts`, signed with the alert's own secret (`X-ReapDeep-Signature: sha256=...`). ReapSeek keeps one secret per alert, rejects unknown alerts and changed bodies, records each state change once, lists them on the back office Alerts page and emails the admins.
+- **Alerts from ReapDeep:** alerts are defined in ReapDeep on saved trends (`connect-reapdeep.ps1` creates "Purchases dropped", a 50% fall per day, and "Refunds spiked", more than five refunds a day). ReapDeep posts each change to `POST /api/v1/reapdeep/alerts`, signed with the alert's own secret (`X-ReapDeep-Signature: sha256=...`). ReapSeek keeps one secret per alert, rejects unknown alerts and changed bodies, records each state change once, lists them on the back office Alerts page and emails the admins.
 
 ### Recommendations from ReapDeep
 
 ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behavior, the same way any ReapDeep customer would: through the Recommender's public API.
 
 ![Popular right now shelf on the home page](docs/images/storefront-recommendations.png)
+
+![Recommended for you, built by ReapDeep from a simulated shopper's history](docs/images/storefront-for-you.png)
 
 | Shelf | Page | ReapDeep model | When ReapDeep has too few items |
 |---|---|---|---|
@@ -220,6 +222,22 @@ ReapSeek shows recommendations computed by ReapDeep from the shoppers' own behav
 - **Personal lists are signed:** ReapDeep only answers `for_you` for a request signed with the project's recommendation secret (`HMAC-SHA256(secret, "customer-{id}.{expires}")`, valid for five minutes). The API signs it for the signed-in shopper, so the secret never reaches the browser and nobody can ask for another shopper's list. Guests get no personal shelf.
 - **Cart:** the cart combines the bought-together lists of up to three of its products with reciprocal rank fusion (`1 / (60 + rank)`), so lists with different score scales merge fairly and products already in the cart are left out.
 - **Measured in ReapDeep:** each shelf sends `recommendations_shown` once with its items and every click sends `recommendation_clicked` with the position and model, so the click-through rate of each shelf is a trend formula in ReapDeep (`clicked / shown`, broken down by `placement`).
+
+### Shopping simulator
+
+`ReapSeek.Simulator` fills ReapSeek and ReapDeep with believable shoppers, so the analytics, recommendations, cohorts and seller pages have something real to show.
+
+- **Backfill:** builds a deterministic world (same seed, same history) of about 2,000 shoppers over 120 days: six personas (champions, loyal, newcomers, at risk, lapsed, browsers) with their own visit rhythm, sessions that stay mostly in one category with a related second one, product quality that drives ratings and returns, and questions answered by sellers. Orders go through the same domain model as the API (placed, paid, shipped, delivered, returned and refunded), with backdated times, seller ledger entries and weekly payouts; every view, search, cart, purchase and refund goes to ReapDeep with its original timestamp. A default run writes about 6,000 orders, 2,900 reviews, 350 returns and 100,000 ReapDeep events, which gives ReapDeep's RFM segments, cohorts and recommendation models real data.
+- **Live mode:** a few concurrent shoppers use the public API like the storefront does: browse categories, search, view products, add to cart, check out with a personal coupon when they have one, pay on the Sandbox page with 3-D Secure (some cards are declined on purpose), then review or return delivered items. Simulated sellers sign in to the seller center to ship packages and decide on returns. It runs until stopped and prints counters every 30 seconds.
+- **Fictional data only:** shoppers use `@shoppers.example.com`, sellers `seller-{id}@sellers.example.com`, the phone number is `0100 000 00 00` (no such Turkish number exists), and ReapDeep only sees `customer-{id}`.
+
+```powershell
+cd deploy/local
+docker compose --profile simulator run --rm simulator backfill   # --customers 2000 --days 120 --seed 42
+docker compose --profile simulator up -d simulator              # live mode
+```
+
+The backfill runs once per database (it refuses when simulated shoppers already exist). Shopper and seller passwords for the demo are `shopper-pass-1` and `seller-pass-1`.
 
 ### Behavioral analytics with ReapDeep
 
@@ -262,7 +280,8 @@ src/
   ReapSeek.Domain/     Domain model for carts, orders and money, no dependencies
   ReapSeek.Worker/     Outbox processor, emails, search indexing, ReapDeep sync and purchase events, payment expiry
   ReapSeek.Shared/     Migrations, outbox contracts, order persistence, Redis cache, validation helpers
-  ReapSeek.Sandbox/    Simulated payment provider
+  ReapSeek.Sandbox/    Simulated payment provider, carrier and bank transfers
+  ReapSeek.Simulator/  Shopping simulator: history backfill and live shoppers
 storefront/            Next.js storefront
 backoffice/            React back office
 deploy/local/          Docker Compose stack and end-to-end tests

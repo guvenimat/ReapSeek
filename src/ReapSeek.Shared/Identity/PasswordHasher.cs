@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Shared.Identity;
 
 public static class PasswordHasher
 {

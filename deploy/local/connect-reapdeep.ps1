@@ -108,12 +108,19 @@ docker compose run --rm migrate --reindex
 if ($LASTEXITCODE -ne 0) { throw "Requesting a catalog sync failed." }
 $ErrorActionPreference = "Stop"
 
-$alertName = "Purchases dropped"
-$alert = @((Call GET "/alerts" $null $projectId).alerts | Where-Object { $_.name -eq $alertName }) | Select-Object -First 1
-if (-not $alert) {
-    $insight = Call POST "/insights" @{ name = "Purchases per day"; kind = "trends"; query = @{ series = @(@{ event = "purchase"; metric = "total" }); filters = @(); chart = "line" } } $projectId
-    $alert = Call POST "/alerts" @{ name = $alertName; insight_id = $insight.id; condition = "decrease"; threshold = 50; window = "day"; webhook_url = $AlertWebhookUrl } $projectId
-    Write-Host "Created the ReapDeep alert '$alertName'"
+$alertPlans = @(
+    @{ name = "Purchases dropped"; insight = "Purchases per day"; event = "purchase"; condition = "decrease"; threshold = 50 },
+    @{ name = "Refunds spiked"; insight = "Refunds per day"; event = "refund"; condition = "above"; threshold = 5 }
+)
+$existingAlerts = @((Call GET "/alerts" $null $projectId).alerts)
+$alerts = foreach ($plan in $alertPlans) {
+    $alert = $existingAlerts | Where-Object { $_.name -eq $plan.name } | Select-Object -First 1
+    if (-not $alert) {
+        $insight = Call POST "/insights" @{ name = $plan.insight; kind = "trends"; query = @{ series = @(@{ event = $plan.event; metric = "total" }); filters = @(); chart = "line" } } $projectId
+        $alert = Call POST "/alerts" @{ name = $plan.name; insight_id = $insight.id; condition = $plan.condition; threshold = $plan.threshold; window = "day"; webhook_url = $AlertWebhookUrl } $projectId
+        Write-Host "Created the ReapDeep alert '$($plan.name)'"
+    }
+    $alert
 }
 $reapSeek = New-Object System.Net.Http.HttpClient((New-Object System.Net.Http.HttpClientHandler -Property @{ CookieContainer = New-Object System.Net.CookieContainer }))
 function ReapSeekCall([string]$method, [string]$path, $body) {
@@ -125,6 +132,8 @@ function ReapSeekCall([string]$method, [string]$path, $body) {
 $ready = $false
 for ($i = 0; $i -lt 30 -and -not $ready; $i++) { try { $ready = (Invoke-WebRequest -UseBasicParsing "$ReapSeekApi/healthz").StatusCode -eq 200 } catch { Start-Sleep 2 } }
 ReapSeekCall POST "/backoffice/auth/login" @{ email = $local.ADMIN_EMAIL; password = $local.ADMIN_PASSWORD }
-ReapSeekCall PUT "/backoffice/alerts/subscriptions" @{ alert_id = $alert.id; secret = $alert.secret }
-Write-Host "ReapDeep alert '$alertName' (id $($alert.id)) delivers to ReapSeek"
+foreach ($alert in $alerts) {
+    ReapSeekCall PUT "/backoffice/alerts/subscriptions" @{ alert_id = $alert.id; secret = $alert.secret }
+    Write-Host "ReapDeep alert '$($alert.name)' (id $($alert.id)) delivers to ReapSeek"
+}
 Write-Host "ReapSeek is connected to ReapDeep project $projectId. The ReapDeep public key is $($detail.public_key)." -ForegroundColor Green
