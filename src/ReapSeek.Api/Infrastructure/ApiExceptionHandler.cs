@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Common;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Ordering;

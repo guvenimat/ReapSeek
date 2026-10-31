@@ -2,12 +2,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Dapper;
-using Npgsql;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Api.Alerts;
 
@@ -43,40 +40,22 @@ public static class AlertSignature
 
 public static class AlertEndpoints
 {
-    public sealed record AlertInsertRecord(
-        long AlertId, string AlertName, string State, string Condition, double Threshold, string TimeWindow, double Value, double? PreviousValue,
-        string Message, string InsightName, DateTime CheckedAt);
-    public sealed record SubscriptionRecord(long AlertId, string Secret);
-
     public static void MapAlerts(this RouteGroupBuilder api)
     {
         api.MapPost("/reapdeep/alerts", Receive);
 
         var admin = api.MapGroup("/backoffice/alerts").RequireAdmin();
-        admin.MapGet("/", async (NpgsqlDataSource db, CancellationToken ct) =>
-        {
-            await using var conn = await db.OpenConnectionAsync(ct);
-            var events = (await conn.QueryAsync<AlertEventRow>("""
-                SELECT id, alert_id, alert_name, state, condition, threshold, time_window, value, previous_value, message, insight_name, checked_at, received_at
-                FROM analytics_alerts ORDER BY received_at DESC, id DESC LIMIT 100
-                """)).AsList();
-            var subscriptions = await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM reapdeep_alert_subscriptions");
-            return ApiResults.Ok(new AlertsResponse(events, subscriptions), AppJsonContext.Default.AlertsResponse);
-        });
-        admin.MapPut("/subscriptions", async (AlertSubscriptionRequest req, NpgsqlDataSource db, CancellationToken ct) =>
+        admin.MapGet("/", async (AlertRepository alerts, CancellationToken ct) =>
+            ApiResults.Ok(await alerts.ListAsync(ct), AppJsonContext.Default.AlertsResponse));
+        admin.MapPut("/subscriptions", async (AlertSubscriptionRequest req, AlertRepository alerts, CancellationToken ct) =>
         {
             Ensure.That(req.AlertId is > 0, "alert_id is required");
-            var secret = Ensure.NotBlank(req.Secret, "secret", 200);
-            await using var conn = await db.OpenConnectionAsync(ct);
-            await conn.ExecuteAsync("""
-                INSERT INTO reapdeep_alert_subscriptions (alert_id, secret) VALUES (@AlertId, @Secret)
-                ON CONFLICT (alert_id) DO UPDATE SET secret = excluded.secret
-                """, new SubscriptionRecord(req.AlertId!.Value, secret));
+            await alerts.SaveSubscriptionAsync(req.AlertId!.Value, Ensure.NotBlank(req.Secret, "secret", 200), ct);
             return Results.NoContent();
         });
     }
 
-    static async Task<IResult> Receive(HttpRequest request, NpgsqlDataSource db, ILoggerFactory logs, CancellationToken ct)
+    static async Task<IResult> Receive(HttpRequest request, AlertRepository alerts, ILoggerFactory logs, CancellationToken ct)
     {
         using var buffer = new MemoryStream();
         await request.Body.CopyToAsync(buffer, ct);
@@ -84,8 +63,7 @@ public static class AlertEndpoints
         if (!long.TryParse(request.Headers["X-ReapDeep-Alert"], NumberStyles.None, CultureInfo.InvariantCulture, out var alertId))
             return ApiResults.Unauthorized("Unknown alert");
 
-        await using var conn = await db.OpenConnectionAsync(ct);
-        var secret = await conn.ExecuteScalarAsync<string?>("SELECT secret FROM reapdeep_alert_subscriptions WHERE alert_id = @Id", new { Id = alertId });
+        var secret = await alerts.SecretAsync(alertId, ct);
         if (secret is null || !AlertSignature.IsValid(request.Headers["X-ReapDeep-Signature"], body, secret))
             return ApiResults.Unauthorized("Invalid signature");
 
@@ -100,16 +78,7 @@ public static class AlertEndpoints
         }
         if (p is null || p.AlertId != alertId) return ApiResults.BadRequest("Malformed alert");
 
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        var id = await conn.ExecuteScalarAsync<long?>("""
-            INSERT INTO analytics_alerts (alert_id, alert_name, state, condition, threshold, time_window, value, previous_value, message, insight_name, checked_at)
-            VALUES (@AlertId, @AlertName, @State, @Condition, @Threshold, @TimeWindow, @Value, @PreviousValue, @Message, @InsightName, @CheckedAt)
-            ON CONFLICT (alert_id, checked_at, state) DO NOTHING RETURNING id
-            """, new AlertInsertRecord(p.AlertId, p.AlertName, p.State, p.Condition, p.Threshold, p.Window, p.Value, p.PreviousValue, p.Message,
-            p.Insight.Name, p.CheckedAt), tx);
-        if (id is { } eventId)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AlertReceived, new AlertMessage(eventId), OutboxJsonContext.Default.AlertMessage);
-        await tx.CommitAsync(ct);
+        await alerts.RecordAsync(p, ct);
         logs.CreateLogger("ReapSeek.Alerts").LogInformation("ReapDeep alert {Alert} is {State}: {Message}", p.AlertName, p.State, p.Message);
         return Results.Ok();
     }

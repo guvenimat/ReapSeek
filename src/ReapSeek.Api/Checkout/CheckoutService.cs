@@ -7,6 +7,7 @@ using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Marketing;
 using ReapSeek.Shared.Observability;
@@ -14,7 +15,7 @@ using ReapSeek.Shared.Ordering;
 
 namespace ReapSeek.Api.Checkout;
 
-public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, IConfiguration cfg, TimeProvider clock, ILogger<CheckoutService> log)
+public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payments, IConfiguration cfg, TimeProvider clock, ILogger<CheckoutService> log)
 {
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     readonly string _webhookUrl = cfg["Payments:WebhookUrl"] ?? "http://localhost:8100/api/v1/payments/sandbox/webhook";
@@ -66,10 +67,10 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
             await tx.CommitAsync(ct);
         }
 
-        SandboxPayment payment;
+        PaymentSession payment;
         try
         {
-            payment = await sandbox.CreateAsync(new SandboxCreatePayment(order.Total.Amount, order.Total.Currency, order.Number,
+            payment = await payments.CreatePaymentAsync(new NewPayment(order.Total.Amount, order.Total.Currency, order.Number,
                 $"ReapSeek order {order.Number}", $"{_storefrontUrl}/checkout/complete?order={order.Number}", _webhookUrl), ct);
         }
         catch (PaymentProviderException ex)
@@ -85,7 +86,7 @@ public sealed class CheckoutService(NpgsqlDataSource db, SandboxClient sandbox, 
             var current = await OrderStore.LoadAsync(conn, tx, order.Id) ?? throw new InvalidOperationException("Order disappeared");
             current.AttachPayment(payment.Id);
             await OrderStore.SaveAsync(conn, tx, current);
-            await PaymentRepository.InsertAsync(conn, tx, Guid.CreateVersion7(), order.Id, SandboxClient.Provider, payment.Id, payment.Amount,
+            await PaymentRepository.InsertAsync(conn, tx, Guid.CreateVersion7(), order.Id, payments.Name, payment.Id, payment.Amount,
                 payment.Currency, payment.RedirectUrl);
             await tx.CommitAsync(ct);
         }

@@ -53,6 +53,10 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 
 There is deliberately no generic repository, mediator or separate application layer: the endpoints call a service, the service loads an aggregate, calls one of its methods and saves it.
 
+External providers sit behind three ports in `ReapSeek.Shared/Providers`: `IPaymentGateway`, `ICarrier` and `IPayoutBank`, all implemented today by the Sandbox adapter. Email, search and caching are not abstracted, because there is no second implementation to swap in.
+
+The rules above are enforced, not just documented: `ArchitectureTests.cs` (NetArchTest) fails the build when the domain references a framework, an endpoint class runs SQL, a repository is used outside its module group, or code outside a composition root references the Sandbox adapter. The reasoning behind each choice is recorded in [`docs/adr`](docs/adr): [modular monolith](docs/adr/0001-modular-monolith.md), [hybrid architecture](docs/adr/0002-hybrid-architecture.md), [transactional outbox](docs/adr/0003-transactional-outbox.md), [ReapDeep through public interfaces](docs/adr/0004-reapdeep-public-interfaces.md) and [ports at real boundaries](docs/adr/0005-ports-at-real-boundaries.md).
+
 ### What is built so far
 
 - **Accounts:** customer registration and sign-in, PBKDF2 password hashing, password change that signs out other devices, rate-limited sign-in, email verification and password reset (below).

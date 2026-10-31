@@ -3,11 +3,10 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Payments;
-using ReapSeek.Api.SellerPanel;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Ordering;
 using ReapSeek.Shared.Returns;
@@ -24,21 +23,13 @@ public sealed record SellerReturnRow(
     string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, string CustomerName, List<SellerReturnLine> Lines);
 public sealed record SellerReturnsResponse(List<SellerReturnRow> Returns);
 
-public enum ShippingWebhookOutcome { Applied, Duplicate, Rejected, Malformed }
-
-public sealed class ReturnService(NpgsqlDataSource db, SandboxClient sandbox, SellerPanelService panel, IConfiguration cfg, TimeProvider clock,
-    ILogger<ReturnService> log)
+public sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimeProvider clock)
 {
     public sealed record ReturnRowRecord(
         Guid Id, string Number, string OrderNumber, string Status, string Reason, string? Comment, decimal Total, DateTime RequestedAt, string? RejectionNote,
         string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, string CustomerName);
     public sealed record ReturnLineRecord(Guid ReturnId, string ProductTitle, string VariantLabel, string Sku, int Quantity, decimal UnitPrice);
-    public sealed record PackageRefRecord(Guid Id, Guid OrderId, string Status, string? ShipmentStatus);
-    public sealed record ShipmentEventRecord(string EventId, string TrackingNumber, string Kind, string Status, DateTime OccurredAt);
-    public sealed record ShipmentStatusRecord(string TrackingNumber, string Status);
 
-    static readonly string[] Steps = ["label_created", "in_transit", "out_for_delivery", "delivered"];
-    readonly string _secret = cfg["Payments:Sandbox:WebhookSecret"] ?? "";
 
     public async Task<CreatedReturn> RequestAsync(UserInfo customer, string orderNumber, CreateReturnRequest req, CancellationToken ct)
     {
@@ -69,7 +60,7 @@ public sealed class ReturnService(NpgsqlDataSource db, SandboxClient sandbox, Se
             if (current.Status != ReturnStatus.Requested)
                 throw new DomainException("return.transition", $"A return that is {ReturnStatusRules.Name(current.Status)} cannot be approved");
         }
-        var shipment = await sandbox.CreateShipmentAsync(returnId.ToString(), "return", ct);
+        var shipment = await carrier.CreateShipmentAsync(returnId.ToString(), ShipmentKinds.Return, ct);
         await DecideAsync(sellerId, returnId, r => r.Approve(sellerId, shipment.TrackingNumber, clock.GetUtcNow().UtcDateTime), ct);
         return (await SellerReturnsAsync(sellerId, null, returnId, ct)).Single();
     }
@@ -108,52 +99,5 @@ public sealed class ReturnService(NpgsqlDataSource db, SandboxClient sandbox, Se
         return rows.Select(r => new SellerReturnRow(r.Id, r.Number, r.OrderNumber, r.Status, r.Reason, r.Comment, r.Total, r.RequestedAt, r.RejectionNote,
             r.ReturnTracking, r.ReceivedAt, r.RefundedAt, r.CustomerName,
             lines[r.Id].Select(l => new SellerReturnLine(l.ProductTitle, l.VariantLabel, l.Sku, l.Quantity, l.UnitPrice)).ToList())).ToList();
-    }
-
-    public async Task<ShippingWebhookOutcome> HandleShippingWebhookAsync(string body, string? signature, CancellationToken ct)
-    {
-        if (!WebhookVerifier.IsValid(signature, body, _secret, clock.GetUtcNow())) return ShippingWebhookOutcome.Rejected;
-        SandboxShipmentEvent? e;
-        try
-        {
-            e = JsonSerializer.Deserialize(body, SandboxJsonContext.Default.SandboxShipmentEvent);
-        }
-        catch (JsonException)
-        {
-            return ShippingWebhookOutcome.Malformed;
-        }
-        if (e?.Data is not { } d || string.IsNullOrEmpty(e.Id) || Array.IndexOf(Steps, d.Status) < 0 || d.Kind is not ("outbound" or "return"))
-            return ShippingWebhookOutcome.Malformed;
-
-        await using var conn = await db.OpenConnectionAsync(ct);
-        await using var tx = await conn.BeginTransactionAsync(ct);
-        var inserted = await conn.ExecuteAsync("""
-            INSERT INTO shipment_events (event_id, tracking_number, kind, status, occurred_at) VALUES (@EventId, @TrackingNumber, @Kind, @Status, @OccurredAt)
-            ON CONFLICT (event_id) DO NOTHING
-            """, new ShipmentEventRecord(e.Id, d.TrackingNumber, d.Kind, d.Status, d.OccurredAt), tx);
-        if (inserted == 0) return ShippingWebhookOutcome.Duplicate;
-
-        if (d.Kind == "outbound")
-        {
-            var package = await conn.QuerySingleOrDefaultAsync<PackageRefRecord>(
-                "SELECT id, order_id, status, shipment_status FROM order_packages WHERE tracking_number = @Tracking FOR UPDATE", new { Tracking = d.TrackingNumber }, tx);
-            if (package is null)
-            {
-                log.LogWarning("Shipment event {Event} for unknown tracking number {Tracking}", e.Id, d.TrackingNumber);
-                await tx.CommitAsync(ct);
-                return ShippingWebhookOutcome.Applied;
-            }
-            if (Array.IndexOf(Steps, d.Status) > Array.IndexOf(Steps, package.ShipmentStatus ?? ""))
-                await conn.ExecuteAsync("UPDATE order_packages SET shipment_status = @Status WHERE tracking_number = @TrackingNumber",
-                    new ShipmentStatusRecord(d.TrackingNumber, d.Status), tx);
-            if (d.Status == "delivered" && package.Status == OrderStatusRules.Name(PackageStatus.Shipped))
-                await panel.DeliverAsync(conn, tx, package.OrderId, package.Id, d.OccurredAt);
-        }
-        else if (d.Status == "delivered" && await ReturnStore.LoadByTrackingAsync(conn, tx, d.TrackingNumber) is { } request)
-        {
-            if (request.MarkReceived(d.OccurredAt)) await ReturnStore.SaveAsync(conn, tx, request);
-        }
-        await tx.CommitAsync(ct);
-        return ShippingWebhookOutcome.Applied;
     }
 }

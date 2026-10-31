@@ -10,6 +10,7 @@ using ReapSeek.Worker.Payouts;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Shared.Payouts;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Outbox;
 
 namespace ReapSeek.Worker.Infrastructure;
@@ -45,6 +46,7 @@ public static class HostingExtensions
         services.AddHostedService<CartReminderJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
+        services.AddSandboxProviders();
         services.AddSingleton<PayoutRunner>();
         services.AddHostedService<PayoutJob>();
         services.AddSingleton<OutboxRepository>();

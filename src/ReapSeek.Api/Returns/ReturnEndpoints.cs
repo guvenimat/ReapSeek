@@ -22,18 +22,6 @@ public static class ReturnEndpoints
             ApiResults.Ok(await returns.ApproveAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerReturnRow));
         seller.MapPost("/{id:guid}/reject", async (Guid id, RejectReturnRequest req, UserInfo user, ReturnService returns, CancellationToken ct) =>
             ApiResults.Ok(await returns.RejectAsync(SellerOf(user), id, req, ct), AppJsonContext.Default.SellerReturnRow));
-
-        api.MapPost("/shipping/sandbox/webhook", async (HttpRequest request, ReturnService returns, CancellationToken ct) =>
-        {
-            using var reader = new StreamReader(request.Body);
-            var body = await reader.ReadToEndAsync(ct);
-            return await returns.HandleShippingWebhookAsync(body, request.Headers["Sandbox-Signature"], ct) switch
-            {
-                ShippingWebhookOutcome.Rejected => ApiResults.Unauthorized("Invalid signature"),
-                ShippingWebhookOutcome.Malformed => ApiResults.BadRequest("Malformed event"),
-                _ => Results.Ok(),
-            };
-        });
     }
 
     static long SellerOf(UserInfo user) => user.SellerId ?? throw new NotFoundException("Seller not found");

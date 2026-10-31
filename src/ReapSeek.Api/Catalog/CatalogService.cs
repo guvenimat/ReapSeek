@@ -10,6 +10,10 @@ public sealed class CatalogService(CatalogRepository catalog, CategoryCache cate
 {
     const int MaxPageSize = 100;
 
+    public Task<List<CategoryRow>> ListCategoriesAsync(CancellationToken ct) => catalog.ListCategoriesAsync(ct);
+
+    public Task<List<BrandRow>> ListBrandsAsync(CancellationToken ct) => catalog.ListBrandsAsync(ct);
+
     public async Task<CategoryRow> CreateCategoryAsync(CreateCategoryRequest req, CancellationToken ct)
     {
         var name = Ensure.NotBlank(req.Name, "name", 80);

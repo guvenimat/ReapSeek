@@ -1,27 +1,17 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared.Ledger;
 using ReapSeek.Shared.Outbox;
+using ReapSeek.Shared.Providers;
 using ReapSeek.Shared.Returns;
 using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Outbox;
 
 namespace ReapSeek.Worker.Orders;
 
-public sealed record SandboxRefundRequest(decimal Amount, string Reference);
-public sealed record SandboxRefund(string Id, string Status);
-
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
-[JsonSerializable(typeof(SandboxRefundRequest))]
-[JsonSerializable(typeof(SandboxRefund))]
-public sealed partial class RefundJsonContext : JsonSerializerContext;
-
-public sealed class ReturnHandler : IDisposable
+public sealed class ReturnHandler
 {
     public sealed record PersonRecord(string Email, string Name);
 
@@ -30,11 +20,11 @@ public sealed class ReturnHandler : IDisposable
     readonly ReapDeepIngestClient _reapDeep;
     readonly TimeProvider _clock;
     readonly ILogger<ReturnHandler> _log;
-    readonly HttpClient _sandbox;
+    readonly IPaymentGateway _payments;
     readonly string _storefrontUrl;
     readonly string _backofficeUrl;
 
-    public ReturnHandler(NpgsqlDataSource db, EmailSender email, ReapDeepIngestClient reapDeep, IConfiguration cfg, TimeProvider clock, ILogger<ReturnHandler> log)
+    public ReturnHandler(NpgsqlDataSource db, EmailSender email, ReapDeepIngestClient reapDeep, IPaymentGateway payments, IConfiguration cfg, TimeProvider clock, ILogger<ReturnHandler> log)
     {
         _db = db;
         _email = email;
@@ -43,8 +33,7 @@ public sealed class ReturnHandler : IDisposable
         _log = log;
         _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
         _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
-        _sandbox = new HttpClient { BaseAddress = new Uri((cfg["Payments:Sandbox:ApiUrl"] ?? "http://localhost:8101").TrimEnd('/') + "/"), Timeout = TimeSpan.FromSeconds(15) };
-        _sandbox.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", cfg["Payments:Sandbox:SecretKey"] ?? "");
+        _payments = payments;
     }
 
     public static bool Handles(string type) => type is OutboxTypes.ReturnRequested or OutboxTypes.ReturnApproved or OutboxTypes.ReturnRejected
@@ -87,26 +76,21 @@ public sealed class ReturnHandler : IDisposable
         if (request.Status != ReturnStatus.Received) return;
         var paymentId = await conn.ExecuteScalarAsync<string?>("SELECT payment_reference FROM orders WHERE id = @Id", new { Id = request.OrderId })
             ?? throw new InvalidOperationException($"Order {request.OrderNumber} has no payment");
-        using var res = await _sandbox.PostAsJsonAsync($"v1/payments/{Uri.EscapeDataString(paymentId)}/refunds",
-            new SandboxRefundRequest(request.RefundAmount.Amount, $"return-{request.Id}"), RefundJsonContext.Default.SandboxRefundRequest, ct);
-        if (!res.IsSuccessStatusCode)
-            throw new HttpRequestException($"The payment provider returned {(int)res.StatusCode} for the refund of {request.Number}: {await res.Content.ReadAsStringAsync(ct)}");
-        var refund = await res.Content.ReadFromJsonAsync(RefundJsonContext.Default.SandboxRefund, ct) ?? throw new HttpRequestException("Empty refund response");
+        var refundId = await _payments.RefundAsync(paymentId, request.RefundAmount.Amount, $"return-{request.Id}", ct);
 
         await using var tx = await conn.BeginTransactionAsync(ct);
         var locked = await ReturnStore.LoadAsync(conn, tx, request.Id);
         if (locked?.Status != ReturnStatus.Received) return;
         var now = _clock.GetUtcNow().UtcDateTime;
-        var entries = locked.MarkRefunded(refund.Id, now);
+        var entries = locked.MarkRefunded(refundId, now);
         await ReturnStore.SaveAsync(conn, tx, locked);
         await LedgerStore.InsertAsync(conn, tx, new LedgerInsertRecord(locked.SellerId, locked.PackageId, locked.Id, locked.OrderNumber,
             entries.Select(e => e.Kind).ToArray(), entries.Select(e => e.Amount).ToArray(), now));
         await tx.CommitAsync(ct);
-        _log.LogInformation("Refunded {Amount} for {Return} ({Refund})", locked.RefundAmount, locked.Number, refund.Id);
+        _log.LogInformation("Refunded {Amount} for {Return} ({Refund})", locked.RefundAmount, locked.Number, refundId);
     }
 
     static async Task<PersonRecord> CustomerAsync(NpgsqlConnection conn, ReturnRequest request) =>
         await conn.QuerySingleAsync<PersonRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = request.CustomerId });
 
-    public void Dispose() => _sandbox.Dispose();
 }

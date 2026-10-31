@@ -34,9 +34,9 @@ public static class SellerPanelEndpoints
                 AppJsonContext.Default.ProductsResponse));
         seller.MapGet("/catalog/products/{id:long}", async (long id, UserInfo user, SellerPanelService service, CancellationToken ct) =>
             ApiResults.Ok(await service.ProductAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerProductView));
-        seller.MapGet("/catalog/categories", async (CatalogRepository catalog, CancellationToken ct) =>
+        seller.MapGet("/catalog/categories", async (CatalogService catalog, CancellationToken ct) =>
             ApiResults.Ok(new CategoriesResponse(await catalog.ListCategoriesAsync(ct)), AppJsonContext.Default.CategoriesResponse));
-        seller.MapGet("/catalog/brands", async (CatalogRepository catalog, CancellationToken ct) =>
+        seller.MapGet("/catalog/brands", async (CatalogService catalog, CancellationToken ct) =>
             ApiResults.Ok(new BrandsResponse(await catalog.ListBrandsAsync(ct)), AppJsonContext.Default.BrandsResponse));
         seller.MapPost("/catalog/products", async (CreateProductRequest req, UserInfo user, SellerPanelService service, CancellationToken ct) =>
             ApiResults.Created(await service.ProposeAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
@@ -66,19 +66,17 @@ public static class SellerPanelEndpoints
             ApiResults.Ok(await payouts.RunAsync(clock.GetUtcNow().UtcDateTime, ct), AppJsonContext.Default.PayoutRunResult));
         admin.MapPost("/catalog/products/{id:long}/review", async (long id, ReviewRequest req, SellerPanelService service, CancellationToken ct) =>
             ApiResults.Ok(await service.ReviewAsync(id, req, ct), AppJsonContext.Default.ProductDetail));
-        admin.MapGet("/sellers/{id:long}/users", async (long id, AccountRepository accounts, CancellationToken ct) =>
-            ApiResults.Ok(new SellerUsersResponse((await accounts.SellerUsersAsync(id, ct)).Select(u => new SellerUserRow(u.Id, u.Email, u.Name, u.CreatedAt)).ToList()),
+        admin.MapGet("/sellers/{id:long}/users", async (long id, SellerAccounts accounts, CancellationToken ct) =>
+            ApiResults.Ok(new SellerUsersResponse((await accounts.ListAsync(id, ct)).Select(u => new SellerUserRow(u.Id, u.Email, u.Name, u.CreatedAt)).ToList()),
                 AppJsonContext.Default.SellerUsersResponse));
         admin.MapPost("/sellers/{id:long}/users", CreateSellerUser);
     }
 
-    static async Task<IResult> CreateSellerUser(long id, CreateSellerUserRequest req, AccountRepository accounts, SellerPanelRepository panel, CancellationToken ct)
+    static async Task<IResult> CreateSellerUser(long id, CreateSellerUserRequest req, SellerAccounts accounts, SellerPanelRepository panel, CancellationToken ct)
     {
         _ = await panel.AccountAsync(id, ct) ?? throw new NotFoundException("Seller not found");
-        var registration = IdentityRules.Validate(new RegisterRequest(req.Email, req.Name, req.Password));
-        var userId = await accounts.CreateSellerUserAsync(id, registration.Email, registration.Name, PasswordHasher.Hash(registration.Password), ct)
-            ?? throw new ConflictException("An account with this email already exists");
-        return ApiResults.Created(new SellerUserRow(userId, registration.Email, registration.Name, DateTime.UtcNow), AppJsonContext.Default.SellerUserRow);
+        var created = await accounts.CreateAsync(id, req.Email, req.Name, req.Password, ct);
+        return ApiResults.Created(new SellerUserRow(created.Id, created.Email, created.Name, created.CreatedAt), AppJsonContext.Default.SellerUserRow);
     }
 
     static long SellerOf(UserInfo user) => user.SellerId ?? throw new NotFoundException("Seller not found");
