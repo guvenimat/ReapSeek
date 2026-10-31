@@ -5,6 +5,7 @@ import { cache } from 'react'
 import { TrackEvent } from '@/components/analytics/Analytics'
 import { ProductView } from '@/components/product/ProductView'
 import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
+import { RecentlyViewed } from '@/components/wishlist/RecentlyViewed'
 import { ReviewsSection } from '@/components/reviews/ReviewsSection'
 import { getReviews } from '@/lib/reviews'
 import { buyBox, getProduct, initialVariant, publicUrl, type StoreProduct } from '@/lib/products'
@@ -106,6 +107,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
       <RecommendationShelf placement="product_bought_together" title="Frequently bought together" productId={product.id} />
       <RecommendationShelf placement="product_similar" title="Customers also viewed" productId={product.id} />
+      <RecentlyViewed current={product.id} />
 
       <TrackEvent
         event="product_viewed"

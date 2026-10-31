@@ -8,6 +8,8 @@ public sealed record ProductCard(
     long Id, string Slug, string Title, string Brand, string CategoryName, decimal? Price, decimal? ListPrice,
     int Discount, bool InStock, int SellerCount, string? ImageUrl, double? Rating = null, int ReviewCount = 0);
 
+public sealed record ProductCardsResponse(List<ProductCard> Products);
+
 public sealed record ProductCategory(string Path, string Name);
 
 public sealed record FacetValue(string Value, string Label, long Count, bool Selected);

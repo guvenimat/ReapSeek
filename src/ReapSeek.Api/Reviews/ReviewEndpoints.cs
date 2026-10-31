@@ -28,14 +28,14 @@ public static class ReviewEndpoints
             if (variant is null) return ApiResults.Forbidden("Only customers who received this product can review it");
             await reviews.UpsertReviewAsync(new ReviewRepository.ReviewUpsertRecord(id, user.Id, review.Rating, review.Title, review.Body, variant), ct);
             return ApiResults.Ok(new MyReviewResponse(true, await reviews.MyReviewAsync(id, user.Id, ct)), AppJsonContext.Default.MyReviewResponse);
-        }).RequireCustomer();
+        }).RequireCustomer().RequireRateLimiting(HostingExtensions.ContentRateLimit);
         products.MapPost("/questions", async (long id, AskRequest req, UserInfo user, ReviewRepository reviews, CancellationToken ct) =>
         {
             var body = ReviewRules.Question(req);
             if (!await reviews.ProductExistsAsync(id, ct)) throw new NotFoundException("Product not found");
             await reviews.AskAsync(id, user.Id, body, ct);
             return ApiResults.Created(await reviews.QuestionsAsync(id, 1, ct), AppJsonContext.Default.QuestionsResponse);
-        }).RequireCustomer();
+        }).RequireCustomer().RequireRateLimiting(HostingExtensions.ContentRateLimit);
 
         var seller = api.MapGroup("/seller/questions").RequireSeller();
         seller.MapGet("/", async (UserInfo user, ReviewRepository reviews, bool? answered, CancellationToken ct) =>
@@ -46,7 +46,7 @@ public static class ReviewEndpoints
             if (!await reviews.AnswerAsync(id, SellerOf(user), body, ct)) throw new NotFoundException("Question not found");
             return ApiResults.Ok(new SellerQuestionsResponse((await reviews.SellerQuestionsAsync(SellerOf(user), null, ct)).Where(q => q.Id == id).ToList()),
                 AppJsonContext.Default.SellerQuestionsResponse);
-        });
+        }).RequireRateLimiting(HostingExtensions.ContentRateLimit);
 
         var admin = api.MapGroup("/backoffice").RequireAdmin();
         admin.MapGet("/moderation", async (ReviewRepository reviews, string? status, CancellationToken ct) =>

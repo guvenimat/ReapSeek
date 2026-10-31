@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { track } from '@/lib/analytics'
 import { formatPrice, type ProductCard as Card } from '@/lib/catalog'
 import { Stars } from './reviews/Stars'
+import { WishlistButton } from './wishlist/Wishlist'
 
 export type CardTracking = { query: string; position: number }
 
@@ -18,6 +19,7 @@ export function ProductCard({ product, tracking, onSelect }: { product: Card; tr
         {product.image_url && <img src={product.image_url} alt={product.title} width={400} height={500} loading="lazy" />}
         {product.discount > 0 && product.in_stock && <span className="discount-badge">-{product.discount}%</span>}
         {!product.in_stock && <span className="stock-badge">Out of stock</span>}
+        <WishlistButton productId={product.id} price={product.price} />
       </div>
       <div className="product-info">
         <p className="product-title"><strong>{product.brand}</strong> {product.title.startsWith(product.brand) ? product.title.slice(product.brand.length).trim() : product.title}</p>

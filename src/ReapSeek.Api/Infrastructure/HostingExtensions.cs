@@ -20,6 +20,8 @@ using ReapSeek.Api.Recommendations;
 using ReapSeek.Api.Returns;
 using ReapSeek.Api.Reviews;
 using ReapSeek.Api.Search;
+using ReapSeek.Api.Stores;
+using ReapSeek.Api.Wishlist;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Api.Shipping;
@@ -36,8 +38,15 @@ namespace ReapSeek.Api.Infrastructure;
 public static class HostingExtensions
 {
     public const string AuthRateLimit = "auth";
+    public const string ContentRateLimit = "content";
     const int DefaultAuthAttemptsPerMinute = 10;
+    const int DefaultContentPostsPerMinute = 10;
     static readonly TimeSpan AuthWindow = TimeSpan.FromMinutes(1);
+
+    static RateLimitPartition<string> Limit(HttpContext ctx, string policy, int permits) => RateLimitPartition.Get(ClientIp(ctx), ip =>
+        new RedisFixedWindowLimiter(ctx.RequestServices.GetRequiredService<RedisCache>(), CacheKeys.RateLimit(policy, ip), permits, AuthWindow,
+            new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = AuthWindow, QueueLimit = 0 }),
+            ctx.RequestServices.GetRequiredService<ILogger<RedisFixedWindowLimiter>>()));
 
     public static WebApplicationBuilder AddReapSeekApi(this WebApplicationBuilder builder)
     {
@@ -64,6 +73,7 @@ public static class HostingExtensions
         });
 
         var attempts = cfg.GetValue("Auth:AttemptsPerMinute", DefaultAuthAttemptsPerMinute);
+        var posts = cfg.GetValue("Content:PostsPerMinute", DefaultContentPostsPerMinute);
         services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -73,10 +83,8 @@ public static class HostingExtensions
                     ctx.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
                 return ValueTask.CompletedTask;
             };
-            o.AddPolicy(AuthRateLimit, ctx => RateLimitPartition.Get(ClientIp(ctx), ip =>
-                new RedisFixedWindowLimiter(ctx.RequestServices.GetRequiredService<RedisCache>(), CacheKeys.RateLimit(AuthRateLimit, ip), attempts, AuthWindow,
-                    new FixedWindowRateLimiter(new FixedWindowRateLimiterOptions { PermitLimit = attempts, Window = AuthWindow, QueueLimit = 0 }),
-                    ctx.RequestServices.GetRequiredService<ILogger<RedisFixedWindowLimiter>>())));
+            o.AddPolicy(AuthRateLimit, ctx => Limit(ctx, AuthRateLimit, attempts));
+            o.AddPolicy(ContentRateLimit, ctx => Limit(ctx, ContentRateLimit, posts));
         });
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
@@ -92,6 +100,8 @@ public static class HostingExtensions
         services.AddSingleton<AlertRepository>();
         services.AddSingleton<CampaignRepository>();
         services.AddSingleton<CustomerRepository>();
+        services.AddSingleton<WishlistRepository>();
+        services.AddSingleton<StoreRepository>();
         services.AddSingleton<AccountRecoveryService>();
         services.AddHostedService<BootstrapAdmin>();
         services.AddSingleton<CatalogRepository>();
@@ -147,6 +157,8 @@ public static class HostingExtensions
         api.MapSellerPanel();
         api.MapReturns();
         api.MapReviews();
+        api.MapWishlist();
+        api.MapStores();
         api.MapCampaigns();
         api.MapAlerts();
         api.MapOutboxAdmin();

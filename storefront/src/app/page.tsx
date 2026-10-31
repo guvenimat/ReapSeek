@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { RecentlyViewed } from '@/components/wishlist/RecentlyViewed'
 import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
 import { ReturnIcon, ShieldIcon, StoreIcon, TruckIcon } from '@/components/icons'
 import { departmentHue, getCategories, search, type ProductCard as Card } from '@/lib/catalog'
@@ -49,6 +50,8 @@ export default async function HomePage() {
       </section>
 
       {signedIn && <RecommendationShelf placement="home_for_you" title="Recommended for you" skeleton={false} />}
+
+      <RecentlyViewed />
 
       <RecommendationShelf placement="home_popular" title="Popular right now" />
 

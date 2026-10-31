@@ -52,10 +52,12 @@ public sealed class SearchService(OpenSearchClient search, CategoryCache categor
         return SearchQuery.ParseSuggest(result, q, names);
     }
 
-    public async Task<List<ProductCard>> InStockCardsAsync(IReadOnlyCollection<long> ids, CancellationToken ct)
+    public Task<List<ProductCard>> InStockCardsAsync(IReadOnlyCollection<long> ids, CancellationToken ct) => CardsAsync(ids, true, ct);
+
+    public async Task<List<ProductCard>> CardsAsync(IReadOnlyCollection<long> ids, bool inStockOnly, CancellationToken ct)
     {
         if (ids.Count == 0) return [];
-        var result = await search.PostAsync($"{ProductIndex.Alias}/_search", SearchQuery.BuildByIds(ids), ct)
+        var result = await search.PostAsync($"{ProductIndex.Alias}/_search", SearchQuery.BuildByIds(ids, inStockOnly), ct)
             ?? throw new OpenSearchException(502, "Empty search response");
         var byId = SearchQuery.ParseCards(result).ToDictionary(c => c.Id);
         return ids.Where(byId.ContainsKey).Select(id => byId[id]).ToList();

@@ -37,7 +37,7 @@ export function Header({ user, departments, cartCount }: { user: User | null; de
               <span><small>Welcome</small>Sign in</span>
             </Link>
           )}
-          <span className="header-action muted"><HeartIcon /><span><small>Saved</small>Favorites</span></span>
+          <Link href="/wishlist" className="header-action" data-testid="wishlist-link"><HeartIcon /><span><small>Saved</small>Favorites</span></Link>
           <Link href="/cart" className="header-action cart" data-testid="cart-link">
             <CartIcon />{cartCount > 0 && <span className="badge" data-testid="cart-count">{cartCount}</span>}<span><small>Your</small>Cart</span>
           </Link>

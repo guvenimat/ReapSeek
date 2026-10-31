@@ -17,6 +17,8 @@ using ReapSeek.Api.Reviews;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
+using ReapSeek.Api.Stores;
+using ReapSeek.Api.Wishlist;
 using ReapSeek.Shared.Payouts;
 
 namespace ReapSeek.Api.Infrastructure;
@@ -98,6 +100,11 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(UpdateSellerRequest))]
 [JsonSerializable(typeof(CategoryTreeResponse))]
 [JsonSerializable(typeof(SearchResponse))]
+[JsonSerializable(typeof(ProductCardsResponse))]
+[JsonSerializable(typeof(WishlistResponse))]
+[JsonSerializable(typeof(WishlistIdsResponse))]
+[JsonSerializable(typeof(WishlistRequest))]
+[JsonSerializable(typeof(StoreSellerResponse))]
 [JsonSerializable(typeof(SuggestResponse))]
 [JsonSerializable(typeof(StoreProduct))]
 [JsonSerializable(typeof(RecommenderResponse))]

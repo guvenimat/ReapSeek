@@ -102,19 +102,29 @@ public static class SearchQuery
         },
     };
 
-    public static JsonObject BuildByIds(IReadOnlyCollection<long> ids) => new()
+    public static List<long> Ids(string? csv, int max)
     {
-        ["size"] = ids.Count,
-        ["query"] = new JsonObject
+        var ids = new List<long>();
+        foreach (var part in (csv ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            ["bool"] = new JsonObject
-            {
-                ["filter"] = Arr(
-                    new JsonObject { ["ids"] = new JsonObject { ["values"] = new JsonArray(ids.Select(id => (JsonNode)id.ToString(CultureInfo.InvariantCulture)).ToArray()) } },
-                    Term("in_stock", true)),
-            },
-        },
-    };
+            Ensure.That(long.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0, "ids must be a comma separated list of product ids");
+            if (!ids.Contains(id)) ids.Add(id);
+        }
+        Ensure.That(ids.Count <= max, $"At most {max} ids can be requested");
+        return ids;
+    }
+
+    public static JsonObject BuildByIds(IReadOnlyCollection<long> ids, bool inStockOnly = true)
+    {
+        var filter = Arr(new JsonObject { ["ids"] = new JsonObject { ["values"] = new JsonArray(ids.Select(id => (JsonNode)id.ToString(CultureInfo.InvariantCulture)).ToArray()) } });
+        if (inStockOnly) filter.Add((JsonNode)Term("in_stock", true));
+        return new JsonObject
+        {
+            ["size"] = ids.Count,
+            ["_source"] = Arr([.. CardFields.Select(f => (JsonNode)f)]),
+            ["query"] = new JsonObject { ["bool"] = new JsonObject { ["filter"] = filter } },
+        };
+    }
 
     public static JsonObject BuildFallback(string? categoryPath, IReadOnlyCollection<long> exclude, int size)
     {

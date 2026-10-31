@@ -38,3 +38,16 @@ export function initialVariant(product: StoreProduct, requested?: number): Store
 export function buyBox(variant: StoreVariant): StoreOffer | undefined {
   return variant.offers.find((o) => o.is_buy_box) ?? variant.offers[0]
 }
+
+export type StoreSeller = {
+  id: number; name: string; slug: string; city: string; rating: number; joined_at: string; product_count: number
+  delivered_packages: number; average_handling_days: number | null
+}
+export type StorePage = { seller: StoreSeller; products: import('./catalog').ProductCard[]; total: number; page: number; page_size: number }
+
+export async function getStore(slug: string, page: number): Promise<StorePage | null> {
+  const res = await fetch(`${apiUrl}/api/v1/catalog/sellers/${encodeURIComponent(slug)}?page=${page}`, { cache: 'no-store' })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Store request failed with ${res.status}`)
+  return (await res.json()) as StorePage
+}
