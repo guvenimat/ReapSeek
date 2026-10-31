@@ -237,6 +237,8 @@ Check "the reserved stock is given back" ((Stock $offerA) -eq $before)
 Check "the order is closed, not left pending" ((Psql "SELECT status || '/' || close_reason FROM orders WHERE customer_id = (SELECT id FROM users WHERE email = 'declined.$tag@example.com') ORDER BY placed_at DESC LIMIT 1") -eq "payment_failed/payment_provider_unavailable")
 DockerQuiet @("start", "reapseek-sandbox")
 $null = WaitFor { try { (Send (NewClient) GET "$sandbox/healthz").Status -eq 200 } catch { $false } } 30
+$kept = Send (NewClient) GET "$sandbox/v1/payments/$($pay.Id)" $null @{ Authorization = "Bearer $sk" }
+Check "the provider keeps payments across a restart" ($kept.Status -eq 200 -and $kept.Json.id -eq $pay.Id -and $kept.Json.status -eq "failed")
 
 Write-Host "`n[7] Shopping in a real browser"
 $shopper = Register "browser"

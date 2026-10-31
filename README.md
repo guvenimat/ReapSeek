@@ -137,6 +137,7 @@ A separate Native AOT service that behaves like a real card payment provider:
 - `POST /v1/payments` with a secret key creates a payment and returns a hosted page URL; the page asks for the card and then for a 3-D Secure code (`123456`).
 - Test cards: `4242 4242 4242 4242` succeeds, `4000 0000 0000 0002` is declined, `4000 0000 0000 9995` has insufficient funds.
 - Results arrive as webhooks signed with HMAC-SHA256 in the `Sandbox-Signature: t=...,v1=...` format, retried after 1, 5 and 15 seconds. ReapSeek rejects signatures older than five minutes, records every event id so a replayed webhook is applied once, and checks that the paid amount matches the order.
+- Its state lives in its own `sandbox` database on the same PostgreSQL server (created on start, never touched by ReapSeek), so payments, refunds, parcels in transit and transfers survive a restart. State changes are conditional updates, so a double-submitted card form or two refunds racing for the same payment cannot overshoot.
 
 | Cart | Hosted payment page |
 |---|---|

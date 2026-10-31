@@ -213,6 +213,10 @@ services:
       Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
       Sandbox__PublicUrl: http://localhost:8101
       Sandbox__ShipmentStepSeconds: "5"
+      ConnectionStrings__Sandbox: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=${POSTGRES_PASSWORD:?Missing .env - run run-local.ps1}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   storefront:
