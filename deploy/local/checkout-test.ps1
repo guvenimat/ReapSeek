@@ -4,6 +4,13 @@ Set-Location -Path $PSScriptRoot
 Add-Type -AssemblyName System.Net.Http
 
 $envValues = Initialize-LocalEnv
+trap {
+    Write-Host "`nAborted: $_" -ForegroundColor Red
+    Write-Host $_.InvocationInfo.PositionMessage
+    if ($product) { try { $null = A PATCH "/catalog/products/$($product.id)" @{ status = "archived" } } catch {} }
+    DockerQuiet @("start", "reapseek-sandbox")
+    exit 1
+}
 $api = "http://127.0.0.1:8100"
 $sandbox = "http://127.0.0.1:8101"
 $storefront = "http://127.0.0.1:3100"
@@ -40,7 +47,9 @@ function Send($client, [string]$method, [string]$url, $body = $null, [hashtable]
 }
 
 function Psql([string]$sql) {
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
     $out = $sql | docker.exe exec -i reapseek-postgres psql -U reapseek -d reapseek -At 2>&1
+    $ErrorActionPreference = $prev
     "$out".Trim()
 }
 

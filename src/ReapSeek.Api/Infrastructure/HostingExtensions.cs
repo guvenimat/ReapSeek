@@ -10,6 +10,7 @@ using ReapSeek.Api.Media;
 using ReapSeek.Api.Orders;
 using ReapSeek.Api.Payments;
 using ReapSeek.Api.Products;
+using ReapSeek.Api.Recommendations;
 using ReapSeek.Api.Search;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Shared;
@@ -82,6 +83,8 @@ public static class HostingExtensions
         services.AddSingleton<CheckoutService>();
         services.AddSingleton<PaymentService>();
         services.AddSingleton<OrderQueries>();
+        services.AddSingleton<RecommenderClient>();
+        services.AddSingleton<RecommendationService>();
         return builder;
     }
 
@@ -99,6 +102,7 @@ public static class HostingExtensions
         api.MapStorefrontProducts();
         api.MapGroup("/cart").MapCart();
         api.MapOrdering();
+        api.MapRecommendations();
         api.MapGroup("/backoffice/catalog").MapCatalogAdmin();
         api.MapGroup("/backoffice/sellers").MapSellersAdmin();
         app.MapMedia();

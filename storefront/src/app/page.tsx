@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { RecommendationShelf } from '@/components/recommendations/RecommendationShelf'
 import { ReturnIcon, ShieldIcon, StoreIcon, TruckIcon } from '@/components/icons'
 import { departmentHue, getCategories, search, type ProductCard as Card } from '@/lib/catalog'
 
@@ -45,6 +46,8 @@ export default async function HomePage() {
         ))}
       </section>
 
+      <RecommendationShelf placement="home_popular" title="Popular right now" />
+
       <Shelf title="Today's deals" href="/search?sort=discount&in_stock=true" products={deals.result?.products ?? []} testId="shelf-deals" />
 
       <section className="section">
@@ -63,6 +66,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <RecommendationShelf placement="home_trending" title="Trending this week" />
 
       <Shelf title="New arrivals" href="/search?sort=newest" products={fresh.result?.products ?? []} testId="shelf-new" />
     </div>

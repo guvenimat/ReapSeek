@@ -16,6 +16,9 @@ x-api-environment: &api-environment
   Payments__Sandbox__SecretKey: ${SANDBOX_SECRET_KEY:?Missing .env - run run-local.ps1}
   Payments__Sandbox__WebhookSecret: ${SANDBOX_WEBHOOK_SECRET:?Missing .env - run run-local.ps1}
   Payments__WebhookUrl: http://api:8080/api/v1/payments/sandbox/webhook
+  ReapDeep__RecommendUrl: ${REAPDEEP_RECOMMEND_INTERNAL_URL:-http://host.docker.internal:8002}
+  ReapDeep__PublicKey: ${REAPDEEP_PUBLIC_KEY:-}
+  Recommendations__CacheSeconds: "30"
 
 services:
   postgres:
@@ -100,6 +103,8 @@ services:
     ports:
       - "127.0.0.1:8100:8080"
     environment: *api-environment
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -118,6 +123,8 @@ services:
     ports:
       - "127.0.0.1:8102:8080"
     environment: *api-environment
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       migrate:
         condition: service_completed_successfully

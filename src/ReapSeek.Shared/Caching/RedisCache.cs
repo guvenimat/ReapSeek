@@ -13,6 +13,7 @@ public static class CacheKeys
     public const string Categories = "catalog:categories";
     public static string Session(string tokenHash) => $"session:{tokenHash}";
     public static string RateLimit(string policy, string partition) => $"ratelimit:{policy}:{partition}";
+    public static string Recommendations(string model, string? itemId) => $"reco:{model}:{itemId ?? "-"}";
 }
 
 public sealed class RedisCache : IDisposable
