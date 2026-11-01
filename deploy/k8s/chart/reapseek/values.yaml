@@ -1,0 +1,107 @@
+image:
+  tag: local
+  pullPolicy: IfNotPresent
+
+secretName: reapseek-secrets
+
+hosts:
+  storefront: shop.localhost
+  backoffice: office.localhost
+  sandbox: sandbox.localhost
+  grafana: grafana.localhost
+  mailpit: mail.localhost
+publicPort: 8080
+
+api:
+  autoscaling:
+    minReplicas: 4
+    maxReplicas: 8
+    targetCPUUtilization: 70
+  resources:
+    requests: { cpu: 100m, memory: 96Mi }
+    limits: { cpu: "1", memory: 256Mi }
+
+worker:
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  env:
+    Orders__ExpiryCheckSeconds: "10"
+    Payouts__CheckSeconds: "60"
+    Carts__ReminderAfterSeconds: "3600"
+    Wishlist__PriceCheckSeconds: "60"
+    Shipping__DeadlineCheckSeconds: "60"
+    Outbox__PollMilliseconds: "500"
+
+sandbox:
+  shipmentStepSeconds: "5"
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 192Mi }
+
+storefront:
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "1", memory: 384Mi }
+
+backoffice:
+  resources:
+    requests: { cpu: 10m, memory: 16Mi }
+    limits: { cpu: 200m, memory: 64Mi }
+
+simulator:
+  live: false
+  customers: 2000
+  days: 120
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+postgres:
+  image: postgres:17
+  storage: 5Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "2", memory: 1Gi }
+
+redis:
+  image: redis:8.8.4-alpine
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { cpu: 500m, memory: 300Mi }
+
+opensearch:
+  image: opensearchproject/opensearch:3.8.0
+  storage: 5Gi
+  javaOpts: "-Xms512m -Xmx512m"
+  resources:
+    requests: { cpu: 200m, memory: 768Mi }
+    limits: { cpu: "2", memory: 1280Mi }
+
+mailpit:
+  image: axllent/mailpit:v1.27
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+observability:
+  enabled: true
+  image: grafana/otel-lgtm:0.37.0
+  resources:
+    requests: { cpu: 200m, memory: 768Mi }
+    limits: { cpu: "2", memory: 1536Mi }
+
+reapdeep:
+  ingestUrl: http://host.docker.internal:8000
+  apiUrl: http://host.docker.internal:8001
+  recommendUrl: http://host.docker.internal:8002
+  browserIngestUrl: http://localhost:8000
+  browserRecommendUrl: http://localhost:8002
+
+quota:
+  requestsCpu: "6"
+  requestsMemory: 8Gi
+  limitsCpu: "24"
+  limitsMemory: 16Gi
+  pods: "40"

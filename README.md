@@ -149,7 +149,7 @@ The API, the worker and the payment sandbox export traces, metrics and logs with
 
 - **One trace across processes and the outbox:** HTTP calls carry the W3C `traceparent`, and every outbox row stores the trace of the request that queued it. The worker continues that trace when it handles the job, so a payment reads as one trace: the 3-D Secure form post in the sandbox, its webhook to the API, the database writes, the `outbox order_paid` job in the worker and its call to ReapDeep.
 - **Metrics:** ASP.NET Core, HttpClient, Npgsql and .NET runtime metrics, plus business and job metrics (`reapseek.orders.placed`, `reapseek.orders.paid`, `reapseek.orders.revenue`, `reapseek.payments.failed` by reason, `reapseek.outbox.processed` by type and outcome, `reapseek.outbox.delay` from enqueue to done).
-- **Dashboard:** the provisioned *ReapSeek overview* dashboard (`deploy/local/grafana/reapseek-overview.json`) shows the checkout funnel, revenue, failed payments, requests and p95 latency per route, outgoing calls per host, background jobs per type, retries and give-ups, database latency and connections, memory, and recent warnings and errors from the logs.
+- **Dashboard:** the provisioned *ReapSeek overview* dashboard (`deploy/k8s/chart/reapseek/files/reapseek-overview.json`) shows the checkout funnel, revenue, failed payments, requests and p95 latency per route, outgoing calls per host, background jobs per type, retries and give-ups, database latency and connections, memory, and recent warnings and errors from the logs.
 
 ![ReapSeek overview dashboard in Grafana](docs/images/grafana-overview.png)
 

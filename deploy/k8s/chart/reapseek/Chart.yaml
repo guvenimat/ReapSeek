@@ -1,0 +1,6 @@
+apiVersion: v2
+name: reapseek
+description: ReapSeek multi-seller marketplace with its data stores, payment sandbox and observability stack
+type: application
+version: 0.1.0
+appVersion: "local"

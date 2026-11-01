@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: hpa-hard-cap
+  annotations:
+    policies.kyverno.io/title: HPA hard cap
+    policies.kyverno.io/description: >-
+      No HorizontalPodAutoscaler in an application namespace may allow more than 16 replicas,
+      whoever applies it. Temporary capacity overrides must stay below this cap.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: max-replicas-within-cap
+      match:
+        any:
+          - resources:
+              kinds: ["HorizontalPodAutoscaler"]
+              namespaces: ["reapseek"]
+      validate:
+        message: "maxReplicas must be 16 or lower in this namespace."
+        pattern:
+          spec:
+            maxReplicas: "<=16"

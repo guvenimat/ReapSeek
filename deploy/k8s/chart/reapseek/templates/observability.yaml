@@ -1,0 +1,79 @@
+{{- if .Values.observability.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels: {{- include "reapseek.labels" "lgtm" | nindent 4 }}
+data:
+  reapseek.yaml: |
+    apiVersion: 1
+    providers:
+      - name: ReapSeek
+        folder: ReapSeek
+        type: file
+        options:
+          path: /otel-lgtm/dashboards
+  reapseek-overview.json: |-
+{{ .Files.Get "files/reapseek-overview.json" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lgtm
+  labels: {{- include "reapseek.labels" "lgtm" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "lgtm" | nindent 4 }}
+  ports:
+    - name: grafana
+      port: 3000
+      targetPort: 3000
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lgtm
+  labels: {{- include "reapseek.labels" "lgtm" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "lgtm" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "lgtm" | nindent 8 }}
+      annotations:
+        checksum/dashboards: {{ .Files.Get "files/reapseek-overview.json" | sha256sum }}
+    spec:
+      containers:
+        - name: lgtm
+          image: {{ .Values.observability.image }}
+          ports:
+            - containerPort: 3000
+            - containerPort: 4317
+            - containerPort: 4318
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 10
+            failureThreshold: 30
+          resources: {{- toYaml .Values.observability.resources | nindent 12 }}
+          volumeMounts:
+            - name: dashboards
+              mountPath: /otel-lgtm/grafana/conf/provisioning/dashboards/reapseek.yaml
+              subPath: reapseek.yaml
+            - name: dashboards
+              mountPath: /otel-lgtm/dashboards/reapseek-overview.json
+              subPath: reapseek-overview.json
+      volumes:
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+{{- end }}

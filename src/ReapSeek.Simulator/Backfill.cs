@@ -32,6 +32,12 @@ public sealed class Backfill(NpgsqlDataSource db, Ingest ingest, PayoutRunner pa
 
     static readonly string[] SafeReasons = ["wrong_size", "changed_mind", "not_as_described"];
 
+    public async Task<bool> HasShoppersAsync()
+    {
+        await using var conn = await db.OpenConnectionAsync();
+        return await conn.ExecuteScalarAsync<bool>("SELECT EXISTS (SELECT 1 FROM users WHERE email LIKE '%' || @Domain)", new { Domain = SimAccounts.ShopperDomain });
+    }
+
     public async Task RunAsync(WorldOptions options)
     {
         var clock = Stopwatch.StartNew();

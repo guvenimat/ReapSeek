@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels: {{- include "reapseek.labels" "redis" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "redis" | nindent 4 }}
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels: {{- include "reapseek.labels" "redis" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "redis" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "redis" | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          env:
+            {{- include "reapseek.secret" (dict "root" . "name" "REDIS_PASSWORD" "key" "REDIS_PASSWORD") | nindent 12 }}
+          command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\" --save '' --appendonly no --maxmemory 256mb --maxmemory-policy volatile-lru"]
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            periodSeconds: 20
+          resources: {{- toYaml .Values.redis.resources | nindent 12 }}

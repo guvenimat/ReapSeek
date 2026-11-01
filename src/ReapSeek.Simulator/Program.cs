@@ -22,7 +22,15 @@ switch (command)
 {
     case "backfill":
         using (var bank = new SandboxProvider(cfg))
-            await new Backfill(db, ingest, new PayoutRunner(db, bank, NullLogger<PayoutRunner>.Instance)).RunAsync(new WorldOptions(Int("customers", 2000), Int("days", 120), Int("seed", 42), DateTime.UtcNow));
+        {
+            var backfill = new Backfill(db, ingest, new PayoutRunner(db, bank, NullLogger<PayoutRunner>.Instance));
+            if (cfg["if-empty"] == "true" && await backfill.HasShoppersAsync())
+            {
+                Console.WriteLine("Simulated shoppers already exist; nothing to backfill.");
+                return 0;
+            }
+            await backfill.RunAsync(new WorldOptions(Int("customers", 2000), Int("days", 120), Int("seed", 42), DateTime.UtcNow));
+        }
         await SandboxHistory.SyncAsync(db, cfg.GetConnectionString("Sandbox"));
         return 0;
     case "sync-sandbox":
@@ -34,7 +42,7 @@ switch (command)
         await ingest.FlushAsync();
         return 0;
     default:
-        Console.WriteLine("Usage: simulator backfill [--customers 2000] [--days 120] [--seed 42]");
+        Console.WriteLine("Usage: simulator backfill [--customers 2000] [--days 120] [--seed 42] [--if-empty true]");
         Console.WriteLine("       simulator live [--shoppers 3] [--pause 4]");
         Console.WriteLine("       simulator sync-sandbox");
         return command == "help" ? 0 : 1;
