@@ -64,4 +64,5 @@ export const failureLabel: Record<string, string> = {
   payment_timeout: 'The payment was not completed in time.',
   payment_provider_unavailable: 'Payments were temporarily unavailable.',
   cancelled_by_customer: 'You cancelled this order.',
+  seller_did_not_ship: 'The seller did not ship this order in time, so we cancelled it.',
 }

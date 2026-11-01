@@ -54,7 +54,7 @@ public static class HostingExtensions
         var services = builder.Services;
 
         builder.AddReapSeekTelemetry("reapseek-api")?
-            .WithTracing(t => t.AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/healthz")))
+            .WithTracing(t => t.AddAspNetCoreInstrumentation(o => o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/healthz") && !ctx.Request.Path.StartsWithSegments("/livez")))
             .WithMetrics(m => m.AddAspNetCoreInstrumentation());
         services.ConfigureHttpJsonOptions(o =>
         {

@@ -9,8 +9,6 @@ public enum CancelOutcome { Cancelled, NotFound }
 
 public sealed class OrderCancellation(NpgsqlDataSource db, TimeProvider clock, ILogger<OrderCancellation> log)
 {
-    public const string CustomerReason = "cancelled_by_customer";
-
     public sealed record OwnedOrderRecord(string Number, long CustomerId);
 
     public async Task<CancelOutcome> CancelAsync(string number, long customerId, CancellationToken ct)
@@ -22,7 +20,7 @@ public sealed class OrderCancellation(NpgsqlDataSource db, TimeProvider clock, I
         if (id is null || await OrderStore.LoadAsync(conn, tx, id.Value) is not { } order) return CancelOutcome.NotFound;
         var now = clock.GetUtcNow().UtcDateTime;
         var paid = order.Status == OrderStatus.Paid;
-        var changed = paid ? order.CancelPaid(CustomerReason, now) : order.Cancel(CustomerReason, now);
+        var changed = paid ? order.CancelPaid(CancelReasons.Customer, now) : order.Cancel(CancelReasons.Customer, now);
         if (changed)
         {
             await OrderStore.SaveAsync(conn, tx, order);

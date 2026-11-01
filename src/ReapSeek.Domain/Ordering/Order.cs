@@ -201,6 +201,28 @@ public sealed class Order : AggregateRoot
         return true;
     }
 
+    public bool IsShippingOverdue(DateTime now, TimeSpan limit) =>
+        Status == OrderStatus.Paid && PaidAt is { } paid && now - paid > limit && _packages.Any(p => p.Status == PackageStatus.Preparing);
+
+    public Money PackageRefund(SellerPackage package)
+    {
+        if (DiscountTotal.IsZero || Subtotal.IsZero) return package.Total;
+        var share = Math.Round(package.Subtotal.Amount * DiscountTotal.Amount / Subtotal.Amount, 2, MidpointRounding.AwayFromZero);
+        return Money.Of(package.Subtotal.Amount - share, Subtotal.Currency) + package.ShippingFee;
+    }
+
+    public void CancelPackage(Guid packageId, string reason, DateTime now)
+    {
+        EnsureStatus(OrderStatus.Paid, "cancel a package");
+        var package = _packages.FirstOrDefault(p => p.Id == packageId)
+            ?? throw new DomainException("package.not_found", "Package not found");
+        if (package.Status != PackageStatus.Preparing)
+            throw new DomainException("package.already_shipped", "Only a package that has not shipped can be cancelled");
+        package.MoveTo(PackageStatus.Cancelled);
+        Raise(new PackageCancelled(Id, Number, CustomerId, package.Id, package.SellerId, reason, now));
+        Raise(new OrderRefundDue(Id, Number, CustomerId, PaymentReference!, PackageRefund(package), now, package.Id));
+    }
+
     public SellerPackage ShipPackage(Guid packageId, long sellerId, string trackingNumber, DateTime now)
     {
         var package = SellersPackage(packageId, sellerId);
