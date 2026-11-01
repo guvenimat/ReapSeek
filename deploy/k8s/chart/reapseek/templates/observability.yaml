@@ -4,6 +4,8 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboards
   labels: {{- include "reapseek.labels" "lgtm" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   reapseek.yaml: |
     apiVersion: 1
