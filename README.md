@@ -419,6 +419,35 @@ To feed ReapDeep, start the [ReapDeep](https://github.com/guvenimat/ReapDeep) st
 | OpenSearch | http://localhost:9200 |
 | Redis | localhost:6380 (password in `deploy/local/.env`) |
 
+## Running on Kubernetes
+
+The same stack runs on a local Kubernetes cluster (k3d), deployed by Argo CD from this repository:
+
+```powershell
+cd deploy/k8s
+.\up.ps1              # cluster, images, secrets, Kyverno, Argo CD; Argo CD then syncs deploy/k8s/chart/reapseek from main
+.\up.ps1 -Local       # or install the chart from the working tree with Helm, without Argo CD
+```
+
+| Piece | What it does |
+|---|---|
+| `deploy/k8s/chart/reapseek` | Helm chart: API, worker, sandbox, storefront, back office, optional live simulator, PostgreSQL, Redis, OpenSearch, Mailpit and Grafana LGTM |
+| Probes | The API has `/livez` (liveness) and `/healthz` (readiness: database and search); the worker's liveness is its outbox heartbeat (`ReapSeek.Worker health heartbeat`) |
+| Autoscaling | The API runs 4 to 8 replicas with an HPA on CPU; a Kyverno policy (`deploy/k8s/policies`) rejects any HPA above 16 replicas in the namespace |
+| Limits | Every container has requests and limits; a ResourceQuota and LimitRange bound the namespace |
+| Ordering | Argo CD sync waves: data stores, then the migration Job (a sync hook), then the API, worker and autoscaler, then the web apps; the simulator backfill is a hook that skips when data exists |
+| Secrets | Created from `deploy/local/.env` by `up.ps1`, never committed. ReapDeep keys are left out unless `-ConnectReapDeep` is given, so a fresh cluster does not mix its customer ids into the ReapDeep project used by Docker Compose |
+
+| Service | URL |
+|---|---|
+| Storefront | http://shop.localhost:8080 |
+| Back office | http://office.localhost:8080 |
+| Payment sandbox | http://sandbox.localhost:8080 |
+| Grafana | http://grafana.localhost:8080 |
+| Mailpit | http://mail.localhost:8080 |
+
+On a 16 GB machine run either Docker Compose or the cluster, not both.
+
 ## Tests
 
 ```powershell
