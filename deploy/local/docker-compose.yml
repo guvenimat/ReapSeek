@@ -49,6 +49,7 @@ services:
   opensearch:
     image: opensearchproject/opensearch:3.8.0
     container_name: reapseek-opensearch
+    mem_limit: 1280m
     ports:
       - "127.0.0.1:9200:9200"
     environment:
@@ -261,6 +262,7 @@ services:
   lgtm:
     image: grafana/otel-lgtm:0.37.0
     container_name: reapseek-lgtm
+    mem_limit: 1536m
     ports:
       - "127.0.0.1:3102:3000"
     volumes:
