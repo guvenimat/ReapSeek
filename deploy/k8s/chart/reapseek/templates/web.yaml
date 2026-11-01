@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront
+  labels: {{- include "reapseek.labels" "storefront" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "storefront" | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront
+  labels: {{- include "reapseek.labels" "storefront" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: {{ .Values.storefront.replicas }}
+  selector:
+    matchLabels: {{- include "reapseek.selector" "storefront" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "storefront" | nindent 8 }}
+    spec:
+      containers:
+        - name: storefront
+          image: reapseek-storefront:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: API_INTERNAL_URL
+              value: http://api:8080
+            - name: PUBLIC_URL
+              value: {{ include "reapseek.publicUrl" (dict "root" . "host" .Values.hosts.storefront) }}
+            {{- include "reapseek.secret" (dict "root" . "name" "REAPDEEP_PUBLIC_KEY" "key" "REAPDEEP_PUBLIC_KEY" "optional" true) | nindent 12 }}
+            - name: REAPDEEP_INGEST_URL
+              value: {{ .Values.reapdeep.browserIngestUrl }}
+            - name: REAPDEEP_RECOMMEND_URL
+              value: {{ .Values.reapdeep.browserRecommendUrl }}
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            periodSeconds: 5
+          {{- include "reapseek.securityContext" . | nindent 10 }}
+          resources: {{- toYaml .Values.storefront.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backoffice
+  labels: {{- include "reapseek.labels" "backoffice" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "backoffice" | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backoffice
+  labels: {{- include "reapseek.labels" "backoffice" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "backoffice" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "backoffice" | nindent 8 }}
+    spec:
+      containers:
+        - name: backoffice
+          image: reapseek-backoffice:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DNS_RESOLVER
+              value: kube-dns.kube-system.svc.cluster.local
+            - name: API_UPSTREAM
+              value: api.{{ .Release.Namespace }}.svc.cluster.local:8080
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 5
+          resources: {{- toYaml .Values.backoffice.resources | nindent 12 }}
+{{- if .Values.simulator.live }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulator-backfill
+  labels: {{- include "reapseek.labels" "simulator" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "simulator-backfill" | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: backfill
+          image: reapseek-simulator:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["backfill", "--customers", {{ .Values.simulator.customers | quote }}, "--days", {{ .Values.simulator.days | quote }}, "--if-empty", "true"]
+          env:
+            {{- include "reapseek.dbEnv" . | nindent 12 }}
+            - name: ConnectionStrings__Sandbox
+              value: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=$(POSTGRES_PASSWORD)
+            - name: ReapDeep__IngestUrl
+              value: {{ .Values.reapdeep.ingestUrl }}
+            {{- include "reapseek.secret" (dict "root" . "name" "ReapDeep__PublicKey" "key" "REAPDEEP_PUBLIC_KEY" "optional" true) | nindent 12 }}
+            - name: Payments__Sandbox__ApiUrl
+              value: http://sandbox:8080
+            {{- include "reapseek.secret" (dict "root" . "name" "Payments__Sandbox__SecretKey" "key" "SANDBOX_SECRET_KEY") | nindent 12 }}
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "2", memory: 1Gi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  labels: {{- include "reapseek.labels" "simulator" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "simulator" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "simulator" | nindent 8 }}
+    spec:
+      containers:
+        - name: simulator
+          image: reapseek-simulator:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["live"]
+          env:
+            {{- include "reapseek.dbEnv" . | nindent 12 }}
+            - name: ConnectionStrings__Sandbox
+              value: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=$(POSTGRES_PASSWORD)
+            - name: ReapDeep__IngestUrl
+              value: {{ .Values.reapdeep.ingestUrl }}
+            {{- include "reapseek.secret" (dict "root" . "name" "ReapDeep__PublicKey" "key" "REAPDEEP_PUBLIC_KEY" "optional" true) | nindent 12 }}
+            - name: Payments__Sandbox__ApiUrl
+              value: http://sandbox:8080
+            {{- include "reapseek.secret" (dict "root" . "name" "Payments__Sandbox__SecretKey" "key" "SANDBOX_SECRET_KEY") | nindent 12 }}
+            - name: Simulator__ApiUrl
+              value: http://api:8080
+            - name: Simulator__SandboxUrl
+              value: http://sandbox:8080
+          resources: {{- toYaml .Values.simulator.resources | nindent 12 }}
+{{- end }}

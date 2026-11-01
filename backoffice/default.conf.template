@@ -1,8 +1,8 @@
-resolver 127.0.0.11 valid=10s ipv6=off;
+resolver ${DNS_RESOLVER} valid=10s ipv6=off;
 
 upstream reapseek_api {
     zone reapseek_api 64k;
-    server api:8080 resolve;
+    server ${API_UPSTREAM} resolve;
     keepalive 16;
 }
 

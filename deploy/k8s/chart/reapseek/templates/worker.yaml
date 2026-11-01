@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels: {{- include "reapseek.labels" "worker" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "worker" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "worker" | nindent 8 }}
+    spec:
+      containers:
+        - name: worker
+          image: reapseek-worker:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "reapseek.dbEnv" . | nindent 12 }}
+            {{- include "reapseek.secret" (dict "root" . "name" "REDIS_PASSWORD" "key" "REDIS_PASSWORD") | nindent 12 }}
+            - name: ConnectionStrings__Redis
+              value: redis:6379,password=$(REDIS_PASSWORD)
+            {{- include "reapseek.otelEnv" . | nindent 12 }}
+            - name: Smtp__Host
+              value: mailpit
+            - name: Smtp__Port
+              value: "1025"
+            - name: Storefront__PublicUrl
+              value: {{ include "reapseek.publicUrl" (dict "root" . "host" .Values.hosts.storefront) }}
+            - name: Backoffice__PublicUrl
+              value: {{ include "reapseek.publicUrl" (dict "root" . "host" .Values.hosts.backoffice) }}
+            - name: OpenSearch__Url
+              value: http://opensearch:9200
+            - name: ReapDeep__ApiUrl
+              value: {{ .Values.reapdeep.apiUrl }}
+            - name: ReapDeep__IngestUrl
+              value: {{ .Values.reapdeep.ingestUrl }}
+            {{- include "reapseek.secret" (dict "root" . "name" "ReapDeep__PublicKey" "key" "REAPDEEP_PUBLIC_KEY" "optional" true) | nindent 12 }}
+            {{- include "reapseek.secret" (dict "root" . "name" "ReapDeep__CatalogKey" "key" "REAPDEEP_CATALOG_KEY" "optional" true) | nindent 12 }}
+            {{- include "reapseek.secret" (dict "root" . "name" "ReapDeep__ReadKey" "key" "REAPDEEP_READ_KEY" "optional" true) | nindent 12 }}
+            - name: Payments__Sandbox__ApiUrl
+              value: http://sandbox:8080
+            {{- include "reapseek.secret" (dict "root" . "name" "Payments__Sandbox__SecretKey" "key" "SANDBOX_SECRET_KEY") | nindent 12 }}
+            {{- range $k, $v := .Values.worker.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command: ["./ReapSeek.Worker", "health", "heartbeat", "60"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          {{- include "reapseek.securityContext" . | nindent 10 }}
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}

@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reapseek
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/guvenimat/ReapSeek.git
+    targetRevision: main
+    path: deploy/k8s/chart/reapseek
+    helm:
+      releaseName: reapseek
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: reapseek
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

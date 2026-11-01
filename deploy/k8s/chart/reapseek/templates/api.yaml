@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads
+  labels: {{- include "reapseek.labels" "api" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels: {{- include "reapseek.labels" "api" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "api" | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels: {{- include "reapseek.labels" "api" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  selector:
+    matchLabels: {{- include "reapseek.selector" "api" | nindent 6 }}
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 2
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "api" | nindent 8 }}
+    spec:
+      securityContext:
+        fsGroup: 1654
+      containers:
+        - name: api
+          image: reapseek-api:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "reapseek.apiEnv" . | nindent 12 }}
+          ports:
+            - containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 3
+          {{- include "reapseek.securityContext" . | nindent 10 }}
+          resources: {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /data/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  labels: {{- include "reapseek.labels" "api" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilization }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120

@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox
+  labels: {{- include "reapseek.labels" "sandbox" | nindent 4 }}
+spec:
+  selector: {{- include "reapseek.selector" "sandbox" | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox
+  labels: {{- include "reapseek.labels" "sandbox" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "reapseek.selector" "sandbox" | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "reapseek.labels" "sandbox" | nindent 8 }}
+    spec:
+      containers:
+        - name: sandbox
+          image: reapseek-sandbox:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "reapseek.secret" (dict "root" . "name" "POSTGRES_PASSWORD" "key" "POSTGRES_PASSWORD") | nindent 12 }}
+            - name: ConnectionStrings__Sandbox
+              value: Host=postgres;Port=5432;Database=sandbox;Username=reapseek;Password=$(POSTGRES_PASSWORD)
+            {{- include "reapseek.secret" (dict "root" . "name" "Sandbox__SecretKey" "key" "SANDBOX_SECRET_KEY") | nindent 12 }}
+            {{- include "reapseek.secret" (dict "root" . "name" "Sandbox__WebhookSecret" "key" "SANDBOX_WEBHOOK_SECRET") | nindent 12 }}
+            - name: Sandbox__PublicUrl
+              value: {{ include "reapseek.publicUrl" (dict "root" . "host" .Values.hosts.sandbox) }}
+            - name: Sandbox__ShipmentStepSeconds
+              value: {{ .Values.sandbox.shipmentStepSeconds | quote }}
+            {{- include "reapseek.otelEnv" . | nindent 12 }}
+          ports:
+            - containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+          {{- include "reapseek.securityContext" . | nindent 10 }}
+          resources: {{- toYaml .Values.sandbox.resources | nindent 12 }}

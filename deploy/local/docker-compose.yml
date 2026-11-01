@@ -265,7 +265,7 @@ services:
       - "127.0.0.1:3102:3000"
     volumes:
       - ./grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/reapseek.yaml:ro
-      - ./grafana/reapseek-overview.json:/otel-lgtm/reapseek-overview.json:ro
+      - ../k8s/chart/reapseek/files/reapseek-overview.json:/otel-lgtm/reapseek-overview.json:ro
     restart: unless-stopped
 
   storefront:
