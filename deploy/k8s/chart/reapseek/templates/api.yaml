@@ -3,6 +3,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: uploads
   labels: {{- include "reapseek.labels" "api" | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
