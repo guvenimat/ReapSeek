@@ -7,7 +7,11 @@ public sealed record HealthResponse(string Status, string Database, string Searc
 
 public static class HealthEndpoints
 {
-    public static void MapHealth(this WebApplication app) => app.MapGet("/healthz", Check);
+    public static void MapHealth(this WebApplication app)
+    {
+        app.MapGet("/healthz", Check);
+        app.MapGet("/livez", () => Results.Text("ok"));
+    }
 
     static async Task<IResult> Check(DatabaseProbe database, OpenSearchClient search, CancellationToken ct)
     {

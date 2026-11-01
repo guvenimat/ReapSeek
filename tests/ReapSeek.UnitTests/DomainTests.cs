@@ -1,5 +1,6 @@
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
+using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 
 namespace ReapSeek.UnitTests;
@@ -214,6 +215,30 @@ public class OrderTests
         Assert.False(order.CanCancelPaid);
         Assert.Equal("order.already_shipped", Assert.Throws<DomainException>(() => order.CancelPaid("cancelled_by_customer", Now)).Code);
         Assert.Equal(OrderStatus.Paid, order.Status);
+    }
+
+    [Fact]
+    public void A_late_package_is_cancelled_alone_and_refunded_with_its_share_of_the_discount()
+    {
+        var order = Order.Place(Guid.NewGuid(), "RS261030000002", 7, Address, [Item(1, 1, 600m, 1), Item(2, 2, 400m, 1)], ShippingPolicy.Standard,
+            Guid.NewGuid, Now, new OrderDiscount("RS-TEST", Money.Of(100m)));
+        order.MarkPaid("pay_1", order.Total, Now);
+        var shipped = order.Packages.Single(p => p.SellerId == 1);
+        var late = order.Packages.Single(p => p.SellerId == 2);
+        order.ShipPackage(shipped.Id, 1, "TRK1", Now.AddDays(1));
+        order.ClearDomainEvents();
+        Assert.False(order.IsShippingOverdue(Now.AddDays(4), TimeSpan.FromDays(5)));
+        Assert.True(order.IsShippingOverdue(Now.AddDays(6), TimeSpan.FromDays(5)));
+
+        order.CancelPackage(late.Id, CancelReasons.SellerDidNotShip, Now.AddDays(6));
+        Assert.Equal(PackageStatus.Cancelled, late.Status);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+        var refund = Assert.Single(order.DomainEvents.OfType<OrderRefundDue>());
+        Assert.Equal(late.Id, refund.PackageId);
+        Assert.Equal(Money.Of(399.90m), refund.Amount);
+        Assert.Single(order.DomainEvents.OfType<PackageCancelled>());
+        Assert.False(order.IsShippingOverdue(Now.AddDays(7), TimeSpan.FromDays(5)));
+        Assert.Equal("package.already_shipped", Assert.Throws<DomainException>(() => order.CancelPackage(shipped.Id, CancelReasons.SellerDidNotShip, Now)).Code);
     }
 
     [Fact]

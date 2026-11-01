@@ -9,7 +9,7 @@ namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
     OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, EngagementHandler engagement, AccountEmailHandler accounts,
-    ReapSeek.Worker.Wishlist.PriceDropHandler priceDrops, OrderRefundHandler orderRefunds)
+    ReapSeek.Worker.Wishlist.PriceDropHandler priceDrops, OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders)
 {
     const string CatalogGroup = "catalog";
 
@@ -51,6 +51,7 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
             OutboxTypes.UserRegistered or OutboxTypes.AccountEmail => accounts.HandleAsync(message, ct),
             OutboxTypes.OrderPaid => orderPaid.HandleAsync(message, ct),
             OutboxTypes.PackageShipped => orderPaid.HandleShippedAsync(message, ct),
+            OutboxTypes.PackageShipReminder => packageReminders.HandleAsync(message, ct),
             OutboxTypes.OrderRefundDue => orderRefunds.HandleAsync(message, ct),
             OutboxTypes.PriceDropped => priceDrops.HandleAsync(message, ct),
             OutboxTypes.PackageDelivered => Task.CompletedTask,

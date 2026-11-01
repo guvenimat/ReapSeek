@@ -207,7 +207,12 @@ public sealed class Live(NpgsqlDataSource db, Ingest ingest, LiveOptions o)
                         if (await PostAsync(s, "api/v1/backoffice/auth/login", new JsonObject { ["email"] = t.Email, ["password"] = SimAccounts.SellerPassword }, ct) is null) continue;
                         sessions[t.SellerId] = s;
                     }
-                    foreach (var p in (await GetAsync(s, "api/v1/seller/packages?status=preparing", ct))?["packages"]?.AsArray() ?? [])
+                    if (await GetAsync(s, "api/v1/seller/packages?status=preparing", ct) is not { } preparing)
+                    {
+                        sessions.Remove(t.SellerId);
+                        continue;
+                    }
+                    foreach (var p in preparing["packages"]?.AsArray() ?? [])
                         if (await PostAsync(s, $"api/v1/seller/packages/{p!["id"]!.GetValue<string>()}/ship", new JsonObject(), ct) is not null) Interlocked.Increment(ref _shipped);
                     foreach (var r in (await GetAsync(s, "api/v1/seller/returns?status=requested", ct))?["returns"]?.AsArray() ?? [])
                         await PostAsync(s, $"api/v1/seller/returns/{r!["id"]!.GetValue<string>()}/approve", new JsonObject(), ct);

@@ -15,6 +15,7 @@ public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher di
         while (!ct.IsCancellationRequested)
         {
             var processed = 0;
+            HealthProbe.Beat();
             try
             {
                 processed = await ProcessBatchAsync(ct);

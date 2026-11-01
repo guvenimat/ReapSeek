@@ -87,6 +87,8 @@ public static class OrderStore
     }
 
     public sealed record CustomerIdRecord(long CustomerId);
+    public sealed record StockReleaseRecord(long OfferId, int Quantity);
+    public sealed record PackageCancelRecord(Guid PackageId, string Reason);
 
     public static async Task<int> LockPendingCountAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long customerId)
     {
@@ -170,7 +172,20 @@ public static class OrderStore
             if (e is OrderRefundDue r)
             {
                 await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.OrderRefundDue,
-                    new OrderRefundMessage(r.OrderId, r.Number, r.CustomerId, r.PaymentReference, r.Amount.Amount, r.OccurredAt), OutboxJsonContext.Default.OrderRefundMessage);
+                    new OrderRefundMessage(r.OrderId, r.Number, r.CustomerId, r.PaymentReference, r.Amount.Amount, r.OccurredAt, r.PackageId),
+                    OutboxJsonContext.Default.OrderRefundMessage);
+                continue;
+            }
+            if (e is PackageCancelled pc)
+            {
+                var lines = order.Packages.Single(p => p.Id == pc.PackageId).Lines;
+                foreach (var line in lines)
+                    await conn.ExecuteAsync("UPDATE offers SET stock = stock + @Quantity, updated_at = now() WHERE id = @OfferId",
+                        new StockReleaseRecord(line.OfferId, line.Quantity), tx);
+                await conn.ExecuteAsync("UPDATE order_packages SET cancel_reason = @Reason WHERE id = @PackageId",
+                    new PackageCancelRecord(pc.PackageId, pc.Reason), tx);
+                await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged,
+                    new ProductsChanged(lines.Select(l => l.ProductId).Distinct().ToList()), OutboxJsonContext.Default.ProductsChanged);
                 continue;
             }
             var (type, reason) = e switch

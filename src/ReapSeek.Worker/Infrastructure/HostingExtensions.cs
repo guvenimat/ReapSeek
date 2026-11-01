@@ -43,6 +43,8 @@ public static class HostingExtensions
         services.AddSingleton<CampaignHandler>();
         services.AddSingleton<EngagementHandler>();
         services.AddSingleton<OrderRefundHandler>();
+        services.AddSingleton<PackageReminderHandler>();
+        services.AddHostedService<ShippingDeadlineJob>();
         services.AddSingleton<AccountEmailHandler>();
         services.AddHostedService<CartReminderJob>();
         services.AddSingleton<ReapSeek.Worker.Wishlist.PriceDropHandler>();
