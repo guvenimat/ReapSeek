@@ -118,6 +118,7 @@ public static class HostingExtensions
         services.AddSandboxProviders();
         services.AddSingleton<ShippingService>();
         services.AddSingleton<CheckoutService>();
+        services.AddSingleton<OrderCancellation>();
         services.AddSingleton<PaymentService>();
         services.AddSingleton<OrderQueries>();
         services.AddSingleton<RecommenderClient>();

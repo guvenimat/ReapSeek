@@ -71,6 +71,7 @@ public sealed class Order : AggregateRoot
     public const int MaxLines = 50;
     public const int MaxQuantityPerLine = 10;
     public static readonly TimeSpan PaymentWindow = TimeSpan.FromMinutes(15);
+    public const int MaxPendingPerCustomer = 3;
 
     readonly List<SellerPackage> _packages;
 
@@ -184,6 +185,19 @@ public sealed class Order : AggregateRoot
         EnsureStatus(OrderStatus.PendingPayment, "be cancelled");
         Close(OrderStatus.Cancelled, reason);
         Raise(new OrderCancelled(Id, Number, CustomerId, CloseReason!, now));
+        return true;
+    }
+
+    public bool CanCancelPaid => Status == OrderStatus.Paid && _packages.All(p => p.Status == PackageStatus.Preparing);
+
+    public bool CancelPaid(string reason, DateTime now)
+    {
+        if (Status == OrderStatus.Cancelled) return false;
+        EnsureStatus(OrderStatus.Paid, "be cancelled by the customer");
+        if (!CanCancelPaid) throw new DomainException("order.already_shipped", "A package of this order has already shipped. You can return it once it is delivered.");
+        Close(OrderStatus.Cancelled, reason);
+        Raise(new OrderCancelled(Id, Number, CustomerId, CloseReason!, now));
+        Raise(new OrderRefundDue(Id, Number, CustomerId, PaymentReference!, Total, now));
         return true;
     }
 

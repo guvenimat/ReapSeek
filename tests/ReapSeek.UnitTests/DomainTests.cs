@@ -189,6 +189,34 @@ public class OrderTests
     }
 
     [Fact]
+    public void A_paid_order_can_be_cancelled_before_shipping_and_asks_for_a_full_refund()
+    {
+        var order = Place(Item(1, 1, 300m, 1), Item(2, 2, 100m, 1));
+        order.MarkPaid("pay_1", order.Total, Now);
+        order.ClearDomainEvents();
+        Assert.True(order.CanCancelPaid);
+        Assert.True(order.CancelPaid("cancelled_by_customer", Now.AddHours(1)));
+        Assert.Equal(OrderStatus.Cancelled, order.Status);
+        Assert.All(order.Packages, p => Assert.Equal(PackageStatus.Cancelled, p.Status));
+        Assert.Contains(order.DomainEvents, e => e is OrderCancelled and IReleasesStock);
+        var refund = Assert.Single(order.DomainEvents.OfType<OrderRefundDue>());
+        Assert.Equal(order.Total, refund.Amount);
+        Assert.Equal("pay_1", refund.PaymentReference);
+        Assert.False(order.CancelPaid("cancelled_by_customer", Now.AddHours(2)));
+    }
+
+    [Fact]
+    public void A_paid_order_cannot_be_cancelled_once_a_package_has_shipped()
+    {
+        var order = Place(Item(1, 1, 300m, 1), Item(2, 2, 100m, 1));
+        order.MarkPaid("pay_1", order.Total, Now);
+        order.ShipPackage(order.Packages[0].Id, order.Packages[0].SellerId, "TRK1", Now);
+        Assert.False(order.CanCancelPaid);
+        Assert.Equal("order.already_shipped", Assert.Throws<DomainException>(() => order.CancelPaid("cancelled_by_customer", Now)).Code);
+        Assert.Equal(OrderStatus.Paid, order.Status);
+    }
+
+    [Fact]
     public void Unpaid_orders_become_overdue_after_the_payment_window()
     {
         var order = Place(Item(1, 1, 100m, 1));
@@ -215,6 +243,7 @@ public class OrderTests
     [Theory]
     [InlineData(OrderStatus.PendingPayment, OrderStatus.Paid, true)]
     [InlineData(OrderStatus.PendingPayment, OrderStatus.Cancelled, true)]
+    [InlineData(OrderStatus.Paid, OrderStatus.Cancelled, true)]
     [InlineData(OrderStatus.Paid, OrderStatus.PendingPayment, false)]
     [InlineData(OrderStatus.PaymentFailed, OrderStatus.Paid, false)]
     [InlineData(OrderStatus.Cancelled, OrderStatus.Paid, false)]

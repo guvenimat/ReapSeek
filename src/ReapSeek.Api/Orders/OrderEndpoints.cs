@@ -21,6 +21,11 @@ public static class OrderEndpoints
                 ? ApiResults.Ok(order, AppJsonContext.Default.OrderDetail)
                 : ApiResults.NotFound("Order not found")).RequireCustomer();
 
+        api.MapPost("/orders/{number}/cancel", async (string number, UserInfo user, OrderCancellation cancellation, OrderQueries orders, CancellationToken ct) =>
+            await cancellation.CancelAsync(number, user.Id, ct) == CancelOutcome.NotFound || await orders.DetailAsync(number, user.Id, ct) is not { } order
+                ? ApiResults.NotFound("Order not found")
+                : ApiResults.Ok(order, AppJsonContext.Default.OrderDetail)).RequireCustomer();
+
         var admin = api.MapGroup("/backoffice/orders").RequireAdmin();
         admin.MapGet("/", async (OrderQueries orders, string? status, string? q, int? page, CancellationToken ct) =>
             ApiResults.Ok(await orders.AllAsync(

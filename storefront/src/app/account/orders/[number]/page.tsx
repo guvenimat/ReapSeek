@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { formatPrice } from '@/lib/catalog'
+import { CancelOrder } from '@/components/orders/CancelOrder'
 import { ReturnForm } from '@/components/orders/ReturnForm'
 import { Tracking } from '@/components/orders/Tracking'
 import { returnReasons, returnStatusLabel } from '@/lib/order-types'
@@ -34,8 +35,16 @@ export default async function OrderPage({ params }: Props) {
         <span className={`status-pill ${order.status}`} data-testid="order-status">{orderStatusLabel[order.status] ?? order.status}</span>
       </div>
       {order.status === 'payment_failed' || order.status === 'cancelled' ? (
-        <p className="notice warn">{failureLabel[order.close_reason ?? ''] ?? 'This order was closed.'} You were not charged.</p>
+        <p className="notice warn" data-testid="order-closed">
+          {failureLabel[order.close_reason ?? ''] ?? 'This order was closed.'}{' '}
+          {order.paid_at === null
+            ? 'You were not charged.'
+            : order.refunded_at
+              ? `We refunded ${formatPrice(order.total)} to your card on ${date(order.refunded_at)}.`
+              : `We are refunding ${formatPrice(order.total)} to your card.`}
+        </p>
       ) : null}
+      {order.cancellable && <CancelOrder orderNumber={order.number} paid={order.status === 'paid'} total={formatPrice(order.total)} />}
       {order.status === 'pending_payment' && order.payment_url && (
         <p className="notice">Waiting for payment. <a href={order.payment_url} className="inline-link">Continue to payment</a></p>
       )}

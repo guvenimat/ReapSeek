@@ -86,6 +86,15 @@ public static class OrderStore
         await PublishEventsAsync(conn, tx, order);
     }
 
+    public sealed record CustomerIdRecord(long CustomerId);
+
+    public static async Task<int> LockPendingCountAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long customerId)
+    {
+        await conn.ExecuteAsync("SELECT id FROM users WHERE id = @CustomerId FOR UPDATE", new CustomerIdRecord(customerId), tx);
+        return await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM orders WHERE customer_id = @CustomerId AND status = 'pending_payment'",
+            new CustomerIdRecord(customerId), tx);
+    }
+
     const string OrderColumns = "id, number, customer_id, status, currency, shipping_address::text AS shipping_address, placed_at, paid_at, payment_reference, close_reason, discount_total, coupon_code";
 
     public static async Task<Order?> LoadAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid id) =>
@@ -156,6 +165,12 @@ public static class OrderStore
                     _ => throw new InvalidOperationException(),
                 };
                 await OutboxWriter.EnqueueAsync(conn, tx, packageType, message, OutboxJsonContext.Default.PackageEventMessage);
+                continue;
+            }
+            if (e is OrderRefundDue r)
+            {
+                await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.OrderRefundDue,
+                    new OrderRefundMessage(r.OrderId, r.Number, r.CustomerId, r.PaymentReference, r.Amount.Amount, r.OccurredAt), OutboxJsonContext.Default.OrderRefundMessage);
                 continue;
             }
             var (type, reason) = e switch

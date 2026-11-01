@@ -32,11 +32,13 @@ public static class OutboxTypes
     public const string OutboxFailed = "outbox_failed";
     public const string AccountEmail = "account_email";
     public const string PriceDropped = "price_dropped";
+    public const string OrderRefundDue = "order_refund_due";
 }
 
 public sealed record UserRegistered(long UserId, string Email, string Name);
 public sealed record ProductsChanged(List<long> ProductIds);
 public sealed record CatalogReindex(string Reason);
+public sealed record OrderRefundMessage(Guid OrderId, string Number, long CustomerId, string PaymentReference, decimal Amount, DateTime OccurredAt);
 public sealed record OrderEventMessage(Guid OrderId, string Number, long CustomerId, string? Reason, DateTime OccurredAt);
 public sealed record CartReminderMessage(Guid CartId, long CustomerId);
 public sealed record PriceDropMessage(long CustomerId, long ProductId, decimal OldPrice, decimal NewPrice);
@@ -53,6 +55,7 @@ public sealed record PackageEventMessage(Guid OrderId, string Number, long Custo
 [JsonSerializable(typeof(ProductsChanged))]
 [JsonSerializable(typeof(CatalogReindex))]
 [JsonSerializable(typeof(OrderEventMessage))]
+[JsonSerializable(typeof(OrderRefundMessage))]
 [JsonSerializable(typeof(PackageEventMessage))]
 [JsonSerializable(typeof(ReturnEventMessage))]
 [JsonSerializable(typeof(QuestionEventMessage))]
