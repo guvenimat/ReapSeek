@@ -31,7 +31,7 @@ export type OrderDetail = {
   address: { full_name: string; phone: string; city: string; district: string; line: string; postal_code: string }
   subtotal: number; shipping_total: number; total: number; currency: string; packages: OrderPackage[]
   payments: { provider: string; status: string; failure_reason: string | null; created_at: string }[]; payment_url: string | null; returns: OrderReturn[]
-  discount_total: number; coupon_code: string | null
+  discount_total: number; coupon_code: string | null; cancellable: boolean; refunded_at: string | null
 }
 
 export const orderStatusLabel: Record<string, string> = {
@@ -63,4 +63,5 @@ export const failureLabel: Record<string, string> = {
   authentication_cancelled: 'You cancelled the payment.',
   payment_timeout: 'The payment was not completed in time.',
   payment_provider_unavailable: 'Payments were temporarily unavailable.',
+  cancelled_by_customer: 'You cancelled this order.',
 }

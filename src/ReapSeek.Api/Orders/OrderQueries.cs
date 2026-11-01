@@ -26,10 +26,12 @@ public sealed record OrderPaymentView(string Provider, string Status, string? Fa
 public sealed record OrderDetail(
     string Number, string Status, DateTime PlacedAt, DateTime? PaidAt, DateTime PaymentDeadline, string? CloseReason, ShippingAddress Address,
     decimal Subtotal, decimal ShippingTotal, decimal Total, string Currency, List<OrderPackageView> Packages, List<OrderPaymentView> Payments,
-    long CustomerId, string? CustomerEmail, string? PaymentUrl, List<ReturnView> Returns, decimal DiscountTotal = 0, string? CouponCode = null);
+    long CustomerId, string? CustomerEmail, string? PaymentUrl, List<ReturnView> Returns, decimal DiscountTotal = 0, string? CouponCode = null,
+    bool Cancellable = false, DateTime? RefundedAt = null);
 
 public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
 {
+    public sealed record IdRecord(Guid Id);
     public sealed record ShipmentRecord(Guid Id, string? ShipmentStatus);
     public sealed record TrackingRecord(string TrackingNumber, string Kind, string Status, DateTime OccurredAt);
     public sealed record ReturnRowRecord(
@@ -85,6 +87,7 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
         var order = await OrderStore.LoadByNumberAsync(conn, null, number);
         if (order is null || (customerId is not null && order.CustomerId != customerId)) return null;
         var email = await conn.ExecuteScalarAsync<string?>("SELECT email FROM users WHERE id = @Id", new { Id = order.CustomerId });
+        var refundedAt = await conn.ExecuteScalarAsync<DateTime?>("SELECT refunded_at FROM orders WHERE id = @Id", new IdRecord(order.Id));
         var payments = (await conn.QueryAsync<PaymentRecord>("""
             SELECT p.provider, p.status, p.failure_reason, p.created_at, p.redirect_url FROM payments p
             JOIN orders o ON o.id = p.order_id WHERE o.number = @Number ORDER BY p.created_at
@@ -126,7 +129,8 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
                 r.ReturnTracking, r.ReceivedAt, r.RefundedAt,
                 returnLines.Where(l => l.ReturnId == r.Id).Select(l => new ReturnLineView(l.OrderLineId, l.ProductTitle, l.VariantLabel, l.Quantity,
                     l.UnitPrice * l.Quantity)).ToList(), Events(r.ReturnTracking))).ToList(),
-            order.DiscountTotal.Amount, order.Discount?.CouponCode);
+            order.DiscountTotal.Amount, order.Discount?.CouponCode,
+            order.Status == OrderStatus.PendingPayment || order.CanCancelPaid, refundedAt);
     }
 
     static OrderSummary ToSummary(SummaryRecord r) =>

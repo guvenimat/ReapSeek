@@ -32,6 +32,8 @@ public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payment
         await using (var conn = await db.OpenConnectionAsync(ct))
         await using (var tx = await conn.BeginTransactionAsync(ct))
         {
+            if (await OrderStore.LockPendingCountAsync(conn, tx, customer.Id) >= Order.MaxPendingPerCustomer)
+                throw new ConflictException($"You already have {Order.MaxPendingPerCustomer} orders waiting for payment. Pay or cancel one of them first.", "too_many_pending");
             var cart = await CartRepository.FindAsync(conn, tx, new CartOwner(customer.Id, null));
             if (cart is null || cart.Lines.Count == 0) throw new ConflictException("Your cart is empty", "cart_empty");
             var offers = await CartRepository.OffersAsync(conn, tx, cart.Lines.Select(l => l.OfferId).ToArray(), forUpdate: true);
