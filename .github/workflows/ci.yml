@@ -24,6 +24,20 @@ jobs:
       - run: dotnet build ReapSeek.slnx -c Release
       - run: dotnet test tests/ReapSeek.UnitTests -c Release --no-build
 
+  aot:
+    name: Native AOT publish (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ReapSeek.Api, ReapSeek.Worker, ReapSeek.Sandbox]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet publish src/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release -r linux-x64 -o out
+
   storefront:
     name: Storefront build
     runs-on: ubuntu-latest

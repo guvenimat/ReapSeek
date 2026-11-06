@@ -53,6 +53,7 @@ function WaitFor([scriptblock]$cond, [int]$seconds) {
 }
 
 function Mails([string]$query) { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=$([Uri]::EscapeDataString($query))").messages_count }
+function ClearContentLimit { $null = docker.exe exec reapseek-redis sh -c "redis-cli --scan --pattern 'ratelimit:content:*' | xargs -r redis-cli DEL" 2>&1 }
 
 function Browse($steps) {
     $file = Join-Path $env:TEMP "reapseek-reviews-$tag.json"
@@ -134,6 +135,7 @@ $page = (Send (NewClient) GET "$storefront/p/$($product.slug)").Text
 Check "the product page renders the rating and the reviews for search engines" ($page -cmatch 'data-testid="reviews-average"><strong>3.5' -and $page -cmatch '"aggregateRating":\{"@type":"AggregateRating","ratingValue":3.5,"reviewCount":2' -and $page -cmatch 'Too thin')
 
 Write-Host "`n[3] Questions and answers"
+ClearContentLimit
 Check "a question needs a few words" ((Send $nobody POST "$api/api/v1/catalog/products/$id/questions" @{ body = "Size?" }).Status -eq 400)
 Check "guests cannot ask (401)" ((Send (NewClient) POST "$api/api/v1/catalog/products/$id/questions" @{ body = "Is it lined inside?" }).Status -eq 401)
 $asked = Send $nobody POST "$api/api/v1/catalog/products/$id/questions" @{ body = "Is the dress lined inside?" }
@@ -158,6 +160,7 @@ Check "the admin hides a question" ((A PATCH "/questions/$qid" @{ status = "hidd
 Check "the moderation list shows hidden items" (@((A GET "/moderation?status=hidden").Json.reviews | Where-Object { $_.id -eq $mertReview }).Count -eq 1)
 
 Write-Host "`n[5] In a real browser"
+ClearContentLimit
 $session = ($ayse.Cookies.GetCookies([Uri]$api) | Where-Object { $_.Name -ceq "rs_session" }).Value
 $run = Browse @(
     @{ cookie = @{ name = "rs_session"; value = $session } },

@@ -49,6 +49,7 @@ public static class HostingExtensions
         services.AddHostedService<CartReminderJob>();
         services.AddSingleton<ReapSeek.Worker.Wishlist.PriceDropHandler>();
         services.AddHostedService<ReapSeek.Worker.Wishlist.PriceDropJob>();
+        services.AddHostedService<ReapSeek.Worker.Sellers.SellerRatingJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
         services.AddSandboxProviders();

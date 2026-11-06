@@ -9,5 +9,6 @@ FROM nginx:1.27-alpine
 ENV DNS_RESOLVER=127.0.0.11
 ENV API_UPSTREAM=api:8080
 COPY default.conf.template /etc/nginx/templates/default.conf.template
+COPY security-headers.inc /etc/nginx/conf.d/security-headers.inc
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

@@ -30,6 +30,7 @@ worker:
     Payouts__CheckSeconds: "60"
     Carts__ReminderAfterSeconds: "3600"
     Wishlist__PriceCheckSeconds: "60"
+    Sellers__RatingRefreshSeconds: "300"
     Shipping__DeadlineCheckSeconds: "60"
     Outbox__PollMilliseconds: "500"
 
