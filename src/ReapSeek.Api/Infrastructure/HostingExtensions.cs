@@ -136,6 +136,7 @@ public static class HostingExtensions
     public static WebApplication UseReapSeekApi(this WebApplication app)
     {
         if (List(app.Configuration["ForwardedHeaders:TrustedNetworks"]).Length > 0) app.UseForwardedHeaders();
+        app.Use(SecurityHeaders);
         app.UseExceptionHandler();
         app.UseRateLimiter();
         app.UseMiddleware<UserAccessMiddleware>();
@@ -169,6 +170,16 @@ public static class HostingExtensions
         app.MapMedia();
         app.MapHealth();
         return app;
+    }
+
+    static Task SecurityHeaders(HttpContext ctx, RequestDelegate next)
+    {
+        var headers = ctx.Response.Headers;
+        headers.XContentTypeOptions = "nosniff";
+        headers.XFrameOptions = "DENY";
+        headers.ContentSecurityPolicy = "frame-ancestors 'none'";
+        headers["Referrer-Policy"] = "no-referrer";
+        return next(ctx);
     }
 
     static string[] List(string? value) =>

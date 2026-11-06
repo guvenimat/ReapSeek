@@ -470,7 +470,6 @@ cd deploy/local
 .\images-test.ps1
 .\customers-test.ps1
 .\account-test.ps1
-.ccount-test.ps1
 ```
 
 The scripts run end to end against the running stack.

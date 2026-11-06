@@ -32,6 +32,7 @@ services:
   postgres:
     image: postgres:17
     container_name: reapseek-postgres
+    mem_limit: 1g
     ports:
       - "127.0.0.1:5433:5432"
     environment:
@@ -73,6 +74,7 @@ services:
   redis:
     image: redis:8.8.4-alpine
     container_name: reapseek-redis
+    mem_limit: 320m
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Missing .env - run run-local.ps1}", "--save", "", "--appendonly", "no",
       "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     ports:
@@ -88,6 +90,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.27
     container_name: reapseek-mailpit
+    mem_limit: 128m
     ports:
       - "127.0.0.1:8025:8025"
     environment:
@@ -99,6 +102,7 @@ services:
       dockerfile: ReapSeek.Api/Dockerfile
     image: reapseek-api:local
     container_name: reapseek-migrate
+    mem_limit: 512m
     command: ["--migrate"]
     environment:
       ConnectionStrings__Postgres: *postgres-connection
@@ -109,6 +113,7 @@ services:
   api:
     image: reapseek-api:local
     container_name: reapseek-api
+    mem_limit: 384m
     ports:
       - "127.0.0.1:8100:8080"
     environment: *api-environment
@@ -136,6 +141,7 @@ services:
   api-2:
     image: reapseek-api:local
     container_name: reapseek-api-2
+    mem_limit: 384m
     profiles: ["scale"]
     ports:
       - "127.0.0.1:8102:8080"
@@ -167,6 +173,7 @@ services:
       dockerfile: ReapSeek.Worker/Dockerfile
     image: reapseek-worker:local
     container_name: reapseek-worker
+    mem_limit: 384m
     environment:
       ConnectionStrings__Postgres: *postgres-connection
       ConnectionStrings__Redis: *redis-connection
@@ -186,6 +193,7 @@ services:
       Payouts__CheckSeconds: "60"
       Carts__ReminderAfterSeconds: "20"
       Wishlist__PriceCheckSeconds: "15"
+      Sellers__RatingRefreshSeconds: "30"
       Shipping__DeadlineCheckSeconds: "20"
       Carts__ReminderCheckSeconds: "5"
       Payments__Sandbox__ApiUrl: http://sandbox:8080
@@ -216,6 +224,7 @@ services:
       dockerfile: ReapSeek.Simulator/Dockerfile
     image: reapseek-simulator:local
     container_name: reapseek-simulator
+    mem_limit: 512m
     command: ["live"]
     environment:
       ConnectionStrings__Postgres: *postgres-connection
@@ -238,6 +247,7 @@ services:
       dockerfile: ReapSeek.Sandbox/Dockerfile
     image: reapseek-sandbox:local
     container_name: reapseek-sandbox
+    mem_limit: 192m
     ports:
       - "127.0.0.1:8101:8080"
     environment:
@@ -275,6 +285,7 @@ services:
       context: ../../storefront
     image: reapseek-storefront:local
     container_name: reapseek-storefront
+    mem_limit: 384m
     ports:
       - "127.0.0.1:3100:3000"
     environment:
@@ -299,6 +310,7 @@ services:
       context: ../../backoffice
     image: reapseek-backoffice:local
     container_name: reapseek-backoffice
+    mem_limit: 64m
     ports:
       - "127.0.0.1:3101:80"
     depends_on:
