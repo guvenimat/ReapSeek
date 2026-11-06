@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
-import type { CategoryNode } from '@/lib/catalog'
+import type { CategoryNode, MenuInsight } from '@/lib/catalog'
 import type { User } from '@/lib/session'
 import { CategoryNav } from './CategoryNav'
 import { CartIcon, HeartIcon, LogoMark, UserIcon } from './icons'
 import { MobileMenu } from './MobileMenu'
 import { SearchBox } from './SearchBox'
 
-export function Header({ user, departments, cartCount }: { user: User | null; departments: CategoryNode[]; cartCount: number }) {
+export function Header({ user, departments, insights, cartCount }: { user: User | null; departments: CategoryNode[]; insights: Record<string, MenuInsight>; cartCount: number }) {
   const firstName = user ? user.name.split(' ')[0] : null
   return (
     <header className="site-header">
@@ -55,7 +55,7 @@ export function Header({ user, departments, cartCount }: { user: User | null; de
         </nav>
       </div>
       <Suspense fallback={<nav className="category-bar" />}>
-        <CategoryNav departments={departments} />
+        <CategoryNav departments={departments} insights={insights} />
       </Suspense>
     </header>
   )

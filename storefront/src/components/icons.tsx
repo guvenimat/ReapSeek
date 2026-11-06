@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react'
+import type { ReactNode, SVGProps } from 'react'
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number }
 
@@ -66,3 +66,20 @@ export const LogoMark = ({ size = 32 }: { size?: number }) => (
     <path d="m19.5 19.5 5 5" stroke="var(--accent)" strokeWidth="3.4" strokeLinecap="round" />
   </svg>
 )
+
+const departmentPaths: Record<string, ReactNode> = {
+  women: <><circle cx="12" cy="5.5" r="2.5" /><path d="M9.5 10h5l2.5 10h-10l2.5-10Z" /></>,
+  men: <path d="M8 4h8l3.5 4-3 2V20h-9V10l-3-2L8 4Z" />,
+  kids: <><circle cx="12" cy="9" r="4" /><path d="M6 21c0-3.5 2.7-6 6-6s6 2.5 6 6" /></>,
+  home: <><path d="M4 11 12 4l8 7v9H4v-9Z" /><path d="M10 20v-5h4v5" /></>,
+  electronics: <><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M11 18h2" /></>,
+  beauty: <><path d="M10 3h4v4h-4z" /><path d="M8 7h8l1 14H7L8 7Z" /></>,
+  sports: <path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12" />,
+  books: <path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4V5Zm16 0h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6V5Z" />,
+  supermarket: <><path d="M3 4h2l2.2 11.5h11L20 8H6" /><circle cx="9" cy="20" r="1.4" /><circle cx="17" cy="20" r="1.4" /></>,
+}
+
+export const DepartmentIcon = ({ slug, ...p }: IconProps & { slug: string }) => (
+  <Icon {...p}>{departmentPaths[slug] ?? <rect x="4" y="4" width="16" height="16" rx="3" />}</Icon>
+)
+

@@ -13,7 +13,7 @@ import { Analytics } from '@/components/analytics/Analytics'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { WishlistProvider } from '@/components/wishlist/Wishlist'
-import { getCategories } from '@/lib/catalog'
+import { getCategories, getMenuInsights } from '@/lib/catalog'
 import { getCartCount } from '@/lib/orders'
 import { publicUrl } from '@/lib/products'
 import { getCurrentUser } from '@/lib/session'
@@ -26,6 +26,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const [user, departments, cartCount] = await Promise.all([getCurrentUser(), getCategories(), getCartCount()])
+  const insights = await getMenuInsights(departments)
   const analytics = process.env.REAPDEEP_PUBLIC_KEY && process.env.REAPDEEP_INGEST_URL
     ? { publicKey: process.env.REAPDEEP_PUBLIC_KEY, apiHost: process.env.REAPDEEP_INGEST_URL, recommendHost: process.env.REAPDEEP_RECOMMEND_URL ?? null }
     : null
@@ -34,7 +35,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <Analytics config={analytics} userId={user?.id ?? null} />
         <WishlistProvider signedIn={user !== null}>
-          <Header user={user} departments={departments} cartCount={cartCount} />
+          <Header user={user} departments={departments} insights={insights} cartCount={cartCount} />
           <main className="site-main">{children}</main>
         </WishlistProvider>
         <Footer departments={departments} />
