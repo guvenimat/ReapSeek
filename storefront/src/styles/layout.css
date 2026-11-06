@@ -352,12 +352,6 @@
   color: var(--brand-strong);
 }
 
-.flyout-subs small,
-.category-dropdown small {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
 .flyout-brands h3 {
   margin: 0 0 10px;
   color: var(--text-muted);
