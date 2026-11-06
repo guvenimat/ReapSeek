@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import '@fontsource-variable/inter'
+import '@fontsource-variable/plus-jakarta-sans'
 import '@/styles/tokens.css'
 import '@/styles/base.css'
 import '@/styles/layout.css'
@@ -37,7 +37,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <Header user={user} departments={departments} cartCount={cartCount} />
           <main className="site-main">{children}</main>
         </WishlistProvider>
-        <Footer />
+        <Footer departments={departments} />
       </body>
     </html>
   )

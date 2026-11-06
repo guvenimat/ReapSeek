@@ -47,8 +47,8 @@ export function SearchBox() {
     const close = (e: MouseEvent) => {
       if (box.current && !box.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
   }, [])
 
   const items: Item[] = data
@@ -93,7 +93,10 @@ export function SearchBox() {
   const show = open && data !== null && items.length > 0
 
   return (
-    <form className="search" role="search" action="/search" onSubmit={submit} ref={box}>
+    <form className="search" role="search" action="/search" onSubmit={submit} ref={box}
+      onBlur={(e) => {
+        if (!box.current?.contains(e.relatedTarget as Node | null)) setOpen(false)
+      }}>
       <SearchIcon size={18} className="search-icon" />
       <input
         type="search" name="q" value={q} autoComplete="off" maxLength={100}
@@ -109,7 +112,7 @@ export function SearchBox() {
       />
       <button type="submit">Search</button>
       {show && (
-        <div className="suggestions" id="search-suggestions" role="listbox" data-testid="suggestions">
+        <div className="suggestions" id="search-suggestions" role="listbox" data-testid="suggestions" onMouseDown={(e) => e.preventDefault()}>
           {data.categories.length > 0 && (
             <div className="suggestion-group">
               <span className="suggestion-title">Categories</span>

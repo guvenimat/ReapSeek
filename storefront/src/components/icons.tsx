@@ -43,6 +43,22 @@ export const StoreIcon = (p: IconProps) => (
   <Icon {...p}><path d="M4 10v10h16V10" /><path d="M3 10 5 4h14l2 6c0 1.4-1.1 2.5-2.5 2.5S16 11.4 16 10c0 1.4-1.1 2.5-2.5 2.5h-3C9.1 12.5 8 11.4 8 10c0 1.4-1.1 2.5-2.5 2.5S3 11.4 3 10Z" /><path d="M10 20v-4.5h4V20" /></Icon>
 )
 
+export const MenuIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M4 7h16M4 12h16M4 17h16" /></Icon>
+)
+
+export const CloseIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M6 6l12 12M18 6 6 18" /></Icon>
+)
+
+export const ChevronIcon = (p: IconProps) => (
+  <Icon {...p}><path d="m9 6 6 6-6 6" /></Icon>
+)
+
+export const BoltIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z" /></Icon>
+)
+
 export const LogoMark = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
     <rect width="32" height="32" rx="9" fill="var(--brand)" />
