@@ -10,8 +10,6 @@ const openDelay = 120
 const closeDelay = 160
 const all = '__all'
 
-const count = (n: number | undefined) => (n === undefined ? '' : new Intl.NumberFormat('en-US').format(n))
-
 export function CategoryNav({ departments, insights }: { departments: CategoryNode[]; insights: Record<string, MenuInsight> }) {
   const [open, setOpen] = useState<string | null>(null)
   const [active, setActive] = useState(departments[0]?.slug ?? '')
@@ -98,15 +96,12 @@ export function CategoryNav({ departments, insights }: { departments: CategoryNo
                 <div className="flyout-head">
                   <h2>{current.name}</h2>
                   <Link href={`/c/${current.slug}`} onClick={closeNow}>
-                    See all{info ? ` ${count(info.total)}` : ''} <ChevronIcon size={14} />
+                    See all <ChevronIcon size={14} />
                   </Link>
                 </div>
                 <div className="flyout-subs">
                   {current.children.map((c) => (
-                    <Link key={c.slug} href={`/c/${c.slug}`} onClick={closeNow}>
-                      <span>{c.name}</span>
-                      <small>{count(info?.counts[c.path])}</small>
-                    </Link>
+                    <Link key={c.slug} href={`/c/${c.slug}`} onClick={closeNow}>{c.name}</Link>
                   ))}
                 </div>
                 {info && info.brands.length > 0 && (
@@ -134,7 +129,6 @@ export function CategoryNav({ departments, insights }: { departments: CategoryNo
         {departments.map((d) => {
           const isOpen = open === d.slug
           const hasChildren = d.children.length > 0
-          const di = insights[d.slug]
           return (
             <div
               key={d.slug}
@@ -160,13 +154,10 @@ export function CategoryNav({ departments, insights }: { departments: CategoryNo
               {hasChildren && (
                 <div className="category-dropdown" data-menu={d.slug} hidden={!isOpen}>
                   {d.children.map((c) => (
-                    <Link key={c.slug} href={`/c/${c.slug}`} onClick={closeNow}>
-                      <span>{c.name}</span>
-                      <small>{count(di?.counts[c.path])}</small>
-                    </Link>
+                    <Link key={c.slug} href={`/c/${c.slug}`} onClick={closeNow}>{c.name}</Link>
                   ))}
                   <Link href={`/c/${d.slug}`} className="dropdown-all" onClick={closeNow}>
-                    All {d.name}{di ? ` (${count(di.total)})` : ''} <ChevronIcon size={14} />
+                    All {d.name} <ChevronIcon size={14} />
                   </Link>
                 </div>
               )}

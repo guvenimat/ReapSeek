@@ -25,7 +25,7 @@ export async function getCategories(): Promise<CategoryNode[]> {
   }
 }
 
-export type MenuInsight = { total: number; counts: Record<string, number>; brands: string[]; topDiscount: number; promoImage: string | null }
+export type MenuInsight = { brands: string[]; topDiscount: number; promoImage: string | null }
 
 export async function getMenuInsights(departments: CategoryNode[]): Promise<Record<string, MenuInsight>> {
   const entries = await Promise.all(departments.map(async (d) => {
@@ -34,8 +34,6 @@ export async function getMenuInsights(departments: CategoryNode[]): Promise<Reco
       if (!res.ok) return null
       const r = (await res.json()) as SearchResult
       const insight: MenuInsight = {
-        total: r.total,
-        counts: Object.fromEntries(r.facets.categories.map((f) => [f.value, f.count])),
         brands: r.facets.brands.slice(0, 6).map((b) => b.label),
         topDiscount: r.products[0]?.discount ?? 0,
         promoImage: r.products[0]?.image_url ?? null,
