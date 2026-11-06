@@ -25,6 +25,29 @@ export async function getCategories(): Promise<CategoryNode[]> {
   }
 }
 
+export type MenuInsight = { total: number; counts: Record<string, number>; brands: string[]; topDiscount: number; promoImage: string | null }
+
+export async function getMenuInsights(departments: CategoryNode[]): Promise<Record<string, MenuInsight>> {
+  const entries = await Promise.all(departments.map(async (d) => {
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/search?category=${encodeURIComponent(d.slug)}&sort=discount&page_size=1`, { next: { revalidate: 300 } })
+      if (!res.ok) return null
+      const r = (await res.json()) as SearchResult
+      const insight: MenuInsight = {
+        total: r.total,
+        counts: Object.fromEntries(r.facets.categories.map((f) => [f.value, f.count])),
+        brands: r.facets.brands.slice(0, 6).map((b) => b.label),
+        topDiscount: r.products[0]?.discount ?? 0,
+        promoImage: r.products[0]?.image_url ?? null,
+      }
+      return [d.slug, insight] as const
+    } catch {
+      return null
+    }
+  }))
+  return Object.fromEntries(entries.filter((e) => e !== null))
+}
+
 export function flatten(nodes: CategoryNode[]): CategoryNode[] {
   return nodes.flatMap((n) => [n, ...flatten(n.children)])
 }
