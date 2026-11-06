@@ -153,6 +153,23 @@ The API, the worker and the payment sandbox export traces, metrics and logs with
 
 ![ReapSeek overview dashboard in Grafana](docs/images/grafana-overview.png)
 
+### Design and mobile
+
+Both front ends share one visual language: a white surface, a coral accent and the Plus Jakarta Sans typeface, served from the app itself (no font CDN). Colors come from design tokens (`storefront/src/styles/tokens.css`, the back office's `:root` variables), so no component hard-codes a color.
+
+- **Storefront:** a header with a framed search box, a category bar with mega menus (one open at a time, short open and close delays, closed by Esc, focus loss or navigation, reachable with the arrow keys), a home page built from real discounted products, product cards with brand, rating, price and seller count, and a dark footer.
+- **Responsive:** breakpoints at 1100, 959 and 640 pixels. On phones the storefront moves categories into a drawer, and the back office turns its sidebar into a drawer that closes on navigation and Esc; wide tables scroll inside their card. No page scrolls sideways at 390, 820 or 1440 pixels.
+
+![Home page](docs/images/storefront-home.png)
+
+![On a phone: home page, product page and the seller center menu](docs/images/storefront-mobile.png)
+
+### Security headers
+
+- **API:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` and `Content-Security-Policy: frame-ancestors 'none'` on every response.
+- **Storefront:** the same headers on pages (not on the proxied `/api` and `/media` routes), with a policy that blocks framing, `<base>` rewriting and plugins. A `script-src` policy would need per-request nonces in Next.js and is not set yet.
+- **Back office:** a full Content Security Policy served by nginx (scripts and API calls only from its own origin, no framing, no plugins).
+
 ### Marketplace catalog
 
 The catalog follows the model of large marketplaces: one canonical **product** (title, brand, category, attributes, images) has **variants** (every combination of its axes, such as color and size, each with a SKU), and any number of **sellers** compete on each variant with their own **offer** (price, list price, stock, handling time).

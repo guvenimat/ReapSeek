@@ -14,7 +14,7 @@ export function Overview({ user }: { user: User }) {
   return (
     <div className="stack">
       <Card title={`Welcome, ${user.name}`}>
-        <p className="muted">Manage the catalog, sellers and their offers. Orders, customers and marketing arrive in later releases.</p>
+        <p className="muted">Manage the catalog, sellers, orders, customers and marketing in one place.</p>
       </Card>
       <Loading state={stats}>
         {(s) => (
