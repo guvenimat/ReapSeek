@@ -157,10 +157,15 @@ The API, the worker and the payment sandbox export traces, metrics and logs with
 
 Both front ends share one visual language: a white surface, a coral accent and the Plus Jakarta Sans typeface, served from the app itself (no font CDN). Colors come from design tokens (`storefront/src/styles/tokens.css`, the back office's `:root` variables), so no component hard-codes a color.
 
-- **Storefront:** a header with a framed search box, a category bar with mega menus (one open at a time, short open and close delays, closed by Esc, focus loss or navigation, reachable with the arrow keys), a home page built from real discounted products, product cards with brand, rating, price and seller count, and a dark footer.
+- **Storefront:** a header with a framed search box, a category bar, a home page built from real discounted products, product cards with brand, rating, price and seller count, and a dark footer.
+- **Category menu:** an *All categories* button opens a panel with every department on the left; pointing at one shows its subcategories, its most popular brands and its biggest discount on the right. Next to the button, each department in the bar opens its own vertical list of subcategories on hover. Only one menu is open at a time, with short open and close delays; Esc, focus loss and navigation close it, and the arrow keys move into it. Brands and the discount come from the search index and are cached for five minutes; the subcategory links are in the server-rendered HTML.
 - **Responsive:** breakpoints at 1100, 959 and 640 pixels. On phones the storefront moves categories into a drawer, and the back office turns its sidebar into a drawer that closes on navigation and Esc; wide tables scroll inside their card. No page scrolls sideways at 390, 820 or 1440 pixels.
 
 ![Home page](docs/images/storefront-home.png)
+
+| All categories | A department in the bar |
+|---|---|
+| ![All categories panel with departments, subcategories, popular brands and a deal](docs/images/storefront-menu-all.png) | ![Vertical subcategory list under Women](docs/images/storefront-menu-department.png) |
 
 ![On a phone: home page, product page and the seller center menu](docs/images/storefront-mobile.png)
 
