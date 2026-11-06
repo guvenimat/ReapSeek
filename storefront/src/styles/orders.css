@@ -448,6 +448,13 @@
 
 .order-row > span {
   display: grid;
+  min-width: 0;
+}
+
+.order-row > span strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-head {
@@ -480,13 +487,36 @@
   }
 
   .cart-line {
-    grid-template-columns: 60px minmax(0, 1fr) auto;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "thumb info info"
+      "thumb qty price"
+      ". remove remove";
+    align-items: start;
+    gap: 10px 14px;
   }
 
-  .cart-line .stepper,
-  .cart-line .cart-price,
+  .cart-line .cart-thumb {
+    grid-area: thumb;
+  }
+
+  .cart-line .cart-info {
+    grid-area: info;
+  }
+
+  .cart-line .stepper {
+    grid-area: qty;
+    justify-self: start;
+  }
+
+  .cart-line .cart-price {
+    grid-area: price;
+    justify-self: end;
+    text-align: right;
+  }
+
   .cart-line .link-button {
-    grid-column: 2 / -1;
+    grid-area: remove;
     justify-self: start;
   }
 
@@ -635,6 +665,26 @@
 @media (max-width: 640px) {
   .tracking-steps {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .order-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    row-gap: 6px;
+  }
+
+  .order-row img {
+    grid-row: span 2;
+  }
+
+  .order-row .status-pill {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .order-row > strong {
+    grid-column: 3;
+    grid-row: 1;
   }
 }
 

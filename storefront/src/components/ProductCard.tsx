@@ -8,11 +8,14 @@ import { WishlistButton } from './wishlist/Wishlist'
 
 export type CardTracking = { query: string; position: number }
 
+const freeShippingFrom = 500
+
 export function ProductCard({ product, tracking, onSelect }: { product: Card; tracking?: CardTracking; onSelect?: () => void }) {
   const click = () => {
     if (tracking) track('search_result_clicked', { query: tracking.query, item_id: String(product.id), position: tracking.position, price: product.price })
     onSelect?.()
   }
+  const title = product.title.startsWith(product.brand) ? product.title.slice(product.brand.length).trim() : product.title
   return (
     <Link href={`/p/${product.slug}`} className={`product-card${product.in_stock ? '' : ' sold-out'}`} data-product={product.id} onClick={click}>
       <div className="product-media">
@@ -22,19 +25,25 @@ export function ProductCard({ product, tracking, onSelect }: { product: Card; tr
         <WishlistButton productId={product.id} price={product.price} />
       </div>
       <div className="product-info">
-        <p className="product-title"><strong>{product.brand}</strong> {product.title.startsWith(product.brand) ? product.title.slice(product.brand.length).trim() : product.title}</p>
+        <p className="product-brand">{product.brand}</p>
+        <p className="product-title">{title}</p>
+        {product.rating != null && (product.review_count ?? 0) > 0 ? (
+          <p className="card-rating"><Stars value={product.rating} /> <b>{product.rating.toFixed(1)}</b> <span className="muted">({product.review_count})</span></p>
+        ) : (
+          <p className="card-rating empty">New</p>
+        )}
         {product.price !== null ? (
           <div className="product-price">
-            {product.list_price !== null && <span className="list-price">{formatPrice(product.list_price)}</span>}
             <span className="price">{formatPrice(product.price)}</span>
+            {product.list_price !== null && <span className="list-price">{formatPrice(product.list_price)}</span>}
           </div>
         ) : (
           <div className="product-price muted">Currently unavailable</div>
         )}
-        {product.rating != null && (product.review_count ?? 0) > 0 && (
-          <p className="card-rating"><Stars value={product.rating} /> <span className="muted">({product.review_count})</span></p>
-        )}
-        {product.seller_count > 1 && <p className="seller-count">{product.seller_count} sellers</p>}
+        <p className="card-meta">
+          {product.price !== null && product.price >= freeShippingFrom && <span className="ship-chip">Free shipping</span>}
+          {product.seller_count > 1 && <span className="seller-count">{product.seller_count} sellers</span>}
+        </p>
       </div>
     </Link>
   )

@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api, type User } from '../api'
 import {
-  BellIcon, BoxIcon, ChatIcon, GearIcon, HomeIcon, ReturnIcon, StarIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
+  BellIcon, BoxIcon, ChatIcon, CloseIcon, MenuIcon, GearIcon, HomeIcon, ReturnIcon, StarIcon, LayersIcon, LightbulbIcon, LogOutIcon, LogoMark, MegaphoneIcon, ReceiptIcon, StoreIcon, TagIcon, TruckIcon, UsersIcon, WalletIcon,
 } from '../components/icons'
 import { useRoute, type Route } from '../lib'
 import { Alerts } from './Alerts'
@@ -84,6 +84,22 @@ export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => vo
   const current = route.path[0] ?? ''
   const section = sections.find((s) => s.key === current && s.ready) ?? sections[0]
   const [page, title] = isSeller ? sellerPage(section, route, user) : adminPage(section, route, user)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const close = () => setMenuOpen(false)
+    window.addEventListener('hashchange', close)
+    return () => window.removeEventListener('hashchange', close)
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   async function signOut() {
     await api.logout().catch(() => undefined)
@@ -92,18 +108,22 @@ export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => vo
 
   return (
     <div className="shell">
-      <aside className="sidebar">
+      <div className={`sidebar-backdrop${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} aria-hidden="true" />
+      <aside className={`sidebar${menuOpen ? ' open' : ''}`} id="sidebar">
         <div className="sidebar-brand">
           <LogoMark />
           <div>
             <strong>ReapSeek</strong>
             <span>{isSeller ? 'Seller center' : 'Back office'}</span>
           </div>
+          <button type="button" className="nav-toggle sidebar-close" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+            <CloseIcon />
+          </button>
         </div>
         <nav aria-label="Sections">
           {sections.map(({ key, label, icon: IconComponent, ready }) =>
             ready ? (
-              <a key={label} href={`#/${key}`} className={`nav-item${key === section.key ? ' active' : ''}`} data-nav={key || 'overview'}>
+              <a key={label} href={`#/${key}`} className={`nav-item${key === section.key ? ' active' : ''}`} data-nav={key || 'overview'} onClick={() => setMenuOpen(false)}>
                 <IconComponent />
                 {label}
               </a>
@@ -119,14 +139,17 @@ export function Shell({ user, onSignedOut }: { user: User; onSignedOut: () => vo
       </aside>
       <div className="content">
         <header className="topbar">
+          <button type="button" className="nav-toggle menu-toggle" aria-label="Open menu" aria-expanded={menuOpen} aria-controls="sidebar" onClick={() => setMenuOpen(true)}>
+            <MenuIcon />
+          </button>
           <h1>{title}</h1>
           <div className="topbar-user">
             <div className="who">
               <strong data-testid="user-name">{user.name}</strong>
               <span>{user.email}</span>
             </div>
-            <button type="button" className="btn btn-ghost" onClick={signOut} data-testid="sign-out">
-              <LogOutIcon /> Sign out
+            <button type="button" className="btn btn-ghost" onClick={signOut} data-testid="sign-out" aria-label="Sign out">
+              <LogOutIcon /> <span className="sign-out-label">Sign out</span>
             </button>
           </div>
         </header>

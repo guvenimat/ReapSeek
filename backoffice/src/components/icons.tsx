@@ -22,9 +22,9 @@ export const LogOutIcon = () => <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 
 
 export const LogoMark = ({ size = 30 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <rect width="32" height="32" rx="9" fill="#5b2bd6" />
+    <rect width="32" height="32" rx="9" fill="#f2542d" />
     <circle cx="14.5" cy="14.5" r="6.5" fill="none" stroke="#fff" strokeWidth="3" />
-    <path d="m19.5 19.5 5 5" stroke="#ff7a2f" strokeWidth="3.4" strokeLinecap="round" />
+    <path d="m19.5 19.5 5 5" stroke="#16181d" strokeWidth="3.4" strokeLinecap="round" />
   </svg>
 )
 export const TruckIcon = () => <Icon><path d="M3 6h11v10H3zM14 10h4l3 3v3h-7" /><circle cx="7" cy="18" r="1.8" /><circle cx="17" cy="18" r="1.8" /></Icon>
@@ -36,3 +36,5 @@ export const StarIcon = () => <Icon><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8
 export const ChatIcon = () => <Icon><path d="M4 5h16v11H9l-5 4z" /><path d="M8 10h8M8 13h5" /></Icon>
 export const BellIcon = () => <Icon><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></Icon>
 export const GearIcon = () => <Icon><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></Icon>
+export const MenuIcon = () => <Icon size={22}><path d="M4 7h16M4 12h16M4 17h16" /></Icon>
+export const CloseIcon = () => <Icon size={20}><path d="M6 6l12 12M18 6 6 18" /></Icon>

@@ -144,7 +144,7 @@ export function ProductView({ product, initialVariantId, today, rating }: {
 
         <ul className="pdp-promises">
           <li><TruckIcon size={18} /> Free shipping over ₺500</li>
-          <li><ReturnIcon size={18} /> 15-day returns</li>
+          <li><ReturnIcon size={18} /> 7-day returns</li>
           <li><ShieldIcon size={18} /> Buyer protection</li>
         </ul>
 

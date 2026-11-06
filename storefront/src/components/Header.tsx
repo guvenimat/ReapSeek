@@ -2,61 +2,61 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import type { CategoryNode } from '@/lib/catalog'
 import type { User } from '@/lib/session'
-import { CartIcon, HeartIcon, LogoMark, StoreIcon, UserIcon } from './icons'
+import { CategoryNav } from './CategoryNav'
+import { CartIcon, HeartIcon, LogoMark, UserIcon } from './icons'
+import { MobileMenu } from './MobileMenu'
 import { SearchBox } from './SearchBox'
 
 export function Header({ user, departments, cartCount }: { user: User | null; departments: CategoryNode[]; cartCount: number }) {
+  const firstName = user ? user.name.split(' ')[0] : null
   return (
     <header className="site-header">
       <div className="utility-bar">
         <div className="container utility-inner">
-          <span>Free shipping on orders over ₺500</span>
+          <span>Free shipping from ₺500 per seller · Easy returns</span>
           <nav aria-label="Utility">
-            <span className="utility-link"><StoreIcon size={14} /> Sell on ReapSeek</span>
-            <span className="utility-link">Help &amp; support</span>
+            <Link href="/account" className="utility-link">Track order</Link>
+            <a href="https://github.com/guvenimat/ReapSeek" className="utility-link" rel="noreferrer">Sell on ReapSeek</a>
           </nav>
         </div>
       </div>
       <div className="container main-bar">
+        <Suspense fallback={<span className="menu-button" />}>
+          <MobileMenu departments={departments} userName={firstName} />
+        </Suspense>
         <Link href="/" className="logo" aria-label="ReapSeek home">
           <LogoMark />
-          <span className="logo-text">Reap<strong>Seek</strong></span>
+          <span className="logo-text">ReapSeek</span>
         </Link>
         <Suspense fallback={<div className="search" />}>
           <SearchBox />
         </Suspense>
         <nav className="header-actions" aria-label="Account">
           {user ? (
-            <Link href="/account" className="header-action" data-testid="account-link">
-              <UserIcon />
-              <span><small>Hello,</small>{user.name.split(' ')[0]}</span>
+            <Link href="/account" className="header-action" data-testid="account-link" aria-label={`Account of ${firstName}`}>
+              <UserIcon size={24} />
+              <span className="action-label">{firstName}</span>
             </Link>
           ) : (
-            <Link href="/login" className="header-action" data-testid="sign-in-link">
-              <UserIcon />
-              <span><small>Welcome</small>Sign in</span>
+            <Link href="/login" className="header-action" data-testid="sign-in-link" aria-label="Sign in">
+              <UserIcon size={24} />
+              <span className="action-label">Sign in</span>
             </Link>
           )}
-          <Link href="/wishlist" className="header-action" data-testid="wishlist-link"><HeartIcon /><span><small>Saved</small>Favorites</span></Link>
-          <Link href="/cart" className="header-action cart" data-testid="cart-link">
-            <CartIcon />{cartCount > 0 && <span className="badge" data-testid="cart-count">{cartCount}</span>}<span><small>Your</small>Cart</span>
+          <Link href="/wishlist" className="header-action" data-testid="wishlist-link" aria-label="Favorites">
+            <HeartIcon size={24} />
+            <span className="action-label">Favorites</span>
+          </Link>
+          <Link href="/cart" className="header-action cart" data-testid="cart-link" aria-label="Cart">
+            <CartIcon size={24} />
+            {cartCount > 0 && <span className="badge" data-testid="cart-count">{cartCount}</span>}
+            <span className="action-label">Cart</span>
           </Link>
         </nav>
       </div>
-      <nav className="category-bar" aria-label="Categories">
-        <div className="container category-inner">
-          {departments.map((d) => (
-            <div key={d.slug} className="category-menu">
-              <Link href={`/c/${d.slug}`}>{d.name}</Link>
-              {d.children.length > 0 && (
-                <div className="category-dropdown">
-                  {d.children.map((c) => <Link key={c.slug} href={`/c/${c.slug}`}>{c.name}</Link>)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </nav>
+      <Suspense fallback={<nav className="category-bar" />}>
+        <CategoryNav departments={departments} />
+      </Suspense>
     </header>
   )
 }

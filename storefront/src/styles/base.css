@@ -13,6 +13,7 @@ body {
   font-family: var(--font);
   font-size: 15px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   color: var(--text);
   background: var(--bg);
   min-height: 100vh;
@@ -29,8 +30,18 @@ h1,
 h2,
 h3 {
   margin: 0;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
 }
 
 p {
@@ -38,7 +49,9 @@ p {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
   color: inherit;
 }
@@ -56,5 +69,22 @@ input {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 var(--gutter);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+body.no-scroll {
+  overflow: hidden;
+}
+
+html {
+  background: var(--bg);
 }
