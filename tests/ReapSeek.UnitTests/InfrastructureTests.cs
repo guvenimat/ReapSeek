@@ -21,6 +21,16 @@ public class InfrastructureTests
     }
 
     [Fact]
+    public void The_database_search_path_matches_the_module_schemas_migration()
+    {
+        var sql = MigrationRunner.Embedded().Single(m => m.Version == "0018_module_schemas").Sql;
+        var expected = ReapSeek.Shared.Database.SearchPath.Replace(",", ", ");
+        Assert.Contains($"SET search_path = {expected}", sql);
+        foreach (var schema in ReapSeek.Shared.Database.SearchPath.Split(',').Where(s => s != "public"))
+            Assert.Contains($"CREATE SCHEMA IF NOT EXISTS {schema};", sql);
+    }
+
+    [Fact]
     public void Outbox_retries_back_off_exponentially_and_give_up()
     {
         var now = new DateTime(2026, 10, 30, 12, 0, 0, DateTimeKind.Utc);
