@@ -34,14 +34,14 @@ public static partial class MigrationRunner
         try
         {
             await Execute(conn, null, """
-                CREATE TABLE IF NOT EXISTS schema_migrations (
+                CREATE TABLE IF NOT EXISTS public.schema_migrations (
                     version text PRIMARY KEY,
                     applied_at timestamptz NOT NULL DEFAULT now()
                 )
                 """, ct);
 
             var applied = new HashSet<string>(StringComparer.Ordinal);
-            await using (var cmd = new NpgsqlCommand("SELECT version FROM schema_migrations", conn))
+            await using (var cmd = new NpgsqlCommand("SELECT version FROM public.schema_migrations", conn))
             await using (var reader = await cmd.ExecuteReaderAsync(ct))
                 while (await reader.ReadAsync(ct)) applied.Add(reader.GetString(0));
 
@@ -50,7 +50,7 @@ public static partial class MigrationRunner
             {
                 await using var tx = await conn.BeginTransactionAsync(ct);
                 await Execute(conn, tx, migration.Sql, ct);
-                await using (var insert = new NpgsqlCommand("INSERT INTO schema_migrations (version) VALUES ($1)", conn, tx))
+                await using (var insert = new NpgsqlCommand("INSERT INTO public.schema_migrations (version) VALUES ($1)", conn, tx))
                 {
                     insert.Parameters.Add(new NpgsqlParameter { Value = migration.Version });
                     await insert.ExecuteNonQueryAsync(ct);
