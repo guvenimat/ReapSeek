@@ -36,8 +36,6 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
         var state = package
             ? await conn.QuerySingleAsync<RefundStateRecord>("SELECT refunded_at, refund_notified_at FROM order_packages WHERE id = @Id", new IdRecord(key))
             : await conn.QuerySingleAsync<RefundStateRecord>("SELECT refunded_at, refund_notified_at FROM orders WHERE id = @Id", new IdRecord(key));
-        if (state.RefundNotifiedAt is not null) return;
-
         if (state.RefundedAt is null)
         {
             var refund = await payments.RefundAsync(m.PaymentReference, m.Amount, package ? $"package-{key}" : $"order-{key}", ct);
@@ -66,33 +64,36 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
         var sentence = latePayment
             ? $"Your payment for {what} arrived after the order had already been closed, so we could not accept it. We refunded {amount} to the card you paid with. It can take a few days to appear."
             : $"We cancelled {what} {why} and refunded {amount} to the card you paid with. It can take a few days to appear.";
-        await email.SendAsync(new EmailMessage(customer.Email, package ? $"Part of order {order.Number} is cancelled and refunded" : latePayment ? $"Your payment for order {order.Number} is refunded" : $"Order {order.Number} is cancelled and refunded",
-            $"Hi {customer.Name},\n\n{sentence}\nItems: {items}\n\nOrder: {orderUrl}\n\nThe ReapSeek team\n",
-            $"""
-            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330">
-              <h1 style="color:#5b2bd6;font-size:22px">{(package ? "Part of your order is cancelled" : latePayment ? "Your late payment is refunded" : "Your order is cancelled")}</h1>
-              <p>Hi {WebUtility.HtmlEncode(customer.Name)}, {WebUtility.HtmlEncode(sentence)}</p>
-              <p style="font-size:13px;color:#6b7080">{WebUtility.HtmlEncode(items)}</p>
-              <p><a href="{WebUtility.HtmlEncode(orderUrl)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">View your order</a></p>
-            </div>
-            """), ct);
+        if (state.RefundNotifiedAt is null)
+        {
+            await email.SendAsync(new EmailMessage(customer.Email, package ? $"Part of order {order.Number} is cancelled and refunded" : latePayment ? $"Your payment for order {order.Number} is refunded" : $"Order {order.Number} is cancelled and refunded",
+                $"Hi {customer.Name},\n\n{sentence}\nItems: {items}\n\nOrder: {orderUrl}\n\nThe ReapSeek team\n",
+                $"""
+                <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330">
+                  <h1 style="color:#5b2bd6;font-size:22px">{(package ? "Part of your order is cancelled" : latePayment ? "Your late payment is refunded" : "Your order is cancelled")}</h1>
+                  <p>Hi {WebUtility.HtmlEncode(customer.Name)}, {WebUtility.HtmlEncode(sentence)}</p>
+                  <p style="font-size:13px;color:#6b7080">{WebUtility.HtmlEncode(items)}</p>
+                  <p><a href="{WebUtility.HtmlEncode(orderUrl)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">View your order</a></p>
+                </div>
+                """), ct);
 
-        var sellerWhy = bySeller ? "it did not ship within the shipping deadline" : "the customer cancelled it before it shipped";
-        foreach (var p in packages.Where(_ => !latePayment))
-            foreach (var seller in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE seller_id = @SellerId", new SellerRecord(p.SellerId)))
-                await email.SendAsync(new EmailMessage(seller.Email, $"Do not ship: your package in order {order.Number} was cancelled",
-                    $"Hi {seller.Name},\n\nWe cancelled your package in order {order.Number} because {sellerWhy}. Do not ship: {string.Join(", ", p.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"))}.\nThe stock is back on your offers.\n\nPackages: {_backofficeUrl}/#/packages\n",
-                    $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#c8324b;font-size:20px">Do not ship order {WebUtility.HtmlEncode(order.Number)}</h1><p>We cancelled your package because {WebUtility.HtmlEncode(sellerWhy)}. The stock is back on your offers.</p><p><a href="{WebUtility.HtmlEncode($"{_backofficeUrl}/#/packages")}">Your packages</a></p></div>"""), ct);
+            var sellerWhy = bySeller ? "it did not ship within the shipping deadline" : "the customer cancelled it before it shipped";
+            foreach (var p in packages.Where(_ => !latePayment))
+                foreach (var seller in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE seller_id = @SellerId", new SellerRecord(p.SellerId)))
+                    await email.SendAsync(new EmailMessage(seller.Email, $"Do not ship: your package in order {order.Number} was cancelled",
+                        $"Hi {seller.Name},\n\nWe cancelled your package in order {order.Number} because {sellerWhy}. Do not ship: {string.Join(", ", p.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"))}.\nThe stock is back on your offers.\n\nPackages: {_backofficeUrl}/#/packages\n",
+                        $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#c8324b;font-size:20px">Do not ship order {WebUtility.HtmlEncode(order.Number)}</h1><p>We cancelled your package because {WebUtility.HtmlEncode(sellerWhy)}. The stock is back on your offers.</p><p><a href="{WebUtility.HtmlEncode($"{_backofficeUrl}/#/packages")}">Your packages</a></p></div>"""), ct);
+
+            if (package)
+                await conn.ExecuteAsync("UPDATE order_packages SET refund_notified_at = now() WHERE id = @Id", new IdRecord(key));
+            else
+                await conn.ExecuteAsync("UPDATE orders SET refund_notified_at = now() WHERE id = @Id", new IdRecord(key));
+        }
 
         if (reapDeep.IsConfigured && !latePayment)
             await reapDeep.CaptureAsync(packages.SelectMany(p => p.Lines.Select(l => new CaptureEvent("refund", ReapDeepIdentity.DistinctId(order.CustomerId),
                 $"order-refund-line-{l.Id}", clock.GetUtcNow().UtcDateTime,
                 new PurchaseProperties(l.ProductId.ToString(CultureInfo.InvariantCulture), order.Number, l.UnitPrice.Amount, l.Quantity, l.Total.Amount,
                     l.UnitPrice.Currency, p.SellerId, l.Sku, "server", $"cancel-{order.Number}")))).ToList(), ct);
-
-        if (package)
-            await conn.ExecuteAsync("UPDATE order_packages SET refund_notified_at = now() WHERE id = @Id", new IdRecord(key));
-        else
-            await conn.ExecuteAsync("UPDATE orders SET refund_notified_at = now() WHERE id = @Id", new IdRecord(key));
     }
 }
