@@ -6,12 +6,10 @@ using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared.Analytics;
-using ReapSeek.Shared.Identity;
-using ReapSeek.Shared.Ledger;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Identity;
+using ReapSeek.Modules.Finance;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Outbox;
-using ReapSeek.Shared.Payouts;
-using ReapSeek.Shared.Returns;
 
 namespace ReapSeek.Simulator;
 

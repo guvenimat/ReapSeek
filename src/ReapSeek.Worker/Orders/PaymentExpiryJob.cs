@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ordering;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 
 namespace ReapSeek.Worker.Orders;
 

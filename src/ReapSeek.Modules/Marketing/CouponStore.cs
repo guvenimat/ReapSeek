@@ -3,7 +3,7 @@ using Npgsql;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
 
-namespace ReapSeek.Shared.Marketing;
+namespace ReapSeek.Modules.Marketing;
 
 public static class CouponStore
 {

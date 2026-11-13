@@ -1,4 +1,4 @@
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using Microsoft.AspNetCore.Http;
 using ReapSeek.Api.Identity;
 using ReapSeek.Shared;

@@ -8,8 +8,7 @@ using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Ordering;
-using ReapSeek.Shared.Returns;
+using ReapSeek.Modules.Ordering;
 
 namespace ReapSeek.Api.Returns;
 

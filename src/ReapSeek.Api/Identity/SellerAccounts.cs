@@ -1,5 +1,5 @@
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 
 namespace ReapSeek.Api.Identity;
 

@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Shared.Search;
 using ReapSeek.Worker.Outbox;
+using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.Worker.Search;
 

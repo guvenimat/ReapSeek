@@ -5,9 +5,8 @@ using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Payments;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Providers;
-using ReapSeek.Shared.Returns;
 
 namespace ReapSeek.Api.Shipping;
 

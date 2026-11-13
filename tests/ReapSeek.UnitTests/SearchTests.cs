@@ -3,6 +3,7 @@ using ReapSeek.Api.Search;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Search;
 using ReapSeek.Worker.Search;
+using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.UnitTests;
 

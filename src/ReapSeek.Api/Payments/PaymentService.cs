@@ -4,7 +4,7 @@ using ReapSeek.Api.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Observability;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.Api.Payments;

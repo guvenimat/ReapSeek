@@ -1,5 +1,5 @@
 using Npgsql;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
 
 namespace ReapSeek.Worker.Payouts;
 

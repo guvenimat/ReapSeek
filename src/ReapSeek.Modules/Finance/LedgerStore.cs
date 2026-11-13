@@ -1,7 +1,7 @@
 using Dapper;
 using Npgsql;
 
-namespace ReapSeek.Shared.Ledger;
+namespace ReapSeek.Modules.Finance;
 
 public sealed record LedgerInsertRecord(long SellerId, Guid PackageId, Guid? ReturnId, string OrderNumber, string[] Kinds, decimal[] Amounts, DateTime AvailableAt);
 

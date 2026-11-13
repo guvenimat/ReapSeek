@@ -1,9 +1,9 @@
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
 
 namespace ReapSeek.Api.SellerPanel;
 

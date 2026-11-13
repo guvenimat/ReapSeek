@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ReapSeek.Shared.Identity;
+namespace ReapSeek.Modules.Identity;
 
 public static class AccountEmailKinds
 {

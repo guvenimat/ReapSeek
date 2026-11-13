@@ -3,10 +3,12 @@ WORKDIR /src
 COPY Directory.Build.props ./
 COPY ReapSeek.Domain/ReapSeek.Domain.csproj ReapSeek.Domain/
 COPY ReapSeek.Shared/ReapSeek.Shared.csproj ReapSeek.Shared/
+COPY ReapSeek.Modules/ReapSeek.Modules.csproj ReapSeek.Modules/
 COPY ReapSeek.Api/ReapSeek.Api.csproj ReapSeek.Api/
 RUN dotnet restore ReapSeek.Api/ReapSeek.Api.csproj -r linux-x64
 COPY ReapSeek.Domain/ ReapSeek.Domain/
 COPY ReapSeek.Shared/ ReapSeek.Shared/
+COPY ReapSeek.Modules/ ReapSeek.Modules/
 COPY ReapSeek.Api/ ReapSeek.Api/
 RUN dotnet publish ReapSeek.Api/ReapSeek.Api.csproj -c Release -r linux-x64 --no-restore -o /app
 

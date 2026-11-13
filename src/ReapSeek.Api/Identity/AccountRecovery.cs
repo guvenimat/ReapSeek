@@ -3,7 +3,7 @@ using Npgsql;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Api.Identity;

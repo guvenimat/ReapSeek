@@ -1,6 +1,7 @@
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Worker.Caching;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 using ReapSeek.Worker.Search;
 using ReapSeek.Worker.CatalogSync;
@@ -9,7 +10,7 @@ using ReapSeek.Worker.Orders;
 using ReapSeek.Worker.Payouts;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Observability;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Outbox;
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ReapSeek.Shared.Search;
+namespace ReapSeek.Modules.Catalog;
 
 public sealed record ProductDocument(
     long Id, string Slug, string Title, string Description, string Brand, string BrandSlug,

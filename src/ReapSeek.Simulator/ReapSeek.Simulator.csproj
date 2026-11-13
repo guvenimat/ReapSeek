@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
+    <ProjectReference Include="..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
   </ItemGroup>
 
 </Project>

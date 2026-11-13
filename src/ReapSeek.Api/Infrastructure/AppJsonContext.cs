@@ -19,7 +19,7 @@ using ReapSeek.Api.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Api.Stores;
 using ReapSeek.Api.Wishlist;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
 
 namespace ReapSeek.Api.Infrastructure;
 

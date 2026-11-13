@@ -20,10 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ReapSeek.Domain\ReapSeek.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <EmbeddedResource Include="Migrations\*.sql" LogicalName="Migrations.%(Filename)%(Extension)" />
   </ItemGroup>
 

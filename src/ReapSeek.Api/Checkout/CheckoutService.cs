@@ -8,9 +8,9 @@ using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Marketing;
+using ReapSeek.Modules.Marketing;
 using ReapSeek.Shared.Observability;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 
 namespace ReapSeek.Api.Checkout;
 

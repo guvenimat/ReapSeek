@@ -4,7 +4,8 @@ using ReapSeek.Domain.Common;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 
 namespace ReapSeek.Api.Infrastructure;

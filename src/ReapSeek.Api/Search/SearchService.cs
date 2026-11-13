@@ -3,6 +3,7 @@ using Npgsql;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Shared.Search;
+using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.Api.Search;
 
