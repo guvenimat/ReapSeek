@@ -10,9 +10,7 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     bool _warned;
 
-    public static bool Handles(string type) => type is OutboxTypes.ProductsChanged or OutboxTypes.CatalogReindex;
-
-    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    public async Task EnqueueAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
     {
         if (!reapDeep.IsConfigured)
         {
@@ -20,10 +18,20 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
             _warned = true;
             return;
         }
+        var all = messages.Any(m => m.Type == OutboxTypes.CatalogReindex);
+        var ids = all ? [] : messages.SelectMany(m => JsonSerializer.Deserialize(m.Payload, OutboxJsonContext.Default.ProductsChanged)?.ProductIds ?? []).Distinct().ToList();
+        if (all || ids.Count > 0) await products.EnqueueSyncAsync(new ReapDeepCatalogMessage(ids, all), ct);
+    }
 
-        var ids = messages.Any(m => m.Type == OutboxTypes.CatalogReindex)
+    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    {
+        if (!reapDeep.IsConfigured) return;
+
+        var payloads = messages.Select(m => JsonSerializer.Deserialize(m.Payload, OutboxJsonContext.Default.ReapDeepCatalogMessage)
+            ?? throw new InvalidOperationException($"Outbox message {m.Id} has an empty payload")).ToList();
+        var ids = payloads.Any(p => p.All)
             ? await products.AllProductIdsAsync(ct)
-            : messages.SelectMany(m => (JsonSerializer.Deserialize(m.Payload, OutboxJsonContext.Default.ProductsChanged)?.ProductIds ?? [])).Distinct().ToList();
+            : payloads.SelectMany(p => p.ProductIds).Distinct().ToList();
 
         var upserted = 0;
         var removed = 0;

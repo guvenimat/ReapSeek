@@ -34,11 +34,14 @@ public static class OutboxTypes
     public const string PriceDropped = "price_dropped";
     public const string OrderRefundDue = "order_refund_due";
     public const string PackageShipReminder = "package_ship_reminder";
+    public const string ReapDeepCatalog = "reapdeep_catalog";
+    public const string ReapDeepEvents = "reapdeep_events";
 }
 
 public sealed record UserRegistered(long UserId, string Email, string Name);
 public sealed record ProductsChanged(List<long> ProductIds);
 public sealed record CatalogReindex(string Reason);
+public sealed record ReapDeepCatalogMessage(List<long> ProductIds, bool All);
 public sealed record OrderRefundMessage(Guid OrderId, string Number, long CustomerId, string PaymentReference, decimal Amount, DateTime OccurredAt, Guid? PackageId = null);
 public sealed record PackageReminderMessage(Guid PackageId);
 public sealed record OrderEventMessage(Guid OrderId, string Number, long CustomerId, string? Reason, DateTime OccurredAt);
@@ -56,6 +59,7 @@ public sealed record PackageEventMessage(Guid OrderId, string Number, long Custo
 [JsonSerializable(typeof(UserRegistered))]
 [JsonSerializable(typeof(ProductsChanged))]
 [JsonSerializable(typeof(CatalogReindex))]
+[JsonSerializable(typeof(ReapDeepCatalogMessage))]
 [JsonSerializable(typeof(OrderEventMessage))]
 [JsonSerializable(typeof(OrderRefundMessage))]
 [JsonSerializable(typeof(PackageReminderMessage))]
@@ -74,7 +78,7 @@ public sealed record OutboxInsertRecord(string Type, string Payload, string? Tra
 
 public static class OutboxWriter
 {
-    public static Task EnqueueAsync<T>(NpgsqlConnection conn, NpgsqlTransaction tx, string type, T payload, JsonTypeInfo<T> typeInfo) =>
+    public static Task EnqueueAsync<T>(NpgsqlConnection conn, NpgsqlTransaction? tx, string type, T payload, JsonTypeInfo<T> typeInfo) =>
         conn.ExecuteAsync("INSERT INTO outbox (type, payload, trace_parent) VALUES (@Type, @Payload::jsonb, @TraceParent)",
             new OutboxInsertRecord(type, JsonSerializer.Serialize(payload, typeInfo), Telemetry.CurrentTraceParent()), tx);
 }

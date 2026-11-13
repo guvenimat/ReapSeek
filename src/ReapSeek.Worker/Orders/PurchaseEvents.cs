@@ -1,4 +1,8 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using Npgsql;
+using ReapSeek.Shared.Outbox;
+using ReapSeek.Worker.Outbox;
 using System.Text.Json.Serialization;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
@@ -9,10 +13,12 @@ namespace ReapSeek.Worker.Orders;
 public sealed record PurchaseProperties(
     string ItemId, string OrderId, decimal Price, int Quantity, decimal Amount, string Currency, long SellerId, string Sku, string Source, string? ReturnId = null, string? Coupon = null);
 public sealed record CaptureEvent(string Event, string DistinctId, string EventId, DateTime Timestamp, PurchaseProperties Properties);
+public sealed record ReapDeepEventsMessage(List<CaptureEvent> Events);
 public sealed record CaptureRequest(string ApiKey, DateTime SentAt, List<CaptureEvent> Batch);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(CaptureRequest))]
+[JsonSerializable(typeof(ReapDeepEventsMessage))]
 public sealed partial class CaptureJsonContext : JsonSerializerContext;
 
 public static class PurchaseEvents
@@ -63,5 +69,23 @@ public sealed class ReapDeepIngestClient : IDisposable
             throw new HttpRequestException($"ReapDeep ingestion returned {(int)res.StatusCode}: {await res.Content.ReadAsStringAsync(ct)}");
     }
 
+    public async Task EnqueueAsync(NpgsqlConnection conn, List<CaptureEvent> events)
+    {
+        if (_http is null || events.Count == 0) return;
+        await OutboxWriter.EnqueueAsync(conn, null, OutboxTypes.ReapDeepEvents, new ReapDeepEventsMessage(events), CaptureJsonContext.Default.ReapDeepEventsMessage);
+    }
+
     public void Dispose() => _http?.Dispose();
+}
+
+public sealed class ReapDeepEventsHandler(ReapDeepIngestClient reapDeep, ILogger<ReapDeepEventsHandler> log)
+{
+    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    {
+        if (!reapDeep.IsConfigured) return;
+        var payload = JsonSerializer.Deserialize(message.Payload, CaptureJsonContext.Default.ReapDeepEventsMessage)
+            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
+        await reapDeep.CaptureAsync(payload.Events, ct);
+        log.LogInformation("Sent {Count} {Event} events to ReapDeep", payload.Events.Count, payload.Events.FirstOrDefault()?.Event);
+    }
 }
