@@ -90,10 +90,10 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
                 await conn.ExecuteAsync("UPDATE orders SET refund_notified_at = now() WHERE id = @Id", new IdRecord(key));
         }
 
-        if (reapDeep.IsConfigured && !latePayment)
-            await reapDeep.CaptureAsync(packages.SelectMany(p => p.Lines.Select(l => new CaptureEvent("refund", ReapDeepIdentity.DistinctId(order.CustomerId),
+        if (!latePayment)
+            await reapDeep.EnqueueAsync(conn, packages.SelectMany(p => p.Lines.Select(l => new CaptureEvent("refund", ReapDeepIdentity.DistinctId(order.CustomerId),
                 $"order-refund-line-{l.Id}", clock.GetUtcNow().UtcDateTime,
                 new PurchaseProperties(l.ProductId.ToString(CultureInfo.InvariantCulture), order.Number, l.UnitPrice.Amount, l.Quantity, l.Total.Amount,
-                    l.UnitPrice.Currency, p.SellerId, l.Sku, "server", $"cancel-{order.Number}")))).ToList(), ct);
+                    l.UnitPrice.Currency, p.SellerId, l.Sku, "server", $"cancel-{order.Number}")))).ToList());
     }
 }

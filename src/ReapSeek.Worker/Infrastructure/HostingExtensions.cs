@@ -37,6 +37,7 @@ public static class HostingExtensions
         services.AddHostedService<SearchBootstrap>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ReapDeepIngestClient>();
+        services.AddSingleton<ReapDeepEventsHandler>();
         services.AddSingleton<OrderPaidHandler>();
         services.AddSingleton<ReturnHandler>();
         services.AddSingleton<QuestionHandler>();

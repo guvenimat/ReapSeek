@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Worker.CatalogSync;
 
@@ -7,6 +8,12 @@ public sealed class CatalogSyncRepository(NpgsqlDataSource db)
 {
     public sealed record ProductRecord(
         long Id, string Slug, string Title, string Status, string Category, string Department, string Brand, decimal? Price, string? ImageUrl);
+
+    public async Task EnqueueSyncAsync(ReapDeepCatalogMessage message, CancellationToken ct)
+    {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        await OutboxWriter.EnqueueAsync(conn, null, OutboxTypes.ReapDeepCatalog, message, OutboxJsonContext.Default.ReapDeepCatalogMessage);
+    }
 
     public async Task<List<long>> AllProductIdsAsync(CancellationToken ct)
     {

@@ -54,7 +54,7 @@ public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher di
                 activity?.AddException(ex);
                 foreach (var message in batch)
                 {
-                    var retryAt = OutboxPolicy.RetryAt(message.Attempts, DateTime.UtcNow);
+                    var retryAt = OutboxPolicy.RetryAt(message.Attempts, DateTime.UtcNow, OutboxPolicy.MaxAttemptsFor(message.Type));
                     log.LogWarning("Outbox message {Id} ({Type}) failed on attempt {Attempt}: {Message}{Final}",
                         message.Id, message.Type, message.Attempts, ex.Message, retryAt is null ? "; giving up" : "");
                     await outbox.FailAsync(message.Id, OutboxPolicy.Truncate(ex.ToString()), retryAt, ct);

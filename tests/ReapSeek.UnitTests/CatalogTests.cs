@@ -182,5 +182,20 @@ public class CatalogTests
         var d = new OutboxRepository.MessageRecord(4, OutboxTypes.UserRegistered, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(b));
         Assert.NotEqual(OutboxDispatcher.GroupOf(c), OutboxDispatcher.GroupOf(d));
+        var e = new OutboxRepository.MessageRecord(5, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
+        var f = new OutboxRepository.MessageRecord(6, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
+        Assert.Equal(OutboxDispatcher.GroupOf(e), OutboxDispatcher.GroupOf(f));
+        Assert.NotEqual(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(e));
+    }
+
+    [Fact]
+    public void ReapDeep_messages_retry_longer_than_others()
+    {
+        var now = DateTime.UnixEpoch;
+        Assert.Equal(OutboxPolicy.MaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.OrderPaid));
+        Assert.Equal(OutboxPolicy.ReapDeepMaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepEvents));
+        Assert.Equal(OutboxPolicy.ReapDeepMaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepCatalog));
+        Assert.Equal(now.AddSeconds(2560), OutboxPolicy.RetryAt(OutboxPolicy.MaxAttempts, now, OutboxPolicy.ReapDeepMaxAttempts));
+        Assert.Null(OutboxPolicy.RetryAt(OutboxPolicy.ReapDeepMaxAttempts, now, OutboxPolicy.ReapDeepMaxAttempts));
     }
 }

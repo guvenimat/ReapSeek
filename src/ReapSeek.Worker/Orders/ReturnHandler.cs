@@ -53,12 +53,7 @@ public sealed class ReturnHandler
                 await RefundAsync(conn, request, ct);
                 break;
             case OutboxTypes.ReturnRefunded:
-                if (_reapDeep.IsConfigured)
-                {
-                    var events = RefundEvents.For(request);
-                    await _reapDeep.CaptureAsync(events, ct);
-                    _log.LogInformation("Sent {Count} refund events for {Return} to ReapDeep", events.Count, request.Number);
-                }
+                await _reapDeep.EnqueueAsync(conn, RefundEvents.For(request));
                 await _email.SendAsync(EmailTemplates.ReturnUpdate(request, await CustomerAsync(conn, request), _storefrontUrl), ct);
                 break;
             case OutboxTypes.ReturnRequested:

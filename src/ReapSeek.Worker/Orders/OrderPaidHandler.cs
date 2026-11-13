@@ -8,7 +8,7 @@ using ReapSeek.Worker.Outbox;
 
 namespace ReapSeek.Worker.Orders;
 
-public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient reapDeep, EmailSender email, IConfiguration cfg, ILogger<OrderPaidHandler> log)
+public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient reapDeep, EmailSender email, IConfiguration cfg)
 {
     public sealed record CustomerRecord(string Email, string Name);
 
@@ -23,12 +23,7 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
             ?? throw new InvalidOperationException($"Order {payload.Number} was not found");
         var customer = await conn.QuerySingleAsync<CustomerRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = order.CustomerId });
 
-        if (reapDeep.IsConfigured)
-        {
-            var events = PurchaseEvents.For(order);
-            await reapDeep.CaptureAsync(events, ct);
-            log.LogInformation("Sent {Count} purchase events for {Order} to ReapDeep", events.Count, order.Number);
-        }
+        await reapDeep.EnqueueAsync(conn, PurchaseEvents.For(order));
         await email.SendAsync(EmailTemplates.OrderConfirmation(order, customer.Email, customer.Name, _storefrontUrl), ct);
     }
 
