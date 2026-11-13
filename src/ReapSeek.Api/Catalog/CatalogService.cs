@@ -1,7 +1,7 @@
 using System.Text.Json;
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Media;
-using ReapSeek.Api.Search;
+using ReapSeek.Api.Catalog.Media;
+using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Catalog;

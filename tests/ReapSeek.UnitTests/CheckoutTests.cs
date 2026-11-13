@@ -1,5 +1,5 @@
-using ReapSeek.Api.Carts;
-using ReapSeek.Api.Payments;
+using ReapSeek.Api.Ordering.Carts;
+using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;

@@ -29,9 +29,8 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
 
         var payloads = messages.Select(m => JsonSerializer.Deserialize(m.Payload, OutboxJsonContext.Default.ReapDeepCatalogMessage)
             ?? throw new InvalidOperationException($"Outbox message {m.Id} has an empty payload")).ToList();
-        var ids = payloads.Any(p => p.All)
-            ? await products.AllProductIdsAsync(ct)
-            : payloads.SelectMany(p => p.ProductIds).Distinct().ToList();
+        var changed = payloads.SelectMany(p => p.ProductIds).ToHashSet();
+        var ids = payloads.Any(p => p.All) ? await products.AllProductIdsAsync(ct) : changed.ToList();
 
         var upserted = 0;
         var removed = 0;
@@ -42,7 +41,7 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
             if (items.Count > 0) await reapDeep.UpsertAsync(items, ct);
             upserted += items.Count;
 
-            var gone = chunk.Except(rows.Where(r => r.Status == "active").Select(r => r.Id)).ToList();
+            var gone = chunk.Where(changed.Contains).Except(rows.Where(r => r.Status == "active").Select(r => r.Id)).ToList();
             foreach (var id in gone) await reapDeep.DeleteAsync(id.ToString(), ct);
             removed += gone.Count;
         }

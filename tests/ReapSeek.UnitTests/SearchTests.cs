@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using ReapSeek.Api.Search;
+using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Search;
 using ReapSeek.Worker.Search;

@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using ReapSeek.Api.Catalog;
-using ReapSeek.Api.Media;
+using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Seed;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Outbox;
@@ -186,6 +186,15 @@ public class CatalogTests
         var f = new OutboxRepository.MessageRecord(6, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(e), OutboxDispatcher.GroupOf(f));
         Assert.NotEqual(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(e));
+    }
+
+    [Fact]
+    public void Rate_limit_waits_follow_Retry_After_within_bounds()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(17), ReapDeepClient.RetryAfter(new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(17))));
+        Assert.Equal(TimeSpan.FromSeconds(60), ReapDeepClient.RetryAfter(new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromMinutes(5))));
+        Assert.Equal(TimeSpan.FromSeconds(1), ReapDeepClient.RetryAfter(new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero)));
+        Assert.Equal(TimeSpan.FromSeconds(5), ReapDeepClient.RetryAfter(null));
     }
 
     [Fact]

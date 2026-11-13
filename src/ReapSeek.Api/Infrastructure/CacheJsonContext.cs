@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 using ReapSeek.Api.Identity;
-using ReapSeek.Api.Products;
-using ReapSeek.Api.Recommendations;
-using ReapSeek.Api.Search;
+using ReapSeek.Api.Catalog.Products;
+using ReapSeek.Api.Catalog.Recommendations;
+using ReapSeek.Api.Catalog.Search;
 
 namespace ReapSeek.Api.Infrastructure;
 

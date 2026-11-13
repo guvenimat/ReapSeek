@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using ReapSeek.Api.Alerts;
+using ReapSeek.Api.Marketing.Alerts;
 
 namespace ReapSeek.UnitTests;
 
