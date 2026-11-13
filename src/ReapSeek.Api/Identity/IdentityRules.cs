@@ -1,4 +1,4 @@
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using System.Text.RegularExpressions;
 using ReapSeek.Shared;
 

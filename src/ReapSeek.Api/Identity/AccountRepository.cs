@@ -1,6 +1,6 @@
 using Dapper;
 using Npgsql;
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Api.Identity;

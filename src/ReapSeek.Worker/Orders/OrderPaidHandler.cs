@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.Notifications;
 using ReapSeek.Worker.Outbox;

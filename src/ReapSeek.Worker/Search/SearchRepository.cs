@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 
 namespace ReapSeek.Worker.Search;

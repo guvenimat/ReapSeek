@@ -1,4 +1,4 @@
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using Npgsql;
 
 namespace ReapSeek.Api.Identity;

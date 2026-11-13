@@ -4,7 +4,7 @@ using Npgsql;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 
 namespace ReapSeek.Api.Orders;
 

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Simulator;
 

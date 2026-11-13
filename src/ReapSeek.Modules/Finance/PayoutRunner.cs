@@ -4,7 +4,7 @@ using Npgsql;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Shared.Providers;
 
-namespace ReapSeek.Shared.Payouts;
+namespace ReapSeek.Modules.Finance;
 
 public sealed record PayoutRunResult(DateTime PeriodEnd, int Created, int Transferred, int TransferFailures);
 

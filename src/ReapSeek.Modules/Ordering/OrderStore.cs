@@ -7,7 +7,7 @@ using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Shared.Ordering;
+namespace ReapSeek.Modules.Ordering;
 
 public sealed class InsufficientStockException(long offerId) : Exception($"Offer {offerId} does not have enough stock")
 {

@@ -1,9 +1,9 @@
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ledger;
-using ReapSeek.Shared.Ledger;
+using ReapSeek.Modules.Finance;
 
-namespace ReapSeek.Shared.Ordering;
+namespace ReapSeek.Modules.Ordering;
 
 public static class PackageDelivery
 {

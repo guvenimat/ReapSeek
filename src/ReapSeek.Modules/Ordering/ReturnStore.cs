@@ -4,7 +4,7 @@ using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Shared.Returns;
+namespace ReapSeek.Modules.Ordering;
 
 public static class ReturnStore
 {

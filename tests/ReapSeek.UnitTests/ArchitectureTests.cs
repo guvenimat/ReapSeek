@@ -10,6 +10,7 @@ public class ArchitectureTests
 {
     static readonly Assembly Domain = typeof(AggregateRoot).Assembly;
     static readonly Assembly Shared = typeof(IPaymentGateway).Assembly;
+    static readonly Assembly ModulesAssembly = typeof(ReapSeek.Modules.Ordering.OrderStore).Assembly;
     static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.ApiResults).Assembly;
     static readonly Assembly Worker = typeof(ReapSeek.Worker.Outbox.OutboxDispatcher).Assembly;
 
@@ -34,11 +35,19 @@ public class ArchitectureTests
     public void The_domain_depends_on_nothing_but_the_base_library() =>
         Pass(Types.InAssembly(Domain).ShouldNot().HaveDependencyOnAny(
             "Dapper", "Npgsql", "Microsoft.AspNetCore", "Microsoft.Extensions", "StackExchange.Redis", "System.Net.Http", "System.Text.Json",
-            "ReapSeek.Shared", "ReapSeek.Api", "ReapSeek.Worker").GetResult(), "Domain");
+            "ReapSeek.Shared", "ReapSeek.Modules", "ReapSeek.Api", "ReapSeek.Worker").GetResult(), "Domain");
 
     [Fact]
     public void Shared_code_knows_neither_the_API_nor_the_worker() =>
         Pass(Types.InAssembly(Shared).ShouldNot().HaveDependencyOnAny("ReapSeek.Api", "ReapSeek.Worker", "Microsoft.AspNetCore").GetResult(), "Shared");
+
+    [Fact]
+    public void Shared_code_is_infrastructure_only() =>
+        Pass(Types.InAssembly(Shared).ShouldNot().HaveDependencyOnAny("ReapSeek.Domain", "ReapSeek.Modules").GetResult(), "Shared");
+
+    [Fact]
+    public void Module_code_knows_neither_the_API_nor_the_worker() =>
+        Pass(Types.InAssembly(ModulesAssembly).ShouldNot().HaveDependencyOnAny("ReapSeek.Api", "ReapSeek.Worker", "Microsoft.AspNetCore").GetResult(), "Modules");
 
     [Fact]
     public void The_worker_does_not_depend_on_the_API() =>

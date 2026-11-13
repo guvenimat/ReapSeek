@@ -4,8 +4,8 @@ using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
-using ReapSeek.Shared.Ledger;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Finance;
+using ReapSeek.Modules.Ordering;
 
 namespace ReapSeek.Api.SellerPanel;
 

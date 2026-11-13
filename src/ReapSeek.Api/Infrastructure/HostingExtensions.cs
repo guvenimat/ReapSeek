@@ -30,7 +30,8 @@ using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Shared.Observability;
-using ReapSeek.Shared.Payouts;
+using ReapSeek.Modules.Finance;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 
 namespace ReapSeek.Api.Infrastructure;

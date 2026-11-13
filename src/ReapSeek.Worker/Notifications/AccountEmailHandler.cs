@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Shared.Identity;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.Outbox;
 

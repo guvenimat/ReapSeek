@@ -5,7 +5,7 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Analytics;
-using ReapSeek.Shared.Ordering;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Notifications;
