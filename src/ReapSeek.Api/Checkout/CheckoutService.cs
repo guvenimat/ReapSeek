@@ -1,4 +1,3 @@
-using Dapper;
 using Npgsql;
 using ReapSeek.Api.Carts;
 using ReapSeek.Api.Identity;
@@ -65,7 +64,7 @@ public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payment
             await OrderStore.ReserveStockAsync(conn, tx, items.Select(i => (i.OfferId, i.Quantity)));
             await OrderStore.InsertAsync(conn, tx, order);
             if (couponId is { } id) await CouponStore.RedeemAsync(conn, tx, id, order.Id, now);
-            await SaveAddressAsync(conn, tx, customer.Id, address);
+            await AddressRepository.SaveAsync(conn, tx, customer.Id, address);
             await tx.CommitAsync(ct);
         }
 
@@ -113,10 +112,7 @@ public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payment
     public async Task<List<SavedAddress>> AddressesAsync(long customerId, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        return (await conn.QueryAsync<SavedAddress>("""
-            SELECT id, full_name, phone, city, district, line, postal_code, last_used_at
-            FROM addresses WHERE customer_id = @CustomerId ORDER BY last_used_at DESC LIMIT 10
-            """, new { CustomerId = customerId })).AsList();
+        return await AddressRepository.ListAsync(conn, customerId);
     }
 
     async Task CloseAsync(Guid orderId, string reason, CancellationToken ct)
@@ -127,11 +123,4 @@ public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payment
         if (order is not null && order.MarkPaymentFailed(reason, clock.GetUtcNow().UtcDateTime)) await OrderStore.SaveAsync(conn, tx, order);
         await tx.CommitAsync(ct);
     }
-
-    static Task SaveAddressAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long customerId, ShippingAddress a) =>
-        conn.ExecuteAsync("""
-            INSERT INTO addresses (customer_id, full_name, phone, city, district, line, postal_code)
-            VALUES (@CustomerId, @FullName, @Phone, @City, @District, @Line, @PostalCode)
-            ON CONFLICT (customer_id, full_name, phone, city, district, line, postal_code) DO UPDATE SET last_used_at = now()
-            """, new { CustomerId = customerId, a.FullName, a.Phone, a.City, a.District, a.Line, a.PostalCode }, tx);
 }

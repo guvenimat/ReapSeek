@@ -169,6 +169,14 @@ public sealed class Order : AggregateRoot
         return true;
     }
 
+    public bool RefundLatePayment(string paymentReference, Money amount, DateTime now)
+    {
+        if (Status is not (OrderStatus.Cancelled or OrderStatus.PaymentFailed) || PaidAt is not null) return false;
+        if (PaymentReference is null || paymentReference != PaymentReference || amount != Total) return false;
+        Raise(new OrderRefundDue(Id, Number, CustomerId, paymentReference, amount, now));
+        return true;
+    }
+
     public bool MarkPaymentFailed(string reason, DateTime now)
     {
         if (Status == OrderStatus.PaymentFailed) return false;
@@ -207,8 +215,18 @@ public sealed class Order : AggregateRoot
     public Money PackageRefund(SellerPackage package)
     {
         if (DiscountTotal.IsZero || Subtotal.IsZero) return package.Total;
-        var share = Math.Round(package.Subtotal.Amount * DiscountTotal.Amount / Subtotal.Amount, 2, MidpointRounding.AwayFromZero);
+        var share = DiscountShare(package);
         return Money.Of(package.Subtotal.Amount - share, Subtotal.Currency) + package.ShippingFee;
+    }
+
+    decimal DiscountShare(SellerPackage package)
+    {
+        var ordered = _packages.OrderBy(p => p.Id).ToList();
+        if (ordered[^1].Id != package.Id)
+            return Math.Round(package.Subtotal.Amount * DiscountTotal.Amount / Subtotal.Amount, 2, MidpointRounding.AwayFromZero);
+        var others = ordered.Take(ordered.Count - 1)
+            .Sum(p => Math.Round(p.Subtotal.Amount * DiscountTotal.Amount / Subtotal.Amount, 2, MidpointRounding.AwayFromZero));
+        return DiscountTotal.Amount - others;
     }
 
     public void CancelPackage(Guid packageId, string reason, DateTime now)

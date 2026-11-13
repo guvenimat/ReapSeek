@@ -13,6 +13,12 @@ public sealed class CustomerRepository(NpgsqlDataSource db)
     public sealed record IdRecord(long Id);
     public sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt);
     public sealed record SuspendRecord(long Id, string? Reason);
+    public sealed record ProductIdsRecord(long[] Ids);
+    public sealed record ProductTitleRecord(long Id, string Title);
+
+    public static async Task<Dictionary<long, string>> ProductTitlesAsync(NpgsqlConnection conn, long[] ids) =>
+        (await conn.QueryAsync<ProductTitleRecord>("SELECT id, title FROM products WHERE id = ANY(@Ids)", new ProductIdsRecord(ids)))
+            .ToDictionary(p => p.Id, p => p.Title);
 
     public async Task<(List<CustomerRow> Rows, int Total)> ListAsync(string? pattern, string sort, string? status, int page, int pageSize, CancellationToken ct)
     {

@@ -87,6 +87,7 @@ public static class OrderStore
     }
 
     public sealed record CustomerIdRecord(long CustomerId);
+    public sealed record OwnedOrderRecord(string Number, long CustomerId);
     public sealed record StockReleaseRecord(long OfferId, int Quantity);
     public sealed record PackageCancelRecord(Guid PackageId, string Reason);
 
@@ -98,6 +99,9 @@ public static class OrderStore
     }
 
     const string OrderColumns = "id, number, customer_id, status, currency, shipping_address::text AS shipping_address, placed_at, paid_at, payment_reference, close_reason, discount_total, coupon_code";
+
+    public static Task<Guid?> FindOwnedIdAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string number, long customerId) =>
+        conn.ExecuteScalarAsync<Guid?>("SELECT id FROM orders WHERE number = @Number AND customer_id = @CustomerId", new OwnedOrderRecord(number, customerId), tx);
 
     public static async Task<Order?> LoadAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid id) =>
         await RestoreAsync(conn, tx, await conn.QuerySingleOrDefaultAsync<OrderRecord>(

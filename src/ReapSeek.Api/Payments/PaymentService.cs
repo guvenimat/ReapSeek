@@ -11,7 +11,7 @@ namespace ReapSeek.Api.Payments;
 
 public enum WebhookOutcome { Rejected, Malformed, Duplicate, Ignored, Applied }
 
-public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, TimeProvider clock, ILogger<PaymentService> log)
+public sealed class PaymentService(NpgsqlDataSource db, IPaymentGateway gateway, IConfiguration cfg, TimeProvider clock, ILogger<PaymentService> log)
 {
     readonly string _secret = cfg["Payments:Sandbox:WebhookSecret"] ?? "";
 
@@ -32,7 +32,7 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
 
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
-        if (!await PaymentRepository.RecordEventAsync(conn, tx, SandboxProvider.ProviderName, evt.Id, evt.Data.PaymentId, evt.Type, body))
+        if (!await PaymentRepository.RecordEventAsync(conn, tx, gateway.Name, evt.Id, evt.Data.PaymentId, evt.Type, body))
         {
             await tx.CommitAsync(ct);
             return WebhookOutcome.Duplicate;
@@ -50,11 +50,16 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
         switch (evt.Type)
         {
             case "payment.succeeded":
-                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxProvider.ProviderName, evt.Data.PaymentId, "succeeded", null);
+                var firstSuccess = await PaymentRepository.UpdateStatusAsync(conn, tx, gateway.Name, evt.Data.PaymentId, "succeeded", null) > 0;
+                var paid = Money.Of(evt.Data.Amount, evt.Data.Currency);
                 try
                 {
-                    if (order.MarkPaid(evt.Data.PaymentId, Money.Of(evt.Data.Amount, evt.Data.Currency), at))
+                    if (order.MarkPaid(evt.Data.PaymentId, paid, at))
                         await RemovePurchasedFromCartAsync(conn, tx, order);
+                }
+                catch (DomainException ex) when (firstSuccess && order.RefundLatePayment(evt.Data.PaymentId, paid, at))
+                {
+                    log.LogWarning("Payment {Payment} succeeded after order {Order} was closed ({Message}); refunding {Amount}", evt.Data.PaymentId, order.Number, ex.Message, paid);
                 }
                 catch (DomainException ex)
                 {
@@ -62,7 +67,7 @@ public sealed class PaymentService(NpgsqlDataSource db, IConfiguration cfg, Time
                 }
                 break;
             case "payment.failed":
-                await PaymentRepository.UpdateStatusAsync(conn, tx, SandboxProvider.ProviderName, evt.Data.PaymentId, "failed", evt.Data.FailureReason);
+                await PaymentRepository.UpdateStatusAsync(conn, tx, gateway.Name, evt.Data.PaymentId, "failed", evt.Data.FailureReason);
                 if (order.Status == OrderStatus.PendingPayment) order.MarkPaymentFailed(evt.Data.FailureReason ?? "payment_failed", at);
                 break;
             default:

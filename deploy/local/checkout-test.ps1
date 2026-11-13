@@ -227,6 +227,12 @@ $r = PlaceOrder $buyer
 $null = Psql "UPDATE orders SET placed_at = placed_at - interval '20 minutes' WHERE number = '$($r.Json.order_number)'"
 Check "unpaid order is cancelled after the payment window" (WaitFor { $x = Order $buyer $r.Json.order_number; $x.status -eq "cancelled" -and $x.close_reason -eq "payment_timeout" } 30)
 Check "stock is released" ((Stock $offerA) -eq $before)
+$late = $r.Json.order_number
+$null = PayWith $r.Json.payment_url "4242424242424242"
+Check "a payment that arrives late is refunded" (WaitFor { (Psql "SELECT refund_reference FROM orders WHERE number = '$late'") -cmatch '^re_[0-9a-f]{24}$' } 30)
+Check "the customer is told about the late payment refund" (WaitFor { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=subject:$late").messages_count -eq 1 } 20)
+Check "the refund is marked as notified" (WaitFor { (Psql "SELECT count(*) FROM orders WHERE number = '$late' AND refund_notified_at IS NOT NULL") -eq "1" } 20)
+Check "the late order stays cancelled and keeps no stock" ((Order $buyer $late).status -eq "cancelled" -and (Stock $offerA) -eq $before)
 
 Write-Host "`n[6] Payment provider outage"
 DockerQuiet @("stop", "reapseek-sandbox")
@@ -239,6 +245,19 @@ DockerQuiet @("start", "reapseek-sandbox")
 $null = WaitFor { try { (Send (NewClient) GET "$sandbox/healthz").Status -eq 200 } catch { $false } } 30
 $kept = Send (NewClient) GET "$sandbox/v1/payments/$($pay.Id)" $null @{ Authorization = "Bearer $sk" }
 Check "the provider keeps payments across a restart" ($kept.Status -eq 200 -and $kept.Json.id -eq $pay.Id -and $kept.Json.status -eq "failed")
+
+Write-Host "`n[6b] Cancelling a paid order"
+$before = Stock $offerA
+$r = PlaceOrder $buyer
+$paidNumber = $r.Json.order_number
+$null = PayWith $r.Json.payment_url "4242424242424242"
+Check "the order to cancel is paid" (WaitFor { (Order $buyer $paidNumber).status -eq "paid" } 20)
+$r = Send $buyer POST "$api/api/v1/orders/$paidNumber/cancel"
+Check "the customer cancels the paid order" ($r.Status -eq 200 -and (Order $buyer $paidNumber).status -eq "cancelled")
+Check "the card is refunded once" (WaitFor { (Psql "SELECT refund_reference FROM orders WHERE number = '$paidNumber'") -cmatch '^re_[0-9a-f]{24}$' } 30)
+$cancelQuery = [Uri]::EscapeDataString('subject:"Order ' + $paidNumber + ' is cancelled and refunded"')
+Check "the customer gets one cancellation email" (WaitFor { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=$cancelQuery").messages_count -eq 1 } 20)
+Check "the refund is marked as notified and the stock is back" ((WaitFor { (Psql "SELECT count(*) FROM orders WHERE number = '$paidNumber' AND refund_notified_at IS NOT NULL") -eq "1" } 20) -and (Stock $offerA) -eq $before)
 
 Write-Host "`n[7] Shopping in a real browser"
 $shopper = Register "browser"
