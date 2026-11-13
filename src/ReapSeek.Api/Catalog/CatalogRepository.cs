@@ -41,7 +41,7 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
             SELECT o.price, o.list_price
             FROM product_variants v
             JOIN offers o ON o.variant_id = v.id AND o.status = 'active' AND o.stock > 0
-            JOIN sellers sl ON sl.id = o.seller_id AND sl.status = 'active'
+            JOIN seller_snapshots sl ON sl.id = o.seller_id AND sl.status = 'active'
             WHERE v.product_id = p.id
             ORDER BY o.price, sl.rating DESC, o.handling_days, o.id
             LIMIT 1
@@ -183,7 +183,7 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
             SELECT o.id, o.seller_id, s.name AS seller_name, s.status AS seller_status, s.rating AS seller_rating, o.variant_id,
                 o.price, o.list_price, o.stock, o.handling_days, o.status, bb.offer_id IS NOT NULL AS is_buy_box, o.updated_at
             FROM offers o
-            JOIN sellers s ON s.id = o.seller_id
+            JOIN seller_snapshots s ON s.id = o.seller_id
             LEFT JOIN (SELECT offer_id FROM buy_box WHERE variant_id = ANY(@VariantIds)) bb ON bb.offer_id = o.id
             WHERE o.variant_id = ANY(@VariantIds)
             ORDER BY o.price, o.id
@@ -290,12 +290,12 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
                 (SELECT count(*) FROM products WHERE status = 'active') AS active_products,
                 (SELECT count(*) FROM products WHERE status = 'draft') AS draft_products,
                 (SELECT count(*) FROM products WHERE status = 'archived') AS archived_products,
-                (SELECT count(*) FROM sellers WHERE status = 'active') AS active_sellers,
-                (SELECT count(*) FROM sellers WHERE status = 'suspended') AS suspended_sellers,
+                (SELECT count(*) FROM seller_snapshots WHERE status = 'active') AS active_sellers,
+                (SELECT count(*) FROM seller_snapshots WHERE status = 'suspended') AS suspended_sellers,
                 (SELECT count(*) FROM offers) AS offers,
                 (SELECT count(*) FROM products p WHERE p.status = 'active' AND NOT EXISTS (
                     SELECT 1 FROM product_variants v JOIN offers o ON o.variant_id = v.id AND o.status = 'active' AND o.stock > 0
-                    JOIN sellers s ON s.id = o.seller_id AND s.status = 'active'
+                    JOIN seller_snapshots s ON s.id = o.seller_id AND s.status = 'active'
                     WHERE v.product_id = p.id)) AS out_of_stock_products,
                 (SELECT count(*) FROM brands) AS brands,
                 (SELECT count(*) FROM categories) AS categories

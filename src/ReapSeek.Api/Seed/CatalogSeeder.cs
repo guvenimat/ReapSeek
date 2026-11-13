@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Catalog;
 using Dapper;
 using Npgsql;
 using ReapSeek.Shared.Outbox;
@@ -21,7 +22,7 @@ public static class CatalogSeeder
         await using var tx = await conn.BeginTransactionAsync(ct);
         if (reset)
         {
-            await conn.ExecuteAsync("TRUNCATE offers, product_variants, product_images, products, brands, categories, sellers RESTART IDENTITY CASCADE", transaction: tx);
+            await conn.ExecuteAsync("TRUNCATE offers, product_variants, product_images, products, brands, categories, seller_snapshots, sellers RESTART IDENTITY CASCADE", transaction: tx);
             log.LogInformation("Catalog tables truncated");
         }
         else if (await conn.ExecuteScalarAsync<bool>("SELECT EXISTS (SELECT 1 FROM sellers) OR EXISTS (SELECT 1 FROM categories)", transaction: tx))
@@ -44,6 +45,7 @@ public static class CatalogSeeder
             Ratings = c.Sellers.Select(s => s.Rating).ToArray(),
             Commissions = c.Sellers.Select(s => s.Commission).ToArray(),
         }, tx);
+        await SellerSnapshots.UpsertAsync(conn, tx, c.Sellers.Select(s => new SellerSnapshotRecord(s.Id, s.Name, s.Slug, s.City, "active", s.Rating)).ToList());
 
         await conn.ExecuteAsync("""
             INSERT INTO categories (id, parent_id, slug, name, path, depth, position, image_kind)

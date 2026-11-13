@@ -169,7 +169,7 @@ if (-not $readKey -or -not $envValues.REAPDEEP_PUBLIC_KEY) {
 
 $null = A PATCH "/catalog/products/$($product.id)" @{ status = "archived" }
 Check "archived product page is 404" (WaitFor { (Send $plain GET "$storefront/p/$($product.slug)").Status -eq 404 } 5)
-$null = Psql "DELETE FROM products WHERE id = $($product.id); DELETE FROM offers WHERE seller_id IN ($($sa.id), $($sb.id), $($sc.id)); DELETE FROM sellers WHERE id IN ($($sa.id), $($sb.id), $($sc.id)); DELETE FROM users WHERE email = 'pdp.$tag@example.com';"
+$null = Psql "DELETE FROM products WHERE id = $($product.id); DELETE FROM offers WHERE seller_id IN ($($sa.id), $($sb.id), $($sc.id)); DELETE FROM sellers WHERE id IN ($($sa.id), $($sb.id), $($sc.id)); DELETE FROM seller_snapshots WHERE id IN ($($sa.id), $($sb.id), $($sc.id)); DELETE FROM users WHERE email = 'pdp.$tag@example.com';"
 
 Write-Host ""
 if ($script:failed -eq 0) { Write-Host "All checks passed." -ForegroundColor Green } else { Write-Host "$($script:failed) check(s) failed." -ForegroundColor Red; exit 1 }

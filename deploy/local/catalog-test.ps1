@@ -174,7 +174,7 @@ Check "back office proxies images" ((Send (NewClient) GET "$backoffice/media/cat
 Check "unknown kind is 404" ((Send (NewClient) GET "$api/media/catalog/rocket/navy/1.svg").Status -eq 404)
 Check "unknown color is 404" ((Send (NewClient) GET "$api/media/catalog/dress/teal/1.svg").Status -eq 404)
 
-$null = Psql "DELETE FROM products WHERE id = $($product.id); DELETE FROM offers WHERE seller_id IN ($($sellerA.id), $($sellerB.id)); DELETE FROM sellers WHERE id IN ($($sellerA.id), $($sellerB.id)); DELETE FROM brands WHERE id = $($brand.id); DELETE FROM categories WHERE id IN ($($deep.id), $($cat.id)); DELETE FROM users WHERE email = 'shopper.$tag@example.com';"
+$null = Psql "DELETE FROM products WHERE id = $($product.id); DELETE FROM offers WHERE seller_id IN ($($sellerA.id), $($sellerB.id)); DELETE FROM sellers WHERE id IN ($($sellerA.id), $($sellerB.id)); DELETE FROM seller_snapshots WHERE id IN ($($sellerA.id), $($sellerB.id)); DELETE FROM brands WHERE id = $($brand.id); DELETE FROM categories WHERE id IN ($($deep.id), $($cat.id)); DELETE FROM users WHERE email = 'shopper.$tag@example.com';"
 
 Write-Host ""
 if ($script:failed -eq 0) { Write-Host "All checks passed." -ForegroundColor Green } else { Write-Host "$($script:failed) check(s) failed." -ForegroundColor Red; exit 1 }

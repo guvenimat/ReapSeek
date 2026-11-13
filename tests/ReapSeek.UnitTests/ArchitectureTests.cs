@@ -21,7 +21,8 @@ public class ArchitectureTests
     {
         ["Identity"] = ["UserInfo", "UserAccess", "SessionService", "SessionAudience", "SellerAccounts", "SellerLogin"],
         ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductCard", "ProductStatus",
-            "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord"],
+            "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
+            "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
         ["Sellers"] = [],
         ["Ordering"] = ["CartService"],
         ["Engagement"] = [],

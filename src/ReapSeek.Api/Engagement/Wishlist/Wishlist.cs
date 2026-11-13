@@ -43,7 +43,7 @@ public sealed class WishlistRepository(NpgsqlDataSource db)
         await conn.ExecuteAsync("""
             INSERT INTO wishlist_items (customer_id, product_id, added_price)
             SELECT @CustomerId, @ProductId, (
-                SELECT min(o.price) FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN sellers s ON s.id = o.seller_id
+                SELECT min(o.price) FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN seller_snapshots s ON s.id = o.seller_id
                 WHERE v.product_id = @ProductId AND o.status = 'active' AND o.stock > 0 AND s.status = 'active')
             ON CONFLICT (customer_id, product_id) DO NOTHING
             """, args);

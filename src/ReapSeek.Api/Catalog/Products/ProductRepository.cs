@@ -39,7 +39,7 @@ public sealed class ProductRepository(NpgsqlDataSource db)
             SELECT o.id, o.variant_id, s.id AS seller_id, s.name AS seller_name, s.slug AS seller_slug, s.rating AS seller_rating,
                 s.city AS seller_city, o.price, o.list_price, o.stock, o.handling_days, bb.offer_id IS NOT NULL AS is_buy_box
             FROM offers o
-            JOIN sellers s ON s.id = o.seller_id AND s.status = 'active'
+            JOIN seller_snapshots s ON s.id = o.seller_id AND s.status = 'active'
             LEFT JOIN (SELECT offer_id FROM buy_box WHERE variant_id = ANY(@VariantIds)) bb ON bb.offer_id = o.id
             WHERE o.variant_id = ANY(@VariantIds) AND o.status = 'active' AND o.stock > 0
             ORDER BY o.price, s.rating DESC, o.handling_days, o.id
