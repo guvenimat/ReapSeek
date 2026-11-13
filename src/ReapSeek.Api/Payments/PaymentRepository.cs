@@ -20,9 +20,9 @@ public static class PaymentRepository
             ON CONFLICT DO NOTHING
             """, new { Provider = provider, EventId = eventId, ProviderPaymentId = providerPaymentId, Type = type, Payload = payload }, tx) == 1;
 
-    public static Task UpdateStatusAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string provider, string providerPaymentId, string status, string? failureReason) =>
+    public static Task<int> UpdateStatusAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string provider, string providerPaymentId, string status, string? failureReason) =>
         conn.ExecuteAsync("""
             UPDATE payments SET status = @Status, failure_reason = @FailureReason, updated_at = now()
-            WHERE provider = @Provider AND provider_payment_id = @ProviderPaymentId
+            WHERE provider = @Provider AND provider_payment_id = @ProviderPaymentId AND status IS DISTINCT FROM @Status
             """, new { Provider = provider, ProviderPaymentId = providerPaymentId, Status = status, FailureReason = failureReason }, tx);
 }

@@ -251,6 +251,77 @@ public class OrderTests
         Assert.False(order.IsPaymentOverdue(Now.AddMinutes(30)));
     }
 
+    [Theory]
+    [InlineData(10)]
+    [InlineData(20)]
+    [InlineData(0.05)]
+    public void Cancelling_every_package_refunds_exactly_what_was_paid(double discount)
+    {
+        var order = Order.Place(Guid.NewGuid(), "RS261030000003", 7, Address, [Item(1, 1, 100m, 1), Item(2, 2, 100m, 1), Item(3, 3, 100m, 1)],
+            ShippingPolicy.Standard, Guid.NewGuid, Now, new OrderDiscount("RS-TEST", Money.Of((decimal)discount)));
+        order.MarkPaid("pay_1", order.Total, Now);
+        order.ClearDomainEvents();
+        foreach (var package in order.Packages.ToList()) order.CancelPackage(package.Id, CancelReasons.SellerDidNotShip, Now.AddDays(6));
+        var refunds = order.DomainEvents.OfType<OrderRefundDue>().Select(r => r.Amount).ToList();
+        Assert.Equal(3, refunds.Count);
+        Assert.Equal(order.Total, Money.Sum(refunds));
+    }
+
+    [Fact]
+    public void A_package_refund_does_not_depend_on_the_order_it_is_cancelled_in()
+    {
+        var order = Order.Place(Guid.NewGuid(), "RS261030000004", 7, Address, [Item(1, 1, 100m, 1), Item(2, 2, 100m, 1), Item(3, 3, 100m, 1)],
+            ShippingPolicy.Standard, Guid.NewGuid, Now, new OrderDiscount("RS-TEST", Money.Of(10m)));
+        var before = order.Packages.ToDictionary(p => p.Id, order.PackageRefund);
+        Assert.Equal(1, before.Values.Count(m => m.Amount == 100m - 3.34m + order.Packages[0].ShippingFee.Amount));
+        Assert.Equal(Money.Of(10m), Money.Of(order.Packages.Sum(p => p.Total.Amount)) - Money.Sum(before.Values));
+    }
+
+    [Fact]
+    public void A_payment_that_arrives_after_the_order_timed_out_is_refunded_in_full()
+    {
+        var order = Place(Item(1, 1, 100m, 1));
+        order.AttachPayment("pay_1");
+        order.Cancel("payment_timeout", Now.AddMinutes(16));
+        order.ClearDomainEvents();
+        Assert.Throws<DomainException>(() => order.MarkPaid("pay_1", order.Total, Now.AddMinutes(17)));
+        Assert.True(order.RefundLatePayment("pay_1", order.Total, Now.AddMinutes(17)));
+        var refund = Assert.Single(order.DomainEvents.OfType<OrderRefundDue>());
+        Assert.Equal(order.Total, refund.Amount);
+        Assert.Equal("pay_1", refund.PaymentReference);
+        Assert.Null(refund.PackageId);
+        Assert.Equal(OrderStatus.Cancelled, order.Status);
+        Assert.Null(order.PaidAt);
+    }
+
+    [Fact]
+    public void A_late_payment_is_not_refunded_when_it_does_not_belong_to_the_order()
+    {
+        var order = Place(Item(1, 1, 100m, 1));
+        order.AttachPayment("pay_1");
+        order.MarkPaymentFailed("card_declined", Now);
+        order.ClearDomainEvents();
+        Assert.False(order.RefundLatePayment("pay_2", order.Total, Now));
+        Assert.False(order.RefundLatePayment("pay_1", Money.Of(1m), Now));
+        Assert.Empty(order.DomainEvents);
+        Assert.True(order.RefundLatePayment("pay_1", order.Total, Now));
+    }
+
+    [Fact]
+    public void A_replayed_payment_for_a_paid_order_is_never_refunded()
+    {
+        var order = Place(Item(1, 1, 100m, 1));
+        order.AttachPayment("pay_1");
+        order.MarkPaid("pay_1", order.Total, Now);
+        order.ClearDomainEvents();
+        Assert.False(order.MarkPaid("pay_1", order.Total, Now));
+        Assert.False(order.RefundLatePayment("pay_1", order.Total, Now));
+        order.CancelPaid(CancelReasons.Customer, Now);
+        order.ClearDomainEvents();
+        Assert.False(order.RefundLatePayment("pay_1", order.Total, Now));
+        Assert.Empty(order.DomainEvents);
+    }
+
     [Fact]
     public void Packages_ship_and_deliver_only_after_payment()
     {

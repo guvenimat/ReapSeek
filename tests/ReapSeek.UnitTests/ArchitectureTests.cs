@@ -1,4 +1,5 @@
 using System.Reflection;
+using Mono.Cecil;
 using NetArchTest.Rules;
 using ReapSeek.Domain.Common;
 using ReapSeek.Shared.Providers;
@@ -47,24 +48,82 @@ public class ArchitectureTests
     public void Endpoints_hold_no_SQL() =>
         Pass(Types.InAssembly(Api).That().HaveNameEndingWith("Endpoints").ShouldNot().HaveDependencyOnAny("Dapper", "Npgsql").GetResult(), "Endpoints");
 
+    static readonly string[] SqlOutsideRepositories =
+    [
+        "ReapSeek.Api.Health.DatabaseProbe",
+        "ReapSeek.Api.Seed.CatalogSeeder",
+        "ReapSeek.Api.Search.CategoryCache",
+        "ReapSeek.Api.Orders.OrderQueries",
+        "ReapSeek.Api.Identity.AccountRecoveryService",
+        "ReapSeek.Api.Media.ProductImageService",
+        "ReapSeek.Api.Returns.ReturnService",
+        "ReapSeek.Api.Shipping.ShippingService",
+    ];
+
+    static TypeReference Outermost(TypeReference t)
+    {
+        while (t.DeclaringType is not null) t = t.DeclaringType;
+        return t;
+    }
+
+    static bool InNamespace(TypeReference? t, string[] prefixes) =>
+        t is not null && prefixes.Any(p => Outermost(t.GetElementType()).Namespace.StartsWith(p, StringComparison.Ordinal));
+
+    static bool Uses(TypeDefinition type, string[] prefixes) =>
+        type.Fields.Any(f => InNamespace(f.FieldType, prefixes))
+        || type.Methods.Any(m => m.Parameters.Any(p => InNamespace(p.ParameterType, prefixes))
+            || (m.HasBody && m.Body.Instructions.Any(i => i.Operand switch
+            {
+                MemberReference { DeclaringType: { } d } member when InNamespace(d, prefixes) => true,
+                MethodReference { ReturnType: var r } when InNamespace(r, prefixes) => true,
+                TypeReference r => InNamespace(r, prefixes),
+                _ => false,
+            })));
+
+    static Type[] DataAccessTypes(params string[] prefixes)
+    {
+        using var module = ModuleDefinition.ReadModule(Api.Location);
+        return module.GetTypes()
+            .Where(t => Uses(t, prefixes))
+            .Select(t => Outermost(t).FullName)
+            .Where(n => n.StartsWith("ReapSeek.Api.", StringComparison.Ordinal))
+            .Distinct().Select(n => Api.GetType(n, throwOnError: true)!).ToArray();
+    }
+
     [Fact]
-    public void Repositories_are_used_only_inside_their_module_group()
+    public void Data_access_types_are_used_only_inside_their_module_group()
     {
         var failures = new List<string>();
+        var dataAccess = DataAccessTypes("Dapper", "Npgsql");
+        Assert.Contains(dataAccess, t => t.Name == "CheckoutService");
         foreach (var module in Modules)
         {
-            var repositories = Api.GetTypes()
-                .Where(t => t.Namespace == $"ReapSeek.Api.{module}" && t.Name.EndsWith("Repository", StringComparison.Ordinal))
-                .Select(t => t.FullName!).ToArray();
-            if (repositories.Length == 0) continue;
+            var owned = dataAccess.Where(t => t.Namespace == $"ReapSeek.Api.{module}").Select(t => t.FullName!).ToArray();
+            if (owned.Length == 0) continue;
             var allowed = GroupOf(module).Select(m => $"ReapSeek.Api.{m}").Append("ReapSeek.Api.Infrastructure").Append("ReapSeek.Api.Seed").ToArray();
             var result = Types.InAssembly(Api).That().ResideInNamespaceStartingWith("ReapSeek.Api")
                 .And().DoNotResideInNamespace(allowed[0]);
             foreach (var ns in allowed.Skip(1)) result = result.And().DoNotResideInNamespace(ns);
-            var r = result.ShouldNot().HaveDependencyOnAny(repositories).GetResult();
+            var r = result.ShouldNot().HaveDependencyOnAny(owned).GetResult();
             if (!r.IsSuccessful) failures.AddRange(r.FailingTypeNames.Select(t => $"{t} -> {module}"));
         }
         Assert.Empty(failures);
+    }
+
+    [Fact]
+    public void SQL_lives_in_repositories()
+    {
+        var offenders = DataAccessTypes("Dapper")
+            .Where(t => !t.Name.EndsWith("Repository", StringComparison.Ordinal) && !SqlOutsideRepositories.Contains(t.FullName))
+            .Select(t => t.FullName!).Order().ToList();
+        Assert.True(offenders.Count == 0, $"SQL outside repositories: {string.Join(", ", offenders)}");
+    }
+
+    [Fact]
+    public void The_SQL_whitelist_has_no_stale_entries()
+    {
+        var actual = DataAccessTypes("Dapper").Select(t => t.FullName!).ToHashSet();
+        Assert.All(SqlOutsideRepositories, name => Assert.Contains(name, actual));
     }
 
     [Fact]

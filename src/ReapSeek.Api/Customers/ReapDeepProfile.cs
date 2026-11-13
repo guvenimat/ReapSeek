@@ -2,7 +2,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Dapper;
 using Npgsql;
 using ReapSeek.Shared.Analytics;
 
@@ -53,8 +52,6 @@ public sealed class ReapDeepProfile : IDisposable
     readonly NpgsqlDataSource _db;
     readonly ILogger<ReapDeepProfile> _log;
 
-    public sealed record ProductIdsRecord(long[] Ids);
-    public sealed record ProductTitleRecord(long Id, string Title);
 
     public ReapDeepProfile(IConfiguration cfg, NpgsqlDataSource db, ILogger<ReapDeepProfile> log)
     {
@@ -112,8 +109,7 @@ public sealed class ReapDeepProfile : IDisposable
         if (ids.Length > 0)
         {
             await using var conn = await _db.OpenConnectionAsync(ct);
-            foreach (var p in await conn.QueryAsync<ProductTitleRecord>("SELECT id, title FROM products WHERE id = ANY(@Ids)", new ProductIdsRecord(ids)))
-                titles[p.Id] = p.Title;
+            titles = await CustomerRepository.ProductTitlesAsync(conn, ids);
         }
         return events.OrderByDescending(e => e.Timestamp).Select(e =>
         {

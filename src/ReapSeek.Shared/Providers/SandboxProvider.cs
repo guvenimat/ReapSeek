@@ -29,7 +29,7 @@ public sealed partial class SandboxProviderJsonContext : JsonSerializerContext;
 
 public sealed class SandboxProvider : IPaymentGateway, ICarrier, IPayoutBank, IDisposable
 {
-    public const string ProviderName = "sandbox";
+    public static string ProviderName => "sandbox";
 
     readonly HttpClient _http;
     readonly string? _shippingWebhookUrl;
