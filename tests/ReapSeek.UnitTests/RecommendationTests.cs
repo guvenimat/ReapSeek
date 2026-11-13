@@ -1,4 +1,4 @@
-using ReapSeek.Api.Recommendations;
+using ReapSeek.Api.Catalog.Recommendations;
 
 namespace ReapSeek.UnitTests;
 

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using ReapSeek.Api.Customers;
+using ReapSeek.Api.Identity.Customers;
 
 namespace ReapSeek.UnitTests;
 

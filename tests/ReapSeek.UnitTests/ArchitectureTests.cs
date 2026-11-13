@@ -14,19 +14,43 @@ public class ArchitectureTests
     static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.ApiResults).Assembly;
     static readonly Assembly Worker = typeof(ReapSeek.Worker.Outbox.OutboxDispatcher).Assembly;
 
-    static readonly string[][] ModuleGroups =
-    [
-        ["Carts", "Checkout", "Payments", "Orders", "Returns", "Shipping"],
-        ["Catalog", "Products", "Search", "Media"],
-    ];
+    static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Engagement", "Marketing"];
+    static readonly string[] PlatformAreas = ["Infrastructure", "Seed", "Health", "Operations"];
 
-    static IEnumerable<string> Modules => Api.GetTypes()
+    static readonly Dictionary<string, string[]> PublicApi = new()
+    {
+        ["Identity"] = ["UserInfo", "UserAccess", "SessionService", "SessionAudience", "SellerAccounts", "SellerLogin"],
+        ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductCard", "ProductStatus",
+            "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord"],
+        ["Sellers"] = [],
+        ["Ordering"] = ["CartService"],
+        ["Engagement"] = [],
+        ["Marketing"] = [],
+    };
+
+    static IEnumerable<string> TopLevelAreas => Api.GetTypes()
         .Select(t => t.Namespace).OfType<string>()
         .Where(n => n.StartsWith("ReapSeek.Api.", StringComparison.Ordinal))
         .Select(n => n["ReapSeek.Api.".Length..].Split('.')[0])
-        .Distinct().Where(m => m is not "Infrastructure" and not "Seed");
+        .Distinct();
 
-    static string[] GroupOf(string module) => ModuleGroups.FirstOrDefault(g => g.Contains(module)) ?? [module];
+    static string ModuleOf(Type t) => t.Namespace!["ReapSeek.Api.".Length..].Split('.')[0];
+
+    static string[] OutsideOf(string module) =>
+        ApiModules.Where(m => m != module).Select(m => $"ReapSeek.Api.{m}").ToArray();
+
+    static List<string> ModuleViolations(string module, string[] targets)
+    {
+        if (targets.Length == 0) return [];
+        var failures = new List<string>();
+        foreach (var ns in OutsideOf(module))
+        {
+            var r = Types.InAssembly(Api).That().ResideInNamespaceStartingWith(ns + ".").Or().ResideInNamespace(ns)
+                .ShouldNot().HaveDependencyOnAny(targets).GetResult();
+            if (!r.IsSuccessful) failures.AddRange(r.FailingTypeNames.Select(t => $"{t} -> {module}"));
+        }
+        return failures;
+    }
 
     static void Pass(TestResult result, string rule) =>
         Assert.True(result.IsSuccessful, $"{rule}: {string.Join(", ", result.FailingTypeNames ?? [])}");
@@ -61,12 +85,12 @@ public class ArchitectureTests
     [
         "ReapSeek.Api.Health.DatabaseProbe",
         "ReapSeek.Api.Seed.CatalogSeeder",
-        "ReapSeek.Api.Search.CategoryCache",
-        "ReapSeek.Api.Orders.OrderQueries",
+        "ReapSeek.Api.Catalog.Search.CategoryCache",
+        "ReapSeek.Api.Ordering.Orders.OrderQueries",
         "ReapSeek.Api.Identity.AccountRecoveryService",
-        "ReapSeek.Api.Media.ProductImageService",
-        "ReapSeek.Api.Returns.ReturnService",
-        "ReapSeek.Api.Shipping.ShippingService",
+        "ReapSeek.Api.Catalog.Media.ProductImageService",
+        "ReapSeek.Api.Ordering.Returns.ReturnService",
+        "ReapSeek.Api.Ordering.Shipping.ShippingService",
     ];
 
     static TypeReference Outermost(TypeReference t)
@@ -100,24 +124,33 @@ public class ArchitectureTests
     }
 
     [Fact]
-    public void Data_access_types_are_used_only_inside_their_module_group()
+    public void Data_access_types_are_used_only_inside_their_module()
     {
-        var failures = new List<string>();
         var dataAccess = DataAccessTypes("Dapper", "Npgsql");
         Assert.Contains(dataAccess, t => t.Name == "CheckoutService");
-        foreach (var module in Modules)
-        {
-            var owned = dataAccess.Where(t => t.Namespace == $"ReapSeek.Api.{module}").Select(t => t.FullName!).ToArray();
-            if (owned.Length == 0) continue;
-            var allowed = GroupOf(module).Select(m => $"ReapSeek.Api.{m}").Append("ReapSeek.Api.Infrastructure").Append("ReapSeek.Api.Seed").ToArray();
-            var result = Types.InAssembly(Api).That().ResideInNamespaceStartingWith("ReapSeek.Api")
-                .And().DoNotResideInNamespace(allowed[0]);
-            foreach (var ns in allowed.Skip(1)) result = result.And().DoNotResideInNamespace(ns);
-            var r = result.ShouldNot().HaveDependencyOnAny(owned).GetResult();
-            if (!r.IsSuccessful) failures.AddRange(r.FailingTypeNames.Select(t => $"{t} -> {module}"));
-        }
+        var failures = ApiModules.SelectMany(m => ModuleViolations(m,
+            dataAccess.Where(t => ModuleOf(t) == m).Select(t => t.FullName!).ToArray())).ToList();
         Assert.Empty(failures);
     }
+
+    [Fact]
+    public void Modules_use_each_other_only_through_their_public_API()
+    {
+        var failures = ApiModules.SelectMany(m => ModuleViolations(m, Api.GetTypes()
+            .Where(t => t.Namespace is not null && t.Namespace.StartsWith("ReapSeek.Api.", StringComparison.Ordinal) && ModuleOf(t) == m)
+            .Where(t => !t.IsNested && !PublicApi[m].Contains(t.Name))
+            .Select(t => t.FullName!).ToArray())).Distinct().Order().ToList();
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
+    }
+
+    [Fact]
+    public void The_public_API_lists_only_existing_types()
+    {
+        var names = Api.GetTypes().Where(t => !t.IsNested && t.Namespace is not null).GroupBy(ModuleOfOrEmpty).ToDictionary(g => g.Key, g => g.Select(t => t.Name).ToHashSet());
+        Assert.All(PublicApi, kv => Assert.All(kv.Value, name => Assert.Contains(name, names[kv.Key])));
+    }
+
+    static string ModuleOfOrEmpty(Type t) => t.Namespace!.StartsWith("ReapSeek.Api.", StringComparison.Ordinal) ? ModuleOf(t) : "";
 
     [Fact]
     public void SQL_lives_in_repositories()
@@ -145,6 +178,6 @@ public class ArchitectureTests
     }
 
     [Fact]
-    public void Modules_exist_where_the_rules_expect_them() =>
-        Assert.Subset(Modules.ToHashSet(), ModuleGroups.SelectMany(g => g).ToHashSet());
+    public void Every_API_area_is_a_module_or_platform_code() =>
+        Assert.Subset(ApiModules.Concat(PlatformAreas).ToHashSet(), TopLevelAreas.ToHashSet());
 }

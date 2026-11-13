@@ -1,4 +1,4 @@
-using ReapSeek.Api.Reviews;
+using ReapSeek.Api.Engagement.Reviews;
 using ReapSeek.Shared;
 
 namespace ReapSeek.UnitTests;
