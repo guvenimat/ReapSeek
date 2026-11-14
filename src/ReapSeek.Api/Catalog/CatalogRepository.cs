@@ -249,6 +249,7 @@ public sealed class CatalogRepository(NpgsqlDataSource db)
         var productId = await conn.ExecuteScalarAsync<long?>(
             "SELECT product_id FROM product_variants WHERE id = @VariantId", new { offer.VariantId }, tx);
         if (productId is null) return null;
+        if (!await conn.ExecuteScalarAsync<bool>("SELECT EXISTS (SELECT 1 FROM seller_snapshots WHERE id = @SellerId)", new { offer.SellerId }, tx)) return null;
         long offerId;
         try
         {
