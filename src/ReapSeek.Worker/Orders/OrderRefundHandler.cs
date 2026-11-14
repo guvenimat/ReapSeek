@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -55,7 +56,7 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
             : order.CloseReason;
         var bySeller = reason == CancelReasons.SellerDidNotShip;
         var latePayment = !package && order.PaidAt is null;
-        var customer = await conn.QuerySingleAsync<PersonRecord>("SELECT email, name FROM users WHERE id = @Id", new CustomerRecord(order.CustomerId));
+        var customer = await People.GetAsync(conn, order.CustomerId);
         var amount = $"{m.Amount.ToString("N2", CultureInfo.InvariantCulture)} {order.Total.Currency}";
         var orderUrl = $"{_storefrontUrl}/account/orders/{order.Number}";
         var items = string.Join(", ", packages.SelectMany(p => p.Lines).Select(l => $"{l.Quantity} x {l.ProductTitle}"));
@@ -79,7 +80,7 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
 
             var sellerWhy = bySeller ? "it did not ship within the shipping deadline" : "the customer cancelled it before it shipped";
             foreach (var p in packages.Where(_ => !latePayment))
-                foreach (var seller in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE seller_id = @SellerId", new SellerRecord(p.SellerId)))
+                foreach (var seller in await People.SellerStaffAsync(conn, p.SellerId))
                     await email.SendAsync(new EmailMessage(seller.Email, $"Do not ship: your package in order {order.Number} was cancelled",
                         $"Hi {seller.Name},\n\nWe cancelled your package in order {order.Number} because {sellerWhy}. Do not ship: {string.Join(", ", p.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"))}.\nThe stock is back on your offers.\n\nPackages: {_backofficeUrl}/#/packages\n",
                         $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#c8324b;font-size:20px">Do not ship order {WebUtility.HtmlEncode(order.Number)}</h1><p>We cancelled your package because {WebUtility.HtmlEncode(sellerWhy)}. The stock is back on your offers.</p><p><a href="{WebUtility.HtmlEncode($"{_backofficeUrl}/#/packages")}">Your packages</a></p></div>"""), ct);

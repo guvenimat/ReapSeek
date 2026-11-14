@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Net;
 using System.Text.Json;
 using Dapper;
@@ -112,7 +113,7 @@ public sealed class PackageReminderHandler(NpgsqlDataSource db, EmailSender emai
         if (p is null || p.Status != "preparing") return;
         var url = $"{_backofficeUrl}/#/packages";
         var deadline = p.PaidAt.AddDays(Math.Max(1, _cancelDays)).ToString("d MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
-        foreach (var seller in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE seller_id = @SellerId", new SellerRecord(p.SellerId)))
+        foreach (var seller in await People.SellerStaffAsync(conn, p.SellerId))
             await email.SendAsync(new EmailMessage(seller.Email, $"Ship order {p.OrderNumber} soon",
                 $"Hi {seller.Name},\n\nOrder {p.OrderNumber} was paid on {p.PaidAt:d MMM yyyy} and has not shipped yet. If it does not ship by {deadline} UTC we cancel your package and refund the customer.\n\nYour packages: {url}\n",
                 $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#ec6416;font-size:20px">Order {WebUtility.HtmlEncode(p.OrderNumber)} is waiting to ship</h1><p>It was paid on {p.PaidAt:d MMM yyyy}. If it does not ship by <strong>{deadline} UTC</strong>, we cancel your package and refund the customer.</p><p><a href="{WebUtility.HtmlEncode(url)}" style="display:inline-block;background:#5b2bd6;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Ship it now</a></p></div>"""), ct);

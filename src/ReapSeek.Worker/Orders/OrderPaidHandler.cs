@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
@@ -21,7 +22,7 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
         await using var conn = await db.OpenConnectionAsync(ct);
         var order = await OrderStore.LoadByNumberAsync(conn, null, payload.Number)
             ?? throw new InvalidOperationException($"Order {payload.Number} was not found");
-        var customer = await conn.QuerySingleAsync<CustomerRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = order.CustomerId });
+        var customer = await People.GetAsync(conn, order.CustomerId);
 
         await reapDeep.EnqueueAsync(conn, PurchaseEvents.For(order));
         await email.SendAsync(EmailTemplates.OrderConfirmation(order, customer.Email, customer.Name, _storefrontUrl), ct);
@@ -35,7 +36,7 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
         var order = await OrderStore.LoadByNumberAsync(conn, null, payload.Number)
             ?? throw new InvalidOperationException($"Order {payload.Number} was not found");
         var package = order.Packages.Single(p => p.Id == payload.PackageId);
-        var customer = await conn.QuerySingleAsync<CustomerRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = order.CustomerId });
+        var customer = await People.GetAsync(conn, order.CustomerId);
         await email.SendAsync(EmailTemplates.PackageShipped(order, package, customer.Email, customer.Name, _storefrontUrl), ct);
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
@@ -93,7 +94,7 @@ public static class OrderStore
 
     public static async Task<int> LockPendingCountAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long customerId)
     {
-        await conn.ExecuteAsync("SELECT id FROM users WHERE id = @CustomerId FOR UPDATE", new CustomerIdRecord(customerId), tx);
+        await People.LockAsync(conn, tx, customerId);
         return await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM orders WHERE customer_id = @CustomerId AND status = 'pending_payment'",
             new CustomerIdRecord(customerId), tx);
     }

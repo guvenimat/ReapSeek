@@ -10,7 +10,7 @@ namespace ReapSeek.Worker.Notifications;
 
 public static class EmailTemplates
 {
-    public static EmailMessage ReturnUpdate(ReturnRequest r, ReturnHandler.PersonRecord customer, string storefrontUrl)
+    public static EmailMessage ReturnUpdate(ReturnRequest r, ReapSeek.Modules.Identity.Person customer, string storefrontUrl)
     {
         var orderUrl = $"{storefrontUrl}/account/orders/{r.OrderNumber}";
         var items = string.Join(", ", r.Lines.Select(l => $"{l.Quantity} x {l.ProductTitle}"));

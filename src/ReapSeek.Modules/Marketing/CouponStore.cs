@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
 
@@ -37,12 +38,16 @@ public static class CouponStore
             SELECT id, name, cohort_id, kind, value, min_subtotal, max_discount, valid_days, subject, message, status FROM campaigns WHERE id = @Id
             """ + (tx is null ? "" : " FOR UPDATE"), new { Id = id }, tx);
 
-    public static Task<int> IssueAsync(NpgsqlConnection conn, NpgsqlTransaction tx, IssueRecord issue) =>
-        conn.ExecuteAsync("""
+    public static async Task<int> IssueAsync(NpgsqlConnection conn, NpgsqlTransaction tx, IssueRecord issue)
+    {
+        var reachable = await People.ReachableCustomersAsync(conn, issue.CustomerIds, tx);
+        var keep = issue.CustomerIds.Select((id, i) => (id, i)).Where(x => reachable.Contains(x.id)).Select(x => x.i).ToArray();
+        issue = issue with { CustomerIds = keep.Select(i => issue.CustomerIds[i]).ToArray(), Codes = keep.Select(i => issue.Codes[i]).ToArray() };
+        return await conn.ExecuteAsync("""
             INSERT INTO coupons (code, campaign_id, customer_id, kind, value, min_subtotal, max_discount, expires_at)
             SELECT c.code, @CampaignId, c.customer_id, @Kind, @Value, @MinSubtotal, @MaxDiscount, @ExpiresAt
             FROM unnest(@CustomerIds, @Codes) AS c(customer_id, code)
-            WHERE EXISTS (SELECT 1 FROM users u WHERE u.id = c.customer_id AND u.role = 'customer' AND u.email_verified_at IS NOT NULL AND u.suspended_at IS NULL)
             ON CONFLICT (campaign_id, customer_id) DO NOTHING
             """, issue, tx);
+    }
 }

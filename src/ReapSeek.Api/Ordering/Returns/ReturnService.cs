@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
@@ -26,7 +27,7 @@ public sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimePro
 {
     public sealed record ReturnRowRecord(
         Guid Id, string Number, string OrderNumber, string Status, string Reason, string? Comment, decimal Total, DateTime RequestedAt, string? RejectionNote,
-        string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, string CustomerName);
+        string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, long CustomerId);
     public sealed record ReturnLineRecord(Guid ReturnId, string ProductTitle, string VariantLabel, string Sku, int Quantity, decimal UnitPrice);
 
 
@@ -86,8 +87,8 @@ public sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimePro
         await using var conn = await db.OpenConnectionAsync(ct);
         var rows = (await conn.QueryAsync<ReturnRowRecord>("""
             SELECT r.id, r.number, r.order_number, r.status, r.reason, r.comment, r.total, r.requested_at, r.rejection_note, r.return_tracking,
-                r.received_at, r.refunded_at, u.name AS customer_name
-            FROM returns r JOIN users u ON u.id = r.customer_id
+                r.received_at, r.refunded_at, r.customer_id
+            FROM returns r
             WHERE r.seller_id = @SellerId AND (@Status::text IS NULL OR r.status = @Status) AND (@Id::uuid IS NULL OR r.id = @Id)
             ORDER BY (r.status = 'requested') DESC, r.requested_at DESC LIMIT 100
             """, new { SellerId = sellerId, Status = status, Id = id })).AsList();
@@ -95,8 +96,9 @@ public sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimePro
         var lines = (await conn.QueryAsync<ReturnLineRecord>("""
             SELECT return_id, product_title, variant_label, sku, quantity, unit_price FROM return_lines WHERE return_id = ANY(@Ids) ORDER BY product_title
             """, new { Ids = rows.Select(r => r.Id).ToArray() })).ToLookup(l => l.ReturnId);
+        var people = await People.ManyAsync(conn, rows.Select(r => r.CustomerId));
         return rows.Select(r => new SellerReturnRow(r.Id, r.Number, r.OrderNumber, r.Status, r.Reason, r.Comment, r.Total, r.RequestedAt, r.RejectionNote,
-            r.ReturnTracking, r.ReceivedAt, r.RefundedAt, r.CustomerName,
+            r.ReturnTracking, r.ReceivedAt, r.RefundedAt, people.GetValueOrDefault(r.CustomerId)?.Name ?? "",
             lines[r.Id].Select(l => new SellerReturnLine(l.ProductTitle, l.VariantLabel, l.Sku, l.Quantity, l.UnitPrice)).ToList())).ToList();
     }
 }
