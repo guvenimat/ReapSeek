@@ -1,6 +1,6 @@
 # ADR 0006: One database schema per module
 
-Status: accepted (2026-11-14), being implemented in phases. Refines ADR 0001.
+Status: accepted and implemented (2026-11-14). Refines ADR 0001.
 
 ## Context
 
