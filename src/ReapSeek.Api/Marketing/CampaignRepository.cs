@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared.Outbox;
 
@@ -34,10 +35,8 @@ public sealed class CampaignRepository(NpgsqlDataSource db)
     public async Task<(int Reachable, int Known)> ReachAsync(long[] customerIds, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var reachable = await conn.ExecuteScalarAsync<int>("""
-            SELECT count(*)::int FROM users WHERE id = ANY(@Ids) AND role = 'customer' AND email_verified_at IS NOT NULL AND suspended_at IS NULL
-            """, new ReachRecord(customerIds));
-        var known = await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM users WHERE id = ANY(@Ids) AND role = 'customer'", new ReachRecord(customerIds));
+        var reachable = (await People.ReachableCustomersAsync(conn, customerIds)).Count;
+        var known = (await People.CustomersAsync(conn, customerIds)).Count;
         return (reachable, known);
     }
 

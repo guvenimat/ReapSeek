@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Identity;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
 using ReapSeek.Shared;
@@ -40,7 +41,7 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
     public sealed record ReturnLineRecord(Guid ReturnId, Guid OrderLineId, string ProductTitle, string VariantLabel, int Quantity, decimal UnitPrice, string Status);
     public sealed record SummaryRecord(
         string Number, string Status, decimal Total, string Currency, long ItemCount, long PackageCount, string? ImageUrl,
-        DateTime PlacedAt, DateTime? PaidAt, string? CustomerEmail);
+        DateTime PlacedAt, DateTime? PaidAt, long CustomerId);
     public sealed record PaymentRecord(string Provider, string Status, string? FailureReason, DateTime CreatedAt, string? RedirectUrl);
 
     const string SummarySelect = """
@@ -48,8 +49,8 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
             (SELECT COALESCE(sum(l.quantity), 0) FROM order_lines l WHERE l.order_id = o.id) AS item_count,
             (SELECT count(*) FROM order_packages p WHERE p.order_id = o.id) AS package_count,
             (SELECT l.image_url FROM order_lines l WHERE l.order_id = o.id ORDER BY l.product_title LIMIT 1) AS image_url,
-            o.placed_at, o.paid_at, u.email AS customer_email
-        FROM orders o JOIN users u ON u.id = o.customer_id
+            o.placed_at, o.paid_at, o.customer_id
+        FROM orders o
         """;
 
     public async Task<OrdersPage> ForCustomerAsync(long customerId, int page, int pageSize, CancellationToken ct)
@@ -60,25 +61,27 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
 
             WHERE o.customer_id = @CustomerId ORDER BY o.placed_at DESC LIMIT @Limit OFFSET @Offset
             """, new { CustomerId = customerId, Limit = pageSize, Offset = (page - 1) * pageSize });
-        return new OrdersPage(rows.Select(ToSummary).ToList(), total, page, pageSize);
+        return new OrdersPage(await SummariesAsync(conn, rows), total, page, pageSize);
     }
 
     public async Task<OrdersPage> AllAsync(string? status, string? search, int page, int pageSize, CancellationToken ct)
     {
+        await using var conn = await db.OpenConnectionAsync(ct);
+        var pattern = search is null ? null : $"%{search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_")}%";
         var args = new
         {
             Status = status,
-            Search = search is null ? null : $"%{search.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_")}%",
+            Search = pattern,
+            Customers = pattern is null ? [] : await People.MatchingAsync(conn, pattern),
             Limit = pageSize,
             Offset = (page - 1) * pageSize,
         };
         const string Where = """
-            WHERE (@Status::text IS NULL OR o.status = @Status) AND (@Search::text IS NULL OR o.number ILIKE @Search OR u.email ILIKE @Search)
+            WHERE (@Status::text IS NULL OR o.status = @Status) AND (@Search::text IS NULL OR o.number ILIKE @Search OR o.customer_id = ANY(@Customers))
             """;
-        await using var conn = await db.OpenConnectionAsync(ct);
-        var total = await conn.ExecuteScalarAsync<long>("SELECT count(*) FROM orders o JOIN users u ON u.id = o.customer_id\n" + Where, args);
+        var total = await conn.ExecuteScalarAsync<long>("SELECT count(*) FROM orders o\n" + Where, args);
         var rows = await conn.QueryAsync<SummaryRecord>(SummarySelect + "\n" + Where + "\nORDER BY o.placed_at DESC LIMIT @Limit OFFSET @Offset", args);
-        return new OrdersPage(rows.Select(ToSummary).ToList(), total, page, pageSize);
+        return new OrdersPage(await SummariesAsync(conn, rows), total, page, pageSize);
     }
 
     public async Task<OrderDetail?> DetailAsync(string number, long? customerId, CancellationToken ct)
@@ -86,7 +89,7 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
         await using var conn = await db.OpenConnectionAsync(ct);
         var order = await OrderStore.LoadByNumberAsync(conn, null, number);
         if (order is null || (customerId is not null && order.CustomerId != customerId)) return null;
-        var email = await conn.ExecuteScalarAsync<string?>("SELECT email FROM users WHERE id = @Id", new { Id = order.CustomerId });
+        var email = (await People.FindAsync(conn, order.CustomerId))?.Email;
         var refundedAt = await conn.ExecuteScalarAsync<DateTime?>("SELECT refunded_at FROM orders WHERE id = @Id", new IdRecord(order.Id));
         var payments = (await conn.QueryAsync<PaymentRecord>("""
             SELECT p.provider, p.status, p.failure_reason, p.created_at, p.redirect_url FROM payments p
@@ -133,6 +136,11 @@ public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
             order.Status == OrderStatus.PendingPayment || order.CanCancelPaid, refundedAt);
     }
 
-    static OrderSummary ToSummary(SummaryRecord r) =>
-        new(r.Number, r.Status, r.Total, r.Currency, (int)r.ItemCount, (int)r.PackageCount, r.ImageUrl, r.PlacedAt, r.PaidAt, r.CustomerEmail);
+    static async Task<List<OrderSummary>> SummariesAsync(NpgsqlConnection conn, IEnumerable<SummaryRecord> records)
+    {
+        var rows = records.AsList();
+        var people = await People.ManyAsync(conn, rows.Select(r => r.CustomerId));
+        return rows.Select(r => new OrderSummary(r.Number, r.Status, r.Total, r.Currency, (int)r.ItemCount, (int)r.PackageCount, r.ImageUrl, r.PlacedAt, r.PaidAt,
+            people.GetValueOrDefault(r.CustomerId)?.Email)).ToList();
+    }
 }

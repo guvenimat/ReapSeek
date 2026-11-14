@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
@@ -57,7 +58,7 @@ public sealed class ReturnHandler
                 await _email.SendAsync(EmailTemplates.ReturnUpdate(request, await CustomerAsync(conn, request), _storefrontUrl), ct);
                 break;
             case OutboxTypes.ReturnRequested:
-                foreach (var seller in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE seller_id = @SellerId", new { request.SellerId }))
+                foreach (var seller in await People.SellerStaffAsync(conn, request.SellerId))
                     await _email.SendAsync(EmailTemplates.ReturnRequestedForSeller(request, seller.Email, seller.Name, _backofficeUrl), ct);
                 break;
             default:
@@ -85,7 +86,6 @@ public sealed class ReturnHandler
         _log.LogInformation("Refunded {Amount} for {Return} ({Refund})", locked.RefundAmount, locked.Number, refundId);
     }
 
-    static async Task<PersonRecord> CustomerAsync(NpgsqlConnection conn, ReturnRequest request) =>
-        await conn.QuerySingleAsync<PersonRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = request.CustomerId });
+    static Task<Person> CustomerAsync(NpgsqlConnection conn, ReturnRequest request) => People.GetAsync(conn, request.CustomerId);
 
 }

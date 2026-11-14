@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -88,7 +89,7 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
             WHERE l.cart_id = @CartId ORDER BY l.added_at
             """, new { payload.CartId })).AsList();
         if (lines.Count == 0) return;
-        var customer = await conn.QuerySingleOrDefaultAsync<PersonRecord>("SELECT email, name FROM users WHERE id = @Id", new { Id = payload.CustomerId });
+        var customer = await People.FindAsync(conn, payload.CustomerId);
         if (customer is null) return;
 
         static string M(decimal v) => v.ToString("N2", CultureInfo.InvariantCulture);
@@ -127,7 +128,7 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
         if (a is null) return;
         var url = $"{_backofficeUrl}/#/alerts";
         var headline = a.State == "firing" ? $"Alert: {a.AlertName}" : $"{a.AlertName} is back to normal";
-        foreach (var admin in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE role = 'admin'"))
+        foreach (var admin in await People.AdminsAsync(conn))
             await email.SendAsync(new EmailMessage(admin.Email, headline,
                 $"{headline}\n\n{a.Message}\nSource: {a.InsightName} (ReapDeep)\n\nAll alerts: {url}\n",
                 $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:{(a.State == "firing" ? "#c8324b" : "#12805c")};font-size:20px">{WebUtility.HtmlEncode(headline)}</h1><p>{WebUtility.HtmlEncode(a.Message)}</p><p style="color:#6b7080;font-size:13px">Source: {WebUtility.HtmlEncode(a.InsightName)} in ReapDeep</p><p><a href="{WebUtility.HtmlEncode(url)}">All alerts in the back office</a></p></div>"""), ct);
@@ -144,7 +145,7 @@ public sealed class EngagementHandler(NpgsqlDataSource db, EmailSender email, Re
         var url = $"{_backofficeUrl}/#/jobs";
         var headline = $"Background job {payload.MessageId} ({job.Type}) gave up";
         var error = (job.LastError ?? "").Split('\n')[0];
-        foreach (var admin in await conn.QueryAsync<PersonRecord>("SELECT email, name FROM users WHERE role = 'admin'"))
+        foreach (var admin in await People.AdminsAsync(conn))
             await email.SendAsync(new EmailMessage(admin.Email, headline,
                 $"{headline} after {job.Attempts} attempts.\n\n{error}\n\nRetry or discard it: {url}\n",
                 $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#c8324b;font-size:20px">{WebUtility.HtmlEncode(headline)}</h1><p>It failed {job.Attempts} times. Last error:</p><pre style="white-space:pre-wrap;font-size:12px;background:#f4f5f8;padding:8px">{WebUtility.HtmlEncode(error)}</pre><p><a href="{WebUtility.HtmlEncode(url)}">Retry or discard it in the back office</a></p></div>"""), ct);

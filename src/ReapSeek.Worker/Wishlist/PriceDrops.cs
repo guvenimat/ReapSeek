@@ -1,3 +1,4 @@
+using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -45,7 +46,6 @@ public sealed class PriceDropJob(NpgsqlDataSource db, IConfiguration cfg, ILogge
                 SELECT w.customer_id, w.product_id, coalesce(w.alert_price, w.added_price) AS base, m.price
                 FROM wishlist_items w
                 JOIN products p ON p.id = w.product_id AND p.status = 'active'
-                JOIN users u ON u.id = w.customer_id AND u.suspended_at IS NULL AND u.email_verified_at IS NOT NULL
                 CROSS JOIN LATERAL (
                     SELECT min(o.price) AS price FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN seller_snapshots s ON s.id = o.seller_id
                     WHERE v.product_id = w.product_id AND o.status = 'active' AND o.stock > 0 AND s.status = 'active') m
@@ -76,8 +76,7 @@ public sealed class PriceDropHandler(NpgsqlDataSource db, EmailSender email, Rea
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.PriceDropMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         await using var conn = await db.OpenConnectionAsync(ct);
-        var customer = await conn.QuerySingleOrDefaultAsync<PersonRecord>(
-            "SELECT email, name FROM users WHERE id = @Id AND suspended_at IS NULL", new IdRecord(payload.CustomerId));
+        var customer = (await People.ReachableCustomersAsync(conn, [payload.CustomerId])).Count == 1 ? await People.FindAsync(conn, payload.CustomerId) : null;
         var product = await conn.QuerySingleOrDefaultAsync<ProductRecord>("SELECT title, slug FROM products WHERE id = @Id", new IdRecord(payload.ProductId));
         if (customer is null || product is null) return;
 
