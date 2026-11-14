@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 
@@ -16,21 +17,6 @@ public sealed class CartRepository(NpgsqlDataSource db)
         long SellerId, string SellerName, string SellerStatus, decimal SellerRating,
         long ProductId, string ProductSlug, string ProductTitle, string ProductStatus, string Brand,
         long VariantId, string Sku, string Options, string? ImageUrl);
-
-    const string OfferSelect = """
-        SELECT o.id AS offer_id, o.price, o.list_price, o.stock, o.status AS offer_status, o.handling_days,
-            s.id AS seller_id, s.name AS seller_name, s.status AS seller_status, s.rating AS seller_rating,
-            p.id AS product_id, p.slug AS product_slug, p.title AS product_title, p.status AS product_status, b.name AS brand,
-            v.id AS variant_id, v.sku, v.options::text AS options,
-            COALESCE(
-                (SELECT i.url FROM product_images i WHERE i.product_id = p.id AND i.color = v.options->>'Color' ORDER BY i.position LIMIT 1),
-                (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.position LIMIT 1)) AS image_url
-        FROM offers o
-        JOIN sellers s ON s.id = o.seller_id
-        JOIN product_variants v ON v.id = o.variant_id
-        JOIN products p ON p.id = v.product_id
-        JOIN brands b ON b.id = p.brand_id
-        """;
 
     public async Task<Cart?> FindAsync(CartOwner owner, CancellationToken ct)
     {
@@ -94,7 +80,7 @@ public sealed class CartRepository(NpgsqlDataSource db)
     }
 
     public static async Task<List<OfferRecord>> OffersAsync(NpgsqlConnection conn, NpgsqlTransaction? tx, long[] offerIds, bool forUpdate) =>
-        (forUpdate
-            ? await conn.QueryAsync<OfferRecord>(OfferSelect + " WHERE o.id = ANY(@Ids) ORDER BY o.id FOR UPDATE OF o", new { Ids = offerIds }, tx)
-            : await conn.QueryAsync<OfferRecord>(OfferSelect + " WHERE o.id = ANY(@Ids) ORDER BY o.id", new { Ids = offerIds }, tx)).AsList();
+        (await Offers.LoadAsync(conn, tx, offerIds, forUpdate)).Select(o => new OfferRecord(o.OfferId, o.Price, o.ListPrice, o.Stock, o.OfferStatus, o.HandlingDays,
+            o.SellerId, o.SellerName, o.SellerStatus, o.SellerRating, o.ProductId, o.ProductSlug, o.ProductTitle, o.ProductStatus, o.Brand,
+            o.VariantId, o.Sku, o.Options, o.ImageUrl)).ToList();
 }

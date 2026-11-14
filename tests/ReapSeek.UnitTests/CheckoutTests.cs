@@ -5,8 +5,14 @@ using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Sandbox.Payments;
 using ReapSeek.Shared.Providers;
-using ReapSeek.Worker.Orders;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
+using ReapSeek.Worker.Notifications;
+using ReapSeek.Worker.Outbox;
 namespace ReapSeek.UnitTests;
 
 public class CartPricingTests

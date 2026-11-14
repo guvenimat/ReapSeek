@@ -1,19 +1,23 @@
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
-using ReapSeek.Worker.Caching;
+using ReapSeek.Worker.Catalog.Caching;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
-using ReapSeek.Worker.Search;
-using ReapSeek.Worker.CatalogSync;
+using ReapSeek.Worker.Catalog.Search;
+using ReapSeek.Worker.Catalog.CatalogSync;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Orders;
-using ReapSeek.Worker.Payouts;
+using ReapSeek.Worker.Finance.Payouts;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Modules.Finance;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Outbox;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Infrastructure;
 
 public static class HostingExtensions
@@ -43,21 +47,23 @@ public static class HostingExtensions
         services.AddSingleton<ReturnHandler>();
         services.AddSingleton<QuestionHandler>();
         services.AddSingleton<CampaignHandler>();
-        services.AddSingleton<EngagementHandler>();
+        services.AddSingleton<CartReminderHandler>();
+        services.AddSingleton<AlertMailHandler>();
+        services.AddSingleton<FailedJobNotifier>();
         services.AddSingleton<OrderRefundHandler>();
         services.AddSingleton<PackageReminderHandler>();
         services.AddHostedService<ShippingDeadlineJob>();
         services.AddSingleton<AccountEmailHandler>();
         services.AddHostedService<CartReminderJob>();
-        services.AddSingleton<ReapSeek.Worker.Wishlist.PriceDropHandler>();
-        services.AddHostedService<ReapSeek.Worker.Wishlist.PriceDropJob>();
+        services.AddSingleton<ReapSeek.Worker.Engagement.Wishlist.PriceDropHandler>();
+        services.AddHostedService<ReapSeek.Worker.Engagement.Wishlist.PriceDropJob>();
         services.AddHostedService<ReapSeek.Worker.Sellers.SellerRatingJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
         services.AddSandboxProviders();
         services.AddSingleton<PayoutRunner>();
         services.AddHostedService<PayoutJob>();
-        services.AddHostedService<ReapSeek.Worker.Maintenance.CleanupJob>();
+        services.AddHostedService<ReapSeek.Worker.Platform.Maintenance.CleanupJob>();
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
         services.AddHostedService<OutboxProcessor>();

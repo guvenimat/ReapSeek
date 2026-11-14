@@ -1,15 +1,19 @@
 using ReapSeek.Shared.Outbox;
-using ReapSeek.Worker.Caching;
-using ReapSeek.Worker.CatalogSync;
+using ReapSeek.Worker.Catalog.Caching;
+using ReapSeek.Worker.Catalog.CatalogSync;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Orders;
-using ReapSeek.Worker.Search;
+using ReapSeek.Worker.Catalog.Search;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
-    OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, EngagementHandler engagement, AccountEmailHandler accounts,
-    ReapSeek.Worker.Wishlist.PriceDropHandler priceDrops, OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders, ReapDeepEventsHandler reapDeepEvents)
+    OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, CartReminderHandler cartReminders, AlertMailHandler alerts, FailedJobNotifier failedJobs, AccountEmailHandler accounts,
+    ReapSeek.Worker.Engagement.Wishlist.PriceDropHandler priceDrops, OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders, ReapDeepEventsHandler reapDeepEvents)
 {
     const string CatalogGroup = "catalog";
     const string ReapDeepCatalogGroup = "reapdeep_catalog";
@@ -36,11 +40,6 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
             return;
         }
         var message = batch.Single();
-        if (message.Type is OutboxTypes.CartReminder or OutboxTypes.AlertReceived or OutboxTypes.OutboxFailed)
-        {
-            await engagement.HandleAsync(message, ct);
-            return;
-        }
         if (message.Type is OutboxTypes.CampaignSend or OutboxTypes.CouponIssued)
         {
             await campaigns.HandleAsync(message, ct);
@@ -64,6 +63,9 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
             OutboxTypes.PackageShipReminder => packageReminders.HandleAsync(message, ct),
             OutboxTypes.OrderRefundDue => orderRefunds.HandleAsync(message, ct),
             OutboxTypes.ReapDeepEvents => reapDeepEvents.HandleAsync(message, ct),
+            OutboxTypes.CartReminder => cartReminders.HandleAsync(message, ct),
+            OutboxTypes.AlertReceived => alerts.HandleAsync(message, ct),
+            OutboxTypes.OutboxFailed => failedJobs.HandleAsync(message, ct),
             OutboxTypes.PriceDropped => priceDrops.HandleAsync(message, ct),
             OutboxTypes.PackageDelivered => Task.CompletedTask,
             OutboxTypes.OrderPlaced or OutboxTypes.OrderPaymentFailed or OutboxTypes.OrderCancelled => Task.CompletedTask,

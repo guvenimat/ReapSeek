@@ -1,3 +1,4 @@
+using ReapSeek.Api.Finance;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -125,6 +126,10 @@ public static class HostingExtensions
         services.AddSingleton<RecommenderClient>();
         services.AddSingleton<RecommendationService>();
         services.AddSingleton<SellerPanelRepository>();
+        services.AddSingleton<SellerPackagesRepository>();
+        services.AddSingleton<SellerPackages>();
+        services.AddSingleton<SellerFinanceRepository>();
+        services.AddSingleton<SellerFinance>();
         services.AddSingleton<SellerCatalogRepository>();
         services.AddSingleton<SellerCatalog>();
         services.AddSingleton<SellerPanelService>();

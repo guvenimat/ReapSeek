@@ -10,7 +10,7 @@ using ReapSeek.Modules.Ordering;
 namespace ReapSeek.Api.Sellers.SellerPanel;
 
 public sealed class SellerPanelService(
-    NpgsqlDataSource db, SellerPanelRepository panel, SellerCatalog sellerCatalog, CatalogService catalog, ICarrier carrier, TimeProvider clock)
+    SellerCatalog sellerCatalog, CatalogService catalog)
 {
     public async Task<SellerProductView> ProductAsync(long sellerId, long productId, CancellationToken ct)
     {
@@ -57,18 +57,4 @@ public sealed class SellerPanelService(
         return await catalog.GetProductAsync(productId, ct);
     }
 
-    public async Task<SellerPackageRow> ShipAsync(long sellerId, Guid packageId, CancellationToken ct)
-    {
-        var orderId = await panel.OrderOfPackageAsync(packageId, sellerId, ct) ?? throw new NotFoundException("Package not found");
-        var shipment = await carrier.CreateShipmentAsync(packageId.ToString(), ShipmentKinds.Outbound, ct);
-        await using (var conn = await db.OpenConnectionAsync(ct))
-        await using (var tx = await conn.BeginTransactionAsync(ct))
-        {
-            var order = await OrderStore.LoadAsync(conn, tx, orderId) ?? throw new NotFoundException("Package not found");
-            order.ShipPackage(packageId, sellerId, shipment.TrackingNumber, clock.GetUtcNow().UtcDateTime);
-            await OrderStore.SaveAsync(conn, tx, order);
-            await tx.CommitAsync(ct);
-        }
-        return (await panel.PackageAsync(sellerId, packageId, ct))!;
-    }
 }

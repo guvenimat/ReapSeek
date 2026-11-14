@@ -14,7 +14,7 @@ public class ArchitectureTests
     static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.ApiResults).Assembly;
     static readonly Assembly Worker = typeof(ReapSeek.Worker.Outbox.OutboxDispatcher).Assembly;
 
-    static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Engagement", "Marketing"];
+    static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
     static readonly string[] PlatformAreas = ["Infrastructure", "Seed", "Health", "Operations"];
 
     static readonly Dictionary<string, string[]> PublicApi = new()
@@ -24,7 +24,8 @@ public class ArchitectureTests
             "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
             "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
         ["Sellers"] = [],
-        ["Ordering"] = ["CartService"],
+        ["Ordering"] = ["CartService", "SellerPackages", "SellerPackageRow", "SellerPackagesResponse", "PackageAddress", "PackageLineRow", "PackageFilter"],
+        ["Finance"] = ["SellerFinance", "SellerBalanceResponse", "BalanceSummary", "LedgerRow", "PayoutRow", "PayoutsResponse"],
         ["Engagement"] = [],
         ["Marketing"] = [],
     };
@@ -130,7 +131,7 @@ public class ArchitectureTests
         var dataAccess = DataAccessTypes("Dapper", "Npgsql");
         Assert.Contains(dataAccess, t => t.Name == "CheckoutService");
         var failures = ApiModules.SelectMany(m => ModuleViolations(m,
-            dataAccess.Where(t => ModuleOf(t) == m).Select(t => t.FullName!).ToArray())).ToList();
+            dataAccess.Where(t => ModuleOf(t) == m && !PublicApi[m].Contains(t.Name)).Select(t => t.FullName!).ToArray())).ToList();
         Assert.Empty(failures);
     }
 

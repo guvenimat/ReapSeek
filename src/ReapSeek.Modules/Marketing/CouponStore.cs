@@ -12,6 +12,9 @@ public static class CouponStore
     public sealed record RedeemRecord(long Id, Guid OrderId, DateTime At);
     public sealed record CampaignRecord(
         long Id, string Name, long CohortId, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject, string Message, string Status);
+    public sealed record CouponOrderRecord(Guid OrderId);
+    public sealed record CustomerCoupon(string Code, string Campaign, string Kind, decimal Value, DateTime ExpiresAt, Guid? UsedOrderId);
+    public sealed record CouponCustomerRecord(long CustomerId);
     public sealed record IssueRecord(long CampaignId, long[] CustomerIds, string[] Codes, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, DateTime ExpiresAt);
 
     public static string KindName(DiscountKind kind) => kind == DiscountKind.Percent ? "percent" : "fixed";
@@ -37,6 +40,16 @@ public static class CouponStore
         await conn.QuerySingleOrDefaultAsync<CampaignRecord>("""
             SELECT id, name, cohort_id, kind, value, min_subtotal, max_discount, valid_days, subject, message, status FROM campaigns WHERE id = @Id
             """ + (tx is null ? "" : " FOR UPDATE"), new { Id = id }, tx);
+
+    public static async Task<List<CustomerCoupon>> RecentForCustomerAsync(NpgsqlConnection conn, long customerId, int limit) =>
+        (await conn.QueryAsync<CustomerCoupon>($"""
+            SELECT c.code, m.name AS campaign, c.kind, c.value, c.expires_at, c.used_order_id
+            FROM marketing.coupons c JOIN marketing.campaigns m ON m.id = c.campaign_id
+            WHERE c.customer_id = @CustomerId ORDER BY c.created_at DESC LIMIT {limit}
+            """, new CouponCustomerRecord(customerId))).AsList();
+
+    public static Task ReleaseAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid orderId) =>
+        conn.ExecuteAsync("UPDATE marketing.coupons SET used_order_id = NULL, used_at = NULL WHERE used_order_id = @OrderId", new CouponOrderRecord(orderId), tx);
 
     public static async Task<int> IssueAsync(NpgsqlConnection conn, NpgsqlTransaction tx, IssueRecord issue)
     {

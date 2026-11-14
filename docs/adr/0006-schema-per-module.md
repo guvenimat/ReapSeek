@@ -12,10 +12,10 @@ Each module owns one PostgreSQL schema in the same database:
 
 | Module | Schema | Tables |
 |---|---|---|
-| Identity | `identity` | users, sessions, account_tokens, addresses |
-| Catalog | `catalog` | categories, brands, products, product_images, product_variants, offers, buy_box |
+| Identity | `identity` | users, sessions, account_tokens |
+| Catalog | `catalog` | categories, brands, products, product_images, product_variants, offers, buy_box, seller_snapshots (read model of sellers, 0019) |
 | Sellers | `sellers` | sellers |
-| Ordering | `ordering` | carts, cart_lines, orders, order_packages, order_lines, payments, payment_events, shipment_events, returns, return_lines |
+| Ordering | `ordering` | carts, cart_lines, orders, order_packages, order_lines, payments, payment_events, shipment_events, returns, return_lines, addresses (checkout address book, moved by 0020) |
 | Finance | `finance` | seller_ledger, payouts |
 | Engagement | `engagement` | reviews, questions, answers, wishlist_items |
 | Marketing | `marketing` | campaigns, coupons, reapdeep_alert_subscriptions, analytics_alerts |

@@ -6,7 +6,7 @@ using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Seed;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Outbox;
-using ReapSeek.Worker.CatalogSync;
+using ReapSeek.Worker.Catalog.CatalogSync;
 using ReapSeek.Worker.Outbox;
 
 namespace ReapSeek.UnitTests;
@@ -186,6 +186,16 @@ public class CatalogTests
         var f = new OutboxRepository.MessageRecord(6, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(e), OutboxDispatcher.GroupOf(f));
         Assert.NotEqual(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(e));
+    }
+
+    [Fact]
+    public void Seller_scores_shrink_toward_the_platform_mean()
+    {
+        var scores = ReapSeek.Worker.Sellers.SellerRatingJob.Scores([1, 2, 3], [(1, 5), (1, 5), (2, 1)]);
+        Assert.Equal(Math.Round((10 * (11m / 3) + 10) / 12, 1), scores[1]);
+        Assert.Equal(Math.Round((10 * (11m / 3) + 1) / 11, 1), scores[2]);
+        Assert.Equal(3.7m, scores[3]);
+        Assert.Equal(4.0m, ReapSeek.Worker.Sellers.SellerRatingJob.Scores([9], [])[9]);
     }
 
     [Fact]

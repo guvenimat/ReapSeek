@@ -2,6 +2,12 @@ using System.Diagnostics;
 using Npgsql;
 using ReapSeek.Shared.Observability;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
+using ReapSeek.Worker.Notifications;
 namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher dispatcher, IConfiguration cfg, ILogger<OutboxProcessor> log)

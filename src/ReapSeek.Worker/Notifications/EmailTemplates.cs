@@ -3,9 +3,14 @@ using System.Globalization;
 using System.Text;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
-using ReapSeek.Worker.Orders;
 using ReapSeek.Shared.Outbox;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
+using ReapSeek.Worker.Outbox;
 namespace ReapSeek.Worker.Notifications;
 
 public static class EmailTemplates

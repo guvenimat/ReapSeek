@@ -1,5 +1,9 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Catalog;
+using ReapSeek.Modules.Engagement;
+using ReapSeek.Modules.Marketing;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Analytics;
 
 namespace ReapSeek.Api.Identity.Customers;
@@ -8,36 +12,30 @@ public enum SuspensionChange { Changed, NotFound, Unchanged }
 
 public sealed class CustomerRepository(NpgsqlDataSource db)
 {
-    public sealed record ListRecord(string? Pattern, string? Status, int Limit, int Offset);
-    public sealed record ListRow(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, int Orders, decimal Spent, DateTime? LastOrderAt, int Total);
+    public sealed record ListRecord(string? Pattern, string? Status);
+    public sealed record ListRow(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt);
     public sealed record IdRecord(long Id);
     public sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt);
     public sealed record SuspendRecord(long Id, string? Reason);
-    public sealed record ProductIdsRecord(long[] Ids);
-    public sealed record ProductTitleRecord(long Id, string Title);
 
     public static async Task<Dictionary<long, string>> ProductTitlesAsync(NpgsqlConnection conn, long[] ids) =>
-        (await conn.QueryAsync<ProductTitleRecord>("SELECT id, title FROM products WHERE id = ANY(@Ids)", new ProductIdsRecord(ids)))
-            .ToDictionary(p => p.Id, p => p.Title);
+        (await CatalogLookups.ProductsAsync(conn, ids)).ToDictionary(p => p.Key, p => p.Value.Title);
 
     public async Task<(List<CustomerRow> Rows, int Total)> ListAsync(string? pattern, string sort, string? status, int page, int pageSize, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = (await conn.QueryAsync<ListRow>($"""
-            WITH stats AS (
-                SELECT customer_id, count(*)::int AS orders, sum(total) AS spent, max(placed_at) AS last_order_at
-                FROM orders WHERE status = 'paid' GROUP BY customer_id)
-            SELECT u.id, u.name, u.email, u.created_at, u.suspended_at, coalesce(s.orders, 0) AS orders, coalesce(s.spent, 0) AS spent,
-                s.last_order_at, (count(*) OVER ())::int AS total
-            FROM users u LEFT JOIN stats s ON s.customer_id = u.id
+        var people = (await conn.QueryAsync<ListRow>("""
+            SELECT u.id, u.name, u.email, u.created_at, u.suspended_at FROM identity.users u
             WHERE u.role = 'customer'
               AND (@Pattern::text IS NULL OR u.email ILIKE @Pattern OR u.name ILIKE @Pattern)
               AND (@Status::text IS NULL OR (@Status = 'suspended') = (u.suspended_at IS NOT NULL))
-            ORDER BY {CustomerQuery.OrderBy(sort)}
-            LIMIT @Limit OFFSET @Offset
-            """, new ListRecord(pattern, status, pageSize, (page - 1) * pageSize))).AsList();
-        return (rows.Select(r => new CustomerRow(r.Id, r.Name, r.Email, r.CreatedAt, r.SuspendedAt, r.Orders, r.Spent, r.LastOrderAt)).ToList(),
-            rows.Count > 0 ? rows[0].Total : 0);
+            """, new ListRecord(pattern, status))).AsList();
+        var stats = await CustomerOrders.StatsAsync(conn, people.Select(p => p.Id));
+        var rows = people.Select(u => stats.TryGetValue(u.Id, out var o)
+            ? new CustomerRow(u.Id, u.Name, u.Email, u.CreatedAt, u.SuspendedAt, o.Orders, o.Spent, o.LastOrderAt)
+            : new CustomerRow(u.Id, u.Name, u.Email, u.CreatedAt, u.SuspendedAt, 0, 0, null));
+        var sorted = CustomerQuery.Sort(rows, sort).ToList();
+        return (sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList(), sorted.Count);
     }
 
     public async Task<bool> ExistsAsync(long id, CancellationToken ct)
@@ -53,32 +51,20 @@ public sealed class CustomerRepository(NpgsqlDataSource db)
         var profile = await conn.QuerySingleOrDefaultAsync<ProfileRecord>(
             "SELECT id, name, email, created_at, suspended_at, suspended_reason, email_verified_at FROM users WHERE id = @Id AND role = 'customer'", args);
         if (profile is null) return null;
-        var stats = await conn.QuerySingleAsync<CustomerStats>("""
-            SELECT (SELECT count(*)::int FROM orders WHERE customer_id = @Id AND status = 'paid') AS orders,
-                (SELECT coalesce(sum(total), 0) FROM orders WHERE customer_id = @Id AND status = 'paid') AS spent,
-                (SELECT coalesce(sum(refund_amount), 0) FROM returns WHERE customer_id = @Id AND status = 'refunded') AS refunded,
-                (SELECT coalesce(round(avg(total), 2), 0) FROM orders WHERE customer_id = @Id AND status = 'paid') AS average_order,
-                (SELECT count(*)::int FROM returns WHERE customer_id = @Id) AS returns,
-                (SELECT count(*)::int FROM reviews WHERE customer_id = @Id) AS reviews,
-                (SELECT min(placed_at) FROM orders WHERE customer_id = @Id AND status = 'paid') AS first_order_at,
-                (SELECT max(placed_at) FROM orders WHERE customer_id = @Id AND status = 'paid') AS last_order_at
-            """, args);
-        var orders = (await conn.QueryAsync<CustomerOrderRow>("""
-            SELECT o.number, o.status, o.total, (SELECT count(*)::int FROM order_packages p WHERE p.order_id = o.id) AS packages, o.placed_at
-            FROM orders o WHERE o.customer_id = @Id ORDER BY o.placed_at DESC LIMIT 20
-            """, args)).AsList();
-        var returns = (await conn.QueryAsync<CustomerReturnRow>("""
-            SELECT number, order_number, status, reason, refund_amount, requested_at FROM returns WHERE customer_id = @Id ORDER BY requested_at DESC LIMIT 10
-            """, args)).AsList();
-        var reviews = (await conn.QueryAsync<CustomerReviewRow>("""
-            SELECT r.product_id, p.title AS product_title, r.rating, r.title, r.status, r.created_at
-            FROM reviews r JOIN products p ON p.id = r.product_id WHERE r.customer_id = @Id ORDER BY r.created_at DESC LIMIT 10
-            """, args)).AsList();
-        var coupons = (await conn.QueryAsync<CustomerCouponRow>("""
-            SELECT c.code, m.name AS campaign, c.kind, c.value, c.expires_at, o.number AS used_order_number
-            FROM coupons c JOIN campaigns m ON m.id = c.campaign_id LEFT JOIN orders o ON o.id = c.used_order_id
-            WHERE c.customer_id = @Id ORDER BY c.created_at DESC LIMIT 10
-            """, args)).AsList();
+        var order = (await CustomerOrders.StatsAsync(conn, [id])).GetValueOrDefault(id);
+        var returnTotals = await CustomerOrders.ReturnTotalsAsync(conn, id);
+        var stats = new CustomerStats(order?.Orders ?? 0, order?.Spent ?? 0, returnTotals.Refunded, order?.AverageOrder ?? 0, returnTotals.Returns,
+            await ReviewStats.CountForCustomerAsync(conn, id), order?.FirstOrderAt, order?.LastOrderAt);
+        var orders = (await CustomerOrders.RecentAsync(conn, id, 20)).Select(o => new CustomerOrderRow(o.Number, o.Status, o.Total, o.Packages, o.PlacedAt)).ToList();
+        var returns = (await CustomerOrders.RecentReturnsAsync(conn, id, 10))
+            .Select(r => new CustomerReturnRow(r.Number, r.OrderNumber, r.Status, r.Reason, r.RefundAmount, r.RequestedAt)).ToList();
+        var recentReviews = await ReviewStats.RecentForCustomerAsync(conn, id, 10);
+        var titles = await ProductTitlesAsync(conn, recentReviews.Select(r => r.ProductId).ToArray());
+        var reviews = recentReviews.Select(r => new CustomerReviewRow(r.ProductId, titles.GetValueOrDefault(r.ProductId) ?? "", r.Rating, r.Title, r.Status, r.CreatedAt)).ToList();
+        var recentCoupons = await CouponStore.RecentForCustomerAsync(conn, id, 10);
+        var numbers = await CustomerOrders.NumbersAsync(conn, recentCoupons.Where(c => c.UsedOrderId is not null).Select(c => c.UsedOrderId!.Value));
+        var coupons = recentCoupons.Select(c => new CustomerCouponRow(c.Code, c.Campaign, c.Kind, c.Value, c.ExpiresAt,
+            c.UsedOrderId is { } used ? numbers.GetValueOrDefault(used) : null)).ToList();
         return new CustomerDetail(profile.Id, profile.Name, profile.Email, profile.CreatedAt, profile.SuspendedAt, profile.SuspendedReason, profile.EmailVerifiedAt,
             ReapDeepIdentity.DistinctId(id), stats, orders, returns, reviews, coupons);
     }
