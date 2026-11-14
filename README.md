@@ -90,7 +90,28 @@ flowchart LR
 
 ### Code architecture
 
-The backend is a **modular monolith**: one API (stateless, so it can run as several instances behind a load balancer) and one worker, with code organized by feature (`Catalog/`, `Search/`, `Carts/`, `Checkout/`, `Orders/`, `Payments/`, ...) rather than by technical layer. Each feature keeps the same three kinds of classes: `*Endpoints` (routes and access rules, no SQL), a service or pure logic class, and a repository (Dapper with compile-time generated mapping, so everything runs under Native AOT). The architecture is not uniform on purpose; each area uses the simplest style that carries its rules:
+#### Modules
+
+| Module | Schema | Owns | Features |
+|---|---|---|---|
+| Identity | `identity` | users, sessions, account tokens | sign-in, accounts, password reset, back office customers |
+| Catalog | `catalog` | categories, brands, products, images, variants, offers, buy box, seller snapshot | catalog admin, product pages, search, media, recommendations |
+| Sellers | `sellers` | sellers | seller admin, seller center, seller stores, seller ratings |
+| Ordering | `ordering` | carts, orders, packages, payments, shipments, returns, address book | cart, checkout, payments, orders, shipping, returns |
+| Finance | `finance` | seller ledger, payouts | balances, weekly payouts |
+| Engagement | `engagement` | reviews, questions, answers, wishlists | reviews and Q&A, favorites, price drop alerts |
+| Marketing | `marketing` | campaigns, coupons, ReapDeep alerts | campaigns, coupons, analytics alerts |
+| Platform | `platform` | outbox | outbox, health, operations, seed |
+
+The boundaries are data boundaries ([ADR 0006](docs/adr/0006-schema-per-module.md)):
+
+- A module's SQL touches only its own schema, and no foreign key crosses schemas; other modules' rows are referenced by id.
+- Modules talk through small public APIs in `ReapSeek.Modules` (`People`, `CatalogLookups`, `Offers`, `SellerDirectory`, `OrderLookups`, `CustomerOrders`, `ReviewStats`, `CouponStore`, ...) that the API, worker and simulator share.
+- Steps that must be atomic across modules, such as reserving stock at checkout, redeeming a coupon or fixing the seller's commission on an order, call the owning module's API inside the caller's transaction. The database is shared, so this stays one PostgreSQL transaction instead of a saga.
+- Data that is read across modules on hot paths is copied into a local read model: the catalog keeps `seller_snapshots` (name, status, rating) for the buy box, written by the sellers module in the same transaction as the seller change.
+- Outside the API, the worker follows the same layout (`Worker/Catalog`, `Worker/Ordering`, ...). Seed data and the shopping simulator are the only code allowed to write across modules.
+
+The backend is a **modular monolith**: one API (stateless, so it can run as several instances behind a load balancer) and one worker, split into modules that each own their code and their own PostgreSQL schema, with feature folders inside each module rather than technical layers. Each feature keeps the same three kinds of classes: `*Endpoints` (routes and access rules, no SQL), a service or pure logic class, and a repository (Dapper with compile-time generated mapping, so everything runs under Native AOT). The architecture is not uniform on purpose; each area uses the simplest style that carries its rules:
 
 | Area | Style | Why |
 |---|---|---|
@@ -106,14 +127,14 @@ The backend is a **modular monolith**: one API (stateless, so it can run as seve
 - **Coupons:** `Coupon.DiscountFor` checks the owner, single use, expiry and minimum basket and computes a percentage (rounded, optionally capped) or fixed discount; `Order.Place` takes it as an `OrderDiscount`, and the total is items + shipping - discount.
 - **Returns:** `ReturnRequest` checks the 7-day window after delivery, the quantity still returnable per line and the reason, and moves through requested → approved or rejected → received → refunded. `MarkRefunded` returns the ledger entries for the refund.
 - **Settlement:** `Settlement.ForPackage` turns a delivered package into ledger entries (sale, shipping fee, commission) and `PayoutPeriod` finds the Monday that closes a payout week.
-- **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`, `PackageShipped`, `PackageDelivered`, and `ReturnRequested` ... `ReturnRefunded`. The persistence layer (`ReapSeek.Shared/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
+- **Domain events:** `OrderPlaced`, `OrderPaid`, `OrderPaymentFailed`, `OrderCancelled`, `PackageShipped`, `PackageDelivered`, and `ReturnRequested` ... `ReturnRefunded`. The persistence layer (`ReapSeek.Modules/Ordering/OrderStore`) writes them to the outbox in the same transaction as the order, and events that release stock return it in that transaction too.
 - **Unit tested** without a database: every rule has a test in `DomainTests.cs`.
 
 There is deliberately no generic repository, mediator or separate application layer: the endpoints call a service, the service loads an aggregate, calls one of its methods and saves it.
 
 External providers sit behind three ports in `ReapSeek.Shared/Providers`: `IPaymentGateway`, `ICarrier` and `IPayoutBank`, all implemented today by the Sandbox adapter. Email, search and caching are not abstracted, because there is no second implementation to swap in.
 
-The rules above are enforced, not just documented: `ArchitectureTests.cs` (NetArchTest) fails the build when the domain references a framework, an endpoint class runs SQL, a repository is used outside its module group, or code outside a composition root references the Sandbox adapter. The reasoning behind each choice is recorded in [`docs/adr`](docs/adr): [modular monolith](docs/adr/0001-modular-monolith.md), [hybrid architecture](docs/adr/0002-hybrid-architecture.md), [transactional outbox](docs/adr/0003-transactional-outbox.md), [ReapDeep through public interfaces](docs/adr/0004-reapdeep-public-interfaces.md) and [ports at real boundaries](docs/adr/0005-ports-at-real-boundaries.md).
+The rules above are enforced, not just documented: `ArchitectureTests.cs` (NetArchTest) fails the build when the domain references a framework, `ReapSeek.Shared` references module code, an endpoint class runs SQL, a module uses another module's types outside its declared public API, data access code is used outside its module, or code outside a composition root references the Sandbox adapter. `ModuleSqlTests.cs` scans module source for SQL that reaches into another module's tables. The reasoning behind each choice is recorded in [`docs/adr`](docs/adr): [modular monolith](docs/adr/0001-modular-monolith.md), [hybrid architecture](docs/adr/0002-hybrid-architecture.md), [transactional outbox](docs/adr/0003-transactional-outbox.md), [ReapDeep through public interfaces](docs/adr/0004-reapdeep-public-interfaces.md) and [ports at real boundaries](docs/adr/0005-ports-at-real-boundaries.md) and [one schema per module](docs/adr/0006-schema-per-module.md).
 
 ### What is built so far
 
@@ -402,10 +423,11 @@ Every change that affects what shoppers see (a product edit, a status change, an
 
 ```
 src/
-  ReapSeek.Api/        Minimal API (feature folders: Identity, Catalog, Search, Carts, Checkout, Orders, Payments, ...)
+  ReapSeek.Api/        Minimal API, one folder per module (Identity, Catalog, Sellers, Ordering, Finance, Engagement, Marketing)
   ReapSeek.Domain/     Domain model for carts, orders and money, no dependencies
-  ReapSeek.Worker/     Outbox processor, emails, search indexing, ReapDeep sync and purchase events, payment expiry
-  ReapSeek.Shared/     Migrations, outbox contracts, order persistence, Redis cache, validation helpers
+  ReapSeek.Modules/    Module persistence and the public APIs modules use to reach each other
+  ReapSeek.Worker/     Outbox processor and background jobs, one folder per module
+  ReapSeek.Shared/     Infrastructure only: migrations, outbox, database, Redis, OpenSearch, telemetry, provider ports
   ReapSeek.Sandbox/    Simulated payment provider, carrier and bank transfers
   ReapSeek.Simulator/  Shopping simulator: history backfill and live shoppers
 storefront/            Next.js storefront
