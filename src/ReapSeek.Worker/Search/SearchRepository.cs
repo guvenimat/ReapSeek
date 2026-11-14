@@ -34,7 +34,7 @@ public sealed class SearchRepository(NpgsqlDataSource db)
                 bb.price, bb.list_price,
                 (SELECT count(DISTINCT o.seller_id)::int FROM product_variants v
                  JOIN offers o ON o.variant_id = v.id AND o.status = 'active' AND o.stock > 0
-                 JOIN sellers s ON s.id = o.seller_id AND s.status = 'active'
+                 JOIN seller_snapshots s ON s.id = o.seller_id AND s.status = 'active'
                  WHERE v.product_id = p.id) AS seller_count,
                 (SELECT i.url FROM product_images i WHERE i.product_id = p.id ORDER BY i.position LIMIT 1) AS image_url,
                 (SELECT string_agg(i.color || '=' || i.url, '|' ORDER BY i.position) FROM product_images i
@@ -50,7 +50,7 @@ public sealed class SearchRepository(NpgsqlDataSource db)
                 SELECT o.price, o.list_price
                 FROM product_variants v
                 JOIN offers o ON o.variant_id = v.id AND o.status = 'active' AND o.stock > 0
-                JOIN sellers s ON s.id = o.seller_id AND s.status = 'active'
+                JOIN seller_snapshots s ON s.id = o.seller_id AND s.status = 'active'
                 WHERE v.product_id = p.id
                 ORDER BY o.price, s.rating DESC, o.handling_days, o.id
                 LIMIT 1

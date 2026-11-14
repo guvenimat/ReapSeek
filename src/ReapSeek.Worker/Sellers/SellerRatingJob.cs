@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Worker.Sellers;
@@ -11,7 +12,7 @@ public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILo
     public const int WindowDays = 180;
 
     public sealed record RatingParamsRecord(decimal Prior, int Weight, int WindowDays);
-    public sealed record ChangeRecord(long SellerId, long? ProductId);
+    public sealed record ChangeRecord(long Id, string Name, string Slug, string City, string Status, decimal Rating);
     public sealed record Result(int Sellers, int Products);
 
     readonly TimeSpan _interval = TimeSpan.FromSeconds(cfg.GetValue("Sellers:RatingRefreshSeconds", 3600));
@@ -50,22 +51,21 @@ public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILo
             prior AS (SELECT coalesce(avg(rating), @Prior) AS mean FROM attributed),
             scores AS (
                 SELECT s.id, round((@Weight * prior.mean + coalesce(sum(a.rating), 0)) / (@Weight + count(a.id)), 1) AS rating
-                FROM sellers s CROSS JOIN prior LEFT JOIN attributed a ON a.seller_id = s.id
+                FROM sellers.sellers s CROSS JOIN prior LEFT JOIN attributed a ON a.seller_id = s.id
                 GROUP BY s.id, prior.mean),
             changed AS (
-                UPDATE sellers s SET rating = scores.rating FROM scores
+                UPDATE sellers.sellers s SET rating = scores.rating FROM scores
                 WHERE s.id = scores.id AND s.rating IS DISTINCT FROM scores.rating
-                RETURNING s.id)
-            SELECT DISTINCT c.id AS seller_id, v.product_id
-            FROM changed c
-            LEFT JOIN offers o ON o.seller_id = c.id
-            LEFT JOIN product_variants v ON v.id = o.variant_id
+                RETURNING s.id, s.name, s.slug, s.city, s.status, s.rating)
+            SELECT id, name, slug, city, status, rating FROM changed
             """, new RatingParamsRecord(FallbackPrior, PriorWeight, WindowDays), tx)).AsList();
 
-        var products = changes.Where(c => c.ProductId is not null).Select(c => c.ProductId!.Value).Distinct().ToList();
+        await SellerSnapshots.UpsertAsync(conn, tx, changes.Select(c => new SellerSnapshotRecord(c.Id, c.Name, c.Slug, c.City, c.Status, c.Rating)).ToList());
+        var products = new HashSet<long>();
+        foreach (var change in changes) products.UnionWith(await SellerSnapshots.ProductIdsOfSellerAsync(conn, tx, change.Id));
         if (products.Count > 0)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged, new ProductsChanged(products), OutboxJsonContext.Default.ProductsChanged);
+            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged, new ProductsChanged(products.ToList()), OutboxJsonContext.Default.ProductsChanged);
         await tx.CommitAsync(ct);
-        return new Result(changes.Select(c => c.SellerId).Distinct().Count(), products.Count);
+        return new Result(changes.Count, products.Count);
     }
 }

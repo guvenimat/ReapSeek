@@ -10,15 +10,15 @@ using ReapSeek.Modules.Ordering;
 namespace ReapSeek.Api.Sellers.SellerPanel;
 
 public sealed class SellerPanelService(
-    NpgsqlDataSource db, SellerPanelRepository panel, CatalogService catalog, ICarrier carrier, TimeProvider clock)
+    NpgsqlDataSource db, SellerPanelRepository panel, SellerCatalog sellerCatalog, CatalogService catalog, ICarrier carrier, TimeProvider clock)
 {
     public async Task<SellerProductView> ProductAsync(long sellerId, long productId, CancellationToken ct)
     {
         var product = await catalog.GetProductAsync(productId, ct);
-        var submitter = await panel.SubmitterAsync(productId, ct);
+        var submitter = await sellerCatalog.SubmitterAsync(productId, ct);
         var own = submitter == sellerId;
         if (product.Status != ProductStatus.Active && !own) throw new NotFoundException("Product not found");
-        var buyBox = product.Status == ProductStatus.Active ? await panel.BuyBoxAsync(productId, ct) : [];
+        var buyBox = product.Status == ProductStatus.Active ? await sellerCatalog.BuyBoxAsync(productId, ct) : [];
         var mine = product.Variants.SelectMany(v => v.Offers).Where(o => o.SellerId == sellerId).Select(o => o.Id).ToHashSet();
         var visible = product with
         {
@@ -39,7 +39,7 @@ public sealed class SellerPanelService(
     public async Task<SellerProductView> ProposeAsync(long sellerId, CreateProductRequest req, CancellationToken ct)
     {
         var product = await catalog.CreateProductAsync(req, ct);
-        await panel.MarkSubmittedAsync(product.Id, sellerId, ct);
+        await sellerCatalog.MarkSubmittedAsync(product.Id, sellerId, ct);
         return await ProductAsync(sellerId, product.Id, ct);
     }
 
@@ -53,7 +53,7 @@ public sealed class SellerPanelService(
         Ensure.That(product.Status == ProductStatus.PendingReview, "Only a product that is pending review can be reviewed");
         var status = decision == ReviewDecision.Approve ? ProductStatus.Active : ProductStatus.Rejected;
         await catalog.UpdateProductAsync(productId, new UpdateProductRequest(null, null, null, null, null, status), ct);
-        await panel.SetReviewNoteAsync(productId, note, ct);
+        await sellerCatalog.SetReviewNoteAsync(productId, note, ct);
         return await catalog.GetProductAsync(productId, ct);
     }
 

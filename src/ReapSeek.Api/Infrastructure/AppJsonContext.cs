@@ -17,7 +17,7 @@ using ReapSeek.Api.Engagement.Reviews;
 using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Api.Sellers.SellerPanel;
 using ReapSeek.Api.Sellers;
-using ReapSeek.Api.Catalog.Stores;
+using ReapSeek.Api.Sellers.Stores;
 using ReapSeek.Api.Engagement.Wishlist;
 using ReapSeek.Modules.Finance;
 

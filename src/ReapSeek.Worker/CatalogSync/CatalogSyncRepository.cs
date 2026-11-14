@@ -35,7 +35,7 @@ public sealed class CatalogSyncRepository(NpgsqlDataSource db)
                 SELECT o.price
                 FROM product_variants v
                 JOIN offers o ON o.variant_id = v.id AND o.status = 'active' AND o.stock > 0
-                JOIN sellers s ON s.id = o.seller_id AND s.status = 'active'
+                JOIN seller_snapshots s ON s.id = o.seller_id AND s.status = 'active'
                 WHERE v.product_id = p.id
                 ORDER BY o.price, s.rating DESC, o.handling_days, o.id
                 LIMIT 1

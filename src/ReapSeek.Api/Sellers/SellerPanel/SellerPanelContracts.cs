@@ -5,15 +5,11 @@ namespace ReapSeek.Api.Sellers.SellerPanel;
 
 public sealed record SellerAccount(long Id, string Name, string Slug, string City, string Status, decimal CommissionRate, decimal Rating);
 
-public sealed record SellerOfferRow(
-    long Id, long ProductId, string ProductTitle, string ProductSlug, string ProductStatus, long VariantId, string Sku, string VariantLabel,
-    decimal Price, decimal? ListPrice, int Stock, int HandlingDays, string Status, decimal? BuyBoxPrice, bool IsBuyBox, DateTime UpdatedAt);
 public sealed record SellerOffersResponse(List<SellerOfferRow> Offers, long Total, int Page, int PageSize);
 
 public sealed record VariantBuyBox(long VariantId, decimal? Price, bool Mine);
 public sealed record SellerProductView(ProductDetail Product, List<VariantBuyBox> BuyBox, bool Editable);
 
-public sealed record ProposalRow(long Id, string Slug, string Title, string Brand, string CategoryName, string Status, string? ReviewNote, DateTime CreatedAt);
 public sealed record ProposalsResponse(List<ProposalRow> Proposals);
 
 public sealed record PackageAddress(string FullName, string Phone, string City, string District, string Line, string PostalCode);

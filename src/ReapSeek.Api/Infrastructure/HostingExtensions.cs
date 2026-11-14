@@ -20,7 +20,7 @@ using ReapSeek.Api.Catalog.Recommendations;
 using ReapSeek.Api.Ordering.Returns;
 using ReapSeek.Api.Engagement.Reviews;
 using ReapSeek.Api.Catalog.Search;
-using ReapSeek.Api.Catalog.Stores;
+using ReapSeek.Api.Sellers.Stores;
 using ReapSeek.Api.Engagement.Wishlist;
 using ReapSeek.Api.Sellers.SellerPanel;
 using ReapSeek.Api.Sellers;
@@ -125,6 +125,8 @@ public static class HostingExtensions
         services.AddSingleton<RecommenderClient>();
         services.AddSingleton<RecommendationService>();
         services.AddSingleton<SellerPanelRepository>();
+        services.AddSingleton<SellerCatalogRepository>();
+        services.AddSingleton<SellerCatalog>();
         services.AddSingleton<SellerPanelService>();
         services.AddSingleton<PayoutRunner>();
         services.AddSingleton<ReturnService>();

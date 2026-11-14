@@ -47,7 +47,7 @@ public sealed class PriceDropJob(NpgsqlDataSource db, IConfiguration cfg, ILogge
                 JOIN products p ON p.id = w.product_id AND p.status = 'active'
                 JOIN users u ON u.id = w.customer_id AND u.suspended_at IS NULL AND u.email_verified_at IS NOT NULL
                 CROSS JOIN LATERAL (
-                    SELECT min(o.price) AS price FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN sellers s ON s.id = o.seller_id
+                    SELECT min(o.price) AS price FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN seller_snapshots s ON s.id = o.seller_id
                     WHERE v.product_id = w.product_id AND o.status = 'active' AND o.stock > 0 AND s.status = 'active') m
                 WHERE coalesce(w.alert_price, w.added_price) IS NOT NULL),
             due AS (SELECT * FROM current WHERE price IS NOT NULL AND price <= round(base * @Factor, 2) LIMIT @Limit)

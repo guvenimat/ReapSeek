@@ -19,11 +19,11 @@ public static class SellerPanelEndpoints
                 ? ApiResults.Ok(account, AppJsonContext.Default.SellerAccount)
                 : ApiResults.NotFound("Seller not found"));
 
-        seller.MapGet("/offers", async (UserInfo user, SellerPanelRepository panel, string? q, int? page, CancellationToken ct) =>
+        seller.MapGet("/offers", async (UserInfo user, SellerCatalog sellerCatalog, string? q, int? page, CancellationToken ct) =>
         {
             var p = Ensure.InRange(page ?? 1, 1, 1000, "page");
             var search = q?.Trim() is { Length: > 0 } s ? Ensure.NotBlank(s, "q", 100) : null;
-            var (rows, total) = await panel.OffersAsync(SellerOf(user), search, p, PageSize, ct);
+            var (rows, total) = await sellerCatalog.OffersAsync(SellerOf(user), search, p, PageSize, ct);
             return ApiResults.Ok(new SellerOffersResponse(rows, total, p, PageSize), AppJsonContext.Default.SellerOffersResponse);
         });
         seller.MapPut("/offers", async (OfferRequest req, UserInfo user, SellerPanelService service, CancellationToken ct) =>
@@ -40,8 +40,8 @@ public static class SellerPanelEndpoints
             ApiResults.Ok(new BrandsResponse(await catalog.ListBrandsAsync(ct)), AppJsonContext.Default.BrandsResponse));
         seller.MapPost("/catalog/products", async (CreateProductRequest req, UserInfo user, SellerPanelService service, CancellationToken ct) =>
             ApiResults.Created(await service.ProposeAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
-        seller.MapGet("/proposals", async (UserInfo user, SellerPanelRepository panel, CancellationToken ct) =>
-            ApiResults.Ok(new ProposalsResponse(await panel.ProposalsAsync(SellerOf(user), ct)), AppJsonContext.Default.ProposalsResponse));
+        seller.MapGet("/proposals", async (UserInfo user, SellerCatalog sellerCatalog, CancellationToken ct) =>
+            ApiResults.Ok(new ProposalsResponse(await sellerCatalog.ProposalsAsync(SellerOf(user), ct)), AppJsonContext.Default.ProposalsResponse));
 
         seller.MapGet("/packages", async (UserInfo user, SellerPanelRepository panel, string? status, int? page, CancellationToken ct) =>
         {
