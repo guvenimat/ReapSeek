@@ -1,6 +1,12 @@
 using System.Net.Mail;
 using System.Net.Mime;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
+using ReapSeek.Worker.Outbox;
 namespace ReapSeek.Worker.Notifications;
 
 public sealed record EmailMessage(string To, string Subject, string Text, string Html);

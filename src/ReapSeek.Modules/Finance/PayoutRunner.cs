@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using ReapSeek.Modules.Sellers;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Shared.Providers;
 
@@ -12,7 +13,7 @@ public sealed class PayoutRunner
 {
     const int LockKey = 0x504159;
 
-    public sealed record PendingTransferRecord(long Id, decimal Amount, string SellerName);
+    public sealed record PendingTransferRecord(long Id, decimal Amount, long SellerId);
     public sealed record TransferDoneRecord(long Id, string Reference);
     public sealed record PeriodRecord(DateTime PeriodEnd, DateTime Now);
 
@@ -56,15 +57,16 @@ public sealed class PayoutRunner
         }
 
         var pending = (await conn.QueryAsync<PendingTransferRecord>("""
-            SELECT p.id, p.amount, s.name AS seller_name FROM payouts p JOIN sellers s ON s.id = p.seller_id
+            SELECT p.id, p.amount, p.seller_id FROM payouts p
             WHERE p.transfer_reference IS NULL ORDER BY p.id
             """)).AsList();
+        var sellers = await SellerDirectory.ManyAsync(conn, pending.Select(p => p.SellerId));
         int transferred = 0, failures = 0;
         foreach (var p in pending)
         {
             try
             {
-                var transferId = await _bank.TransferAsync(p.Amount, "TRY", $"payout-{p.Id}", p.SellerName, ct);
+                var transferId = await _bank.TransferAsync(p.Amount, "TRY", $"payout-{p.Id}", sellers.GetValueOrDefault(p.SellerId)?.Name ?? $"seller-{p.SellerId}", ct);
                 await conn.ExecuteAsync("UPDATE payouts SET transfer_reference = @Reference WHERE id = @Id", new TransferDoneRecord(p.Id, transferId));
                 transferred++;
             }

@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared.Outbox;
@@ -12,12 +13,21 @@ public sealed class CampaignRepository(NpgsqlDataSource db)
         string Name, long CohortId, string CohortName, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject, string Message);
     public sealed record CustomerCouponsRecord(long CustomerId, DateTime Now);
     public sealed record CampaignIdRecord(long Id);
+    public sealed record CampaignRecord(
+        long Id, string Name, long CohortId, string CohortName, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject,
+        string Message, string Status, int Recipients, Guid[] UsedOrders, string? Error, DateTime CreatedAt, DateTime? SentAt);
+
+    static async Task<CampaignRow> ToRowAsync(NpgsqlConnection conn, CampaignRecord c)
+    {
+        var paid = await OrderLookups.PaidTotalAsync(conn, c.UsedOrders);
+        return new CampaignRow(c.Id, c.Name, c.CohortId, c.CohortName, c.Kind, c.Value, c.MinSubtotal, c.MaxDiscount, c.ValidDays, c.Subject,
+            c.Message, c.Status, c.Recipients, paid.Count, paid.Total, c.Error, c.CreatedAt, c.SentAt);
+    }
 
     const string Select = """
         SELECT c.id, c.name, c.cohort_id, c.cohort_name, c.kind, c.value, c.min_subtotal, c.max_discount, c.valid_days, c.subject, c.message, c.status,
             c.recipients,
-            (SELECT count(*)::int FROM coupons k JOIN orders o ON o.id = k.used_order_id WHERE k.campaign_id = c.id AND o.status = 'paid') AS redeemed,
-            (SELECT coalesce(sum(o.total), 0) FROM coupons k JOIN orders o ON o.id = k.used_order_id WHERE k.campaign_id = c.id AND o.status = 'paid') AS revenue,
+            coalesce((SELECT array_agg(k.used_order_id) FROM coupons k WHERE k.campaign_id = c.id AND k.used_order_id IS NOT NULL), '{}') AS used_orders,
             c.error, c.created_at, c.sent_at
         FROM campaigns c
         """;
@@ -43,7 +53,9 @@ public sealed class CampaignRepository(NpgsqlDataSource db)
     public async Task<List<CampaignRow>> ListAsync(CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        return (await conn.QueryAsync<CampaignRow>(Select + " ORDER BY c.created_at DESC LIMIT 100")).AsList();
+        var rows = new List<CampaignRow>();
+        foreach (var c in await conn.QueryAsync<CampaignRecord>(Select + " ORDER BY c.created_at DESC LIMIT 100")) rows.Add(await ToRowAsync(conn, c));
+        return rows;
     }
 
     public async Task<CampaignRow> CreateAsync(CampaignInsertRecord campaign, CancellationToken ct)
@@ -53,7 +65,7 @@ public sealed class CampaignRepository(NpgsqlDataSource db)
             INSERT INTO campaigns (name, cohort_id, cohort_name, kind, value, min_subtotal, max_discount, valid_days, subject, message)
             VALUES (@Name, @CohortId, @CohortName, @Kind, @Value, @MinSubtotal, @MaxDiscount, @ValidDays, @Subject, @Message) RETURNING id
             """, campaign);
-        return await conn.QuerySingleAsync<CampaignRow>(Select + " WHERE c.id = @Id", new CampaignIdRecord(id));
+        return await ToRowAsync(conn, await conn.QuerySingleAsync<CampaignRecord>(Select + " WHERE c.id = @Id", new CampaignIdRecord(id)));
     }
 
     public async Task<CampaignRow> StartSendingAsync(long id, CancellationToken ct)
@@ -66,6 +78,6 @@ public sealed class CampaignRepository(NpgsqlDataSource db)
         await conn.ExecuteAsync("UPDATE campaigns SET status = 'sending', error = NULL WHERE id = @Id", new CampaignIdRecord(id), tx);
         await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.CampaignSend, new CampaignMessage(id, null), OutboxJsonContext.Default.CampaignMessage);
         await tx.CommitAsync(ct);
-        return await conn.QuerySingleAsync<CampaignRow>(Select + " WHERE c.id = @Id", new CampaignIdRecord(id));
+        return await ToRowAsync(conn, await conn.QuerySingleAsync<CampaignRecord>(Select + " WHERE c.id = @Id", new CampaignIdRecord(id)));
     }
 }

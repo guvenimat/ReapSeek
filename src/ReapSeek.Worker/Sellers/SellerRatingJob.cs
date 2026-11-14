@@ -1,8 +1,17 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Engagement;
+using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Outbox;
 
+using ReapSeek.Worker.Ordering;
+using ReapSeek.Worker.Marketing;
+using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Platform.Analytics;
+using ReapSeek.Worker.Notifications;
+using ReapSeek.Worker.Outbox;
 namespace ReapSeek.Worker.Sellers;
 
 public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILogger<SellerRatingJob> log) : BackgroundService
@@ -11,9 +20,17 @@ public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILo
     public const int PriorWeight = 10;
     public const int WindowDays = 180;
 
-    public sealed record RatingParamsRecord(decimal Prior, int Weight, int WindowDays);
+    public sealed record ScoresRecord(long[] Ids, decimal[] Ratings);
     public sealed record ChangeRecord(long Id, string Name, string Slug, string City, string Status, decimal Rating);
     public sealed record Result(int Sellers, int Products);
+
+    public static Dictionary<long, decimal> Scores(IEnumerable<long> sellerIds, IReadOnlyCollection<(long SellerId, int Rating)> attributed)
+    {
+        var mean = attributed.Count == 0 ? FallbackPrior : (decimal)attributed.Average(a => a.Rating);
+        var bySeller = attributed.ToLookup(a => a.SellerId, a => a.Rating);
+        return sellerIds.ToDictionary(id => id, id =>
+            Math.Round((PriorWeight * mean + bySeller[id].Sum()) / (PriorWeight + bySeller[id].Count()), 1, MidpointRounding.AwayFromZero));
+    }
 
     readonly TimeSpan _interval = TimeSpan.FromSeconds(cfg.GetValue("Sellers:RatingRefreshSeconds", 3600));
 
@@ -39,26 +56,19 @@ public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILo
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
+        var reviews = await ReviewStats.RecentVisibleAsync(conn, tx, WindowDays);
+        var sellerOf = (await OrderLookups.DeliveredSellersAsync(conn, tx, reviews.Select(r => (r.CustomerId, r.ProductId)).Distinct().ToList()))
+            .ToDictionary(d => (d.CustomerId, d.ProductId), d => d.SellerId);
+        var attributed = reviews.Where(r => sellerOf.ContainsKey((r.CustomerId, r.ProductId)))
+            .Select(r => (SellerId: sellerOf[(r.CustomerId, r.ProductId)], r.Rating)).ToList();
+        var sellerIds = (await conn.QueryAsync<long>("SELECT id FROM sellers.sellers", transaction: tx)).ToArray();
+        var scores = Scores(sellerIds, attributed);
         var changes = (await conn.QueryAsync<ChangeRecord>("""
-            WITH attributed AS (
-                SELECT DISTINCT ON (r.id) r.id, r.rating, pk.seller_id
-                FROM reviews r
-                JOIN orders o ON o.customer_id = r.customer_id
-                JOIN order_lines l ON l.order_id = o.id AND l.product_id = r.product_id
-                JOIN order_packages pk ON pk.id = l.package_id AND pk.status = 'delivered'
-                WHERE r.status = 'visible' AND r.updated_at >= now() - make_interval(days => @WindowDays)
-                ORDER BY r.id, pk.delivered_at DESC NULLS LAST, pk.id),
-            prior AS (SELECT coalesce(avg(rating), @Prior) AS mean FROM attributed),
-            scores AS (
-                SELECT s.id, round((@Weight * prior.mean + coalesce(sum(a.rating), 0)) / (@Weight + count(a.id)), 1) AS rating
-                FROM sellers.sellers s CROSS JOIN prior LEFT JOIN attributed a ON a.seller_id = s.id
-                GROUP BY s.id, prior.mean),
-            changed AS (
-                UPDATE sellers.sellers s SET rating = scores.rating FROM scores
-                WHERE s.id = scores.id AND s.rating IS DISTINCT FROM scores.rating
-                RETURNING s.id, s.name, s.slug, s.city, s.status, s.rating)
-            SELECT id, name, slug, city, status, rating FROM changed
-            """, new RatingParamsRecord(FallbackPrior, PriorWeight, WindowDays), tx)).AsList();
+            UPDATE sellers.sellers s SET rating = n.rating
+            FROM unnest(@Ids, @Ratings) AS n(id, rating)
+            WHERE s.id = n.id AND s.rating IS DISTINCT FROM n.rating
+            RETURNING s.id, s.name, s.slug, s.city, s.status, s.rating
+            """, new ScoresRecord(scores.Keys.ToArray(), scores.Values.ToArray()), tx)).AsList();
 
         await SellerSnapshots.UpsertAsync(conn, tx, changes.Select(c => new SellerSnapshotRecord(c.Id, c.Name, c.Slug, c.City, c.Status, c.Rating)).ToList());
         var products = new HashSet<long>();

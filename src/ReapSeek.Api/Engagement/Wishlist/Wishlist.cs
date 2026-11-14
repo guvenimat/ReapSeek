@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Catalog.Search;
@@ -16,6 +17,7 @@ public sealed class WishlistRepository(NpgsqlDataSource db)
     public const int MaxItems = 200;
 
     public sealed record ItemRecord(long CustomerId, long ProductId);
+    public sealed record InsertRecord(long CustomerId, long ProductId, decimal? AddedPrice);
     public sealed record CustomerRecord(long CustomerId, int Limit);
     public sealed record RowRecord(long ProductId, decimal? AddedPrice, DateTime CreatedAt);
 
@@ -38,15 +40,13 @@ public sealed class WishlistRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         var args = new ItemRecord(customerId, productId);
-        if (await conn.ExecuteScalarAsync<long?>("SELECT id FROM products WHERE id = @ProductId AND status = 'active'", args) is null) return null;
+        if (!await CatalogLookups.IsActiveAsync(conn, productId)) return null;
         if (await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM wishlist_items WHERE customer_id = @CustomerId", args) >= MaxItems) return false;
         await conn.ExecuteAsync("""
             INSERT INTO wishlist_items (customer_id, product_id, added_price)
-            SELECT @CustomerId, @ProductId, (
-                SELECT min(o.price) FROM offers o JOIN product_variants v ON v.id = o.variant_id JOIN seller_snapshots s ON s.id = o.seller_id
-                WHERE v.product_id = @ProductId AND o.status = 'active' AND o.stock > 0 AND s.status = 'active')
+            VALUES (@CustomerId, @ProductId, @AddedPrice)
             ON CONFLICT (customer_id, product_id) DO NOTHING
-            """, args);
+            """, new InsertRecord(customerId, productId, (await CatalogLookups.LowestPricesAsync(conn, [productId])).TryGetValue(productId, out var price) ? price : null));
         return true;
     }
 

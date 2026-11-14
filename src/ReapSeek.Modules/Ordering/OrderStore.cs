@@ -2,6 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using Npgsql;
+using ReapSeek.Modules.Sellers;
+using ReapSeek.Modules.Marketing;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
@@ -40,11 +43,7 @@ public static class OrderStore
     {
         foreach (var (offerId, quantity) in items.OrderBy(i => i.OfferId))
         {
-            var updated = await conn.ExecuteAsync("""
-                UPDATE offers SET stock = stock - @Quantity, updated_at = now()
-                WHERE id = @OfferId AND status = 'active' AND stock >= @Quantity
-                """, new { OfferId = offerId, Quantity = quantity }, tx);
-            if (updated != 1) throw new InsufficientStockException(offerId);
+            if (!await Offers.TryReserveAsync(conn, tx, offerId, quantity)) throw new InsufficientStockException(offerId);
         }
     }
 
@@ -57,12 +56,14 @@ public static class OrderStore
             INSERT INTO orders (id, number, customer_id, status, currency, subtotal, shipping_total, total, shipping_address, placed_at, discount_total, coupon_code)
             VALUES (@Id, @Number, @CustomerId, @Status, @Currency, @Subtotal, @ShippingTotal, @Total, @Address::jsonb, @PlacedAt, @DiscountTotal, @CouponCode)
             """, row, tx);
+        var sellers = await SellerDirectory.ManyAsync(conn, order.Packages.Select(p => p.SellerId), tx);
         foreach (var p in order.Packages)
         {
+            var commission = sellers.TryGetValue(p.SellerId, out var seller) ? seller.CommissionRate : throw new InvalidOperationException($"Seller {p.SellerId} was not found");
             await conn.ExecuteAsync("""
                 INSERT INTO order_packages (id, order_id, seller_id, seller_name, status, shipping_fee, commission_rate)
-                SELECT @Id, @OrderId, @SellerId, @SellerName, @Status, @ShippingFee, s.commission_rate FROM sellers s WHERE s.id = @SellerId
-                """, new { p.Id, OrderId = order.Id, p.SellerId, p.SellerName, Status = OrderStatusRules.Name(p.Status), ShippingFee = p.ShippingFee.Amount }, tx);
+                VALUES (@Id, @OrderId, @SellerId, @SellerName, @Status, @ShippingFee, @Commission)
+                """, new { p.Id, OrderId = order.Id, p.SellerId, p.SellerName, Status = OrderStatusRules.Name(p.Status), ShippingFee = p.ShippingFee.Amount, Commission = commission }, tx);
             await conn.ExecuteAsync("""
                 INSERT INTO order_lines (id, order_id, package_id, offer_id, product_id, variant_id, product_title, variant_label, sku, image_url, unit_price, quantity)
                 SELECT l.id, @OrderId, @PackageId, l.offer_id, l.product_id, l.variant_id, l.product_title, l.variant_label, l.sku, l.image_url, l.unit_price, l.quantity
@@ -159,9 +160,8 @@ public static class OrderStore
             if (e is IReleasesStock)
             {
                 foreach (var line in order.Lines)
-                    await conn.ExecuteAsync("UPDATE offers SET stock = stock + @Quantity, updated_at = now() WHERE id = @OfferId",
-                        new { line.OfferId, line.Quantity }, tx);
-                await conn.ExecuteAsync("UPDATE coupons SET used_order_id = NULL, used_at = NULL WHERE used_order_id = @Id", new { order.Id }, tx);
+                    await Offers.ReleaseAsync(conn, tx, line.OfferId, line.Quantity);
+                await CouponStore.ReleaseAsync(conn, tx, order.Id);
             }
             if (e is PackageShipped or PackageDelivered)
             {
@@ -185,8 +185,7 @@ public static class OrderStore
             {
                 var lines = order.Packages.Single(p => p.Id == pc.PackageId).Lines;
                 foreach (var line in lines)
-                    await conn.ExecuteAsync("UPDATE offers SET stock = stock + @Quantity, updated_at = now() WHERE id = @OfferId",
-                        new StockReleaseRecord(line.OfferId, line.Quantity), tx);
+                    await Offers.ReleaseAsync(conn, tx, line.OfferId, line.Quantity);
                 await conn.ExecuteAsync("UPDATE order_packages SET cancel_reason = @Reason WHERE id = @PackageId",
                     new PackageCancelRecord(pc.PackageId, pc.Reason), tx);
                 await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged,

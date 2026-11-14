@@ -22,12 +22,12 @@ public static class CustomerQuery
 {
     public static readonly string[] Sorts = ["recent", "spent", "orders", "last_order"];
 
-    public static string OrderBy(string sort) => sort switch
+    public static IEnumerable<CustomerRow> Sort(IEnumerable<CustomerRow> rows, string sort) => sort switch
     {
-        "spent" => "spent DESC, u.id DESC",
-        "orders" => "orders DESC, u.id DESC",
-        "last_order" => "last_order_at DESC NULLS LAST, u.id DESC",
-        _ => "u.created_at DESC, u.id DESC",
+        "spent" => rows.OrderByDescending(r => r.Spent).ThenByDescending(r => r.Id),
+        "orders" => rows.OrderByDescending(r => r.Orders).ThenByDescending(r => r.Id),
+        "last_order" => rows.OrderBy(r => r.LastOrderAt is null).ThenByDescending(r => r.LastOrderAt).ThenByDescending(r => r.Id),
+        _ => rows.OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id),
     };
 
     public static string? Pattern(string? q) =>
