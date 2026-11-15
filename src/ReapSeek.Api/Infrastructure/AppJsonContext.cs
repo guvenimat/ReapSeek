@@ -1,14 +1,12 @@
 using ReapSeek.Api.Finance;
 using ReapSeek.Api.Ordering.Shipping;
 using System.Text.Json.Serialization;
-using ReapSeek.Api.Marketing.Alerts;
 using ReapSeek.Api.Ordering.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Ordering.Checkout;
 using ReapSeek.Api.Identity.Customers;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
-using ReapSeek.Api.Marketing;
 using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Operations;
 using ReapSeek.Api.Ordering.Orders;
@@ -47,9 +45,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(SellerRow))]
 [JsonSerializable(typeof(SellerAccount))]
 [JsonSerializable(typeof(CouponPreview))]
-[JsonSerializable(typeof(ReapDeepAlertPayload))]
-[JsonSerializable(typeof(AlertSubscriptionRequest))]
-[JsonSerializable(typeof(AlertsResponse))]
 [JsonSerializable(typeof(OutboxResponse))]
 [JsonSerializable(typeof(ProductImagesResponse))]
 [JsonSerializable(typeof(CustomersResponse))]
@@ -62,13 +57,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(SuspendRequest))]
 [JsonSerializable(typeof(OutboxRetryRequest))]
 [JsonSerializable(typeof(OutboxRetryResult))]
-[JsonSerializable(typeof(CampaignRequest))]
-[JsonSerializable(typeof(CampaignRow))]
-[JsonSerializable(typeof(CampaignsResponse))]
-[JsonSerializable(typeof(CohortsListResponse))]
-[JsonSerializable(typeof(AudienceRequest))]
-[JsonSerializable(typeof(AudiencePreviewResponse))]
-[JsonSerializable(typeof(CustomerCouponsResponse))]
 [JsonSerializable(typeof(CreateReturnRequest))]
 [JsonSerializable(typeof(CreatedReturn))]
 [JsonSerializable(typeof(RejectReturnRequest))]

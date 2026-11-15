@@ -14,6 +14,7 @@
     <ProjectReference Include="..\ReapSeek.Domain\ReapSeek.Domain.csproj" />
     <ProjectReference Include="..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
     <ProjectReference Include="..\Modules\Engagement\ReapSeek.Engagement.Contracts\ReapSeek.Engagement.Contracts.csproj" />
+    <ProjectReference Include="..\Modules\Marketing\ReapSeek.Marketing.Contracts\ReapSeek.Marketing.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

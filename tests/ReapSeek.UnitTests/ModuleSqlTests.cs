@@ -76,6 +76,9 @@ public partial class ModuleSqlTests
         var reviews = Path.Combine("src", "Modules", "Engagement", "ReapSeek.Engagement", "Infrastructure", "ReviewRepository.cs");
         Assert.True(File.Exists(Path.Combine(root, reviews)));
         Assert.Equal("engagement", SchemaOf(reviews));
+        var campaigns = Path.Combine("src", "Modules", "Marketing", "ReapSeek.Marketing", "Infrastructure", "CampaignRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, campaigns)));
+        Assert.Equal("marketing", SchemaOf(campaigns));
     }
 
     [Fact]

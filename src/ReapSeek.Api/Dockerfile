@@ -5,8 +5,10 @@ COPY ReapSeek.Domain/ReapSeek.Domain.csproj ReapSeek.Domain/
 COPY ReapSeek.Shared/ReapSeek.Shared.csproj ReapSeek.Shared/
 COPY ReapSeek.Modules/ReapSeek.Modules.csproj ReapSeek.Modules/
 COPY Modules/Engagement/ReapSeek.Engagement.Contracts/ReapSeek.Engagement.Contracts.csproj Modules/Engagement/ReapSeek.Engagement.Contracts/
+COPY Modules/Marketing/ReapSeek.Marketing.Contracts/ReapSeek.Marketing.Contracts.csproj Modules/Marketing/ReapSeek.Marketing.Contracts/
 COPY BuildingBlocks/ReapSeek.BuildingBlocks.Web/ReapSeek.BuildingBlocks.Web.csproj BuildingBlocks/ReapSeek.BuildingBlocks.Web/
 COPY Modules/Engagement/ReapSeek.Engagement/ReapSeek.Engagement.csproj Modules/Engagement/ReapSeek.Engagement/
+COPY Modules/Marketing/ReapSeek.Marketing/ReapSeek.Marketing.csproj Modules/Marketing/ReapSeek.Marketing/
 COPY ReapSeek.Api/ReapSeek.Api.csproj ReapSeek.Api/
 RUN dotnet restore ReapSeek.Api/ReapSeek.Api.csproj -r linux-x64
 COPY ReapSeek.Domain/ ReapSeek.Domain/

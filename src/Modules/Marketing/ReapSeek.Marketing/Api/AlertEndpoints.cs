@@ -1,52 +1,25 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using ReapSeek.Api.Identity;
-using ReapSeek.Api.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Marketing.Application;
+using ReapSeek.Marketing.Infrastructure;
 using ReapSeek.Shared;
 
-namespace ReapSeek.Api.Marketing.Alerts;
+namespace ReapSeek.Marketing.Api;
 
-public sealed record AlertInsight(long Id, string Name);
-public sealed record ReapDeepAlertPayload(
-    long AlertId, string AlertName, long ProjectId, string State, string Condition, double Threshold, string Window, double Value, double? PreviousValue,
-    string Message, AlertInsight Insight, DateTime CheckedAt);
-public sealed record AlertSubscriptionRequest(long? AlertId, string? Secret);
-public sealed record AlertEventRow(
-    long Id, long AlertId, string AlertName, string State, string Condition, double Threshold, string TimeWindow, double Value, double? PreviousValue,
-    string Message, string InsightName, DateTime CheckedAt, DateTime ReceivedAt);
-public sealed record AlertsResponse(List<AlertEventRow> Events, int Subscriptions);
-
-public static class AlertSignature
+internal static class AlertEndpoints
 {
-    public const string Prefix = "sha256=";
-
-    public static bool IsValid(string? header, byte[] body, string secret)
-    {
-        if (string.IsNullOrEmpty(header) || !header.StartsWith(Prefix, StringComparison.Ordinal) || string.IsNullOrEmpty(secret)) return false;
-        byte[] given;
-        try
-        {
-            given = Convert.FromHexString(header[Prefix.Length..]);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-        return CryptographicOperations.FixedTimeEquals(HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), body), given);
-    }
-}
-
-public static class AlertEndpoints
-{
-    public static void MapAlerts(this RouteGroupBuilder api)
+    public static void MapAlerts(this IEndpointRouteBuilder api)
     {
         api.MapPost("/reapdeep/alerts", Receive);
 
         var admin = api.MapGroup("/backoffice/alerts").RequireAdmin();
         admin.MapGet("/", async (AlertRepository alerts, CancellationToken ct) =>
-            ApiResults.Ok(await alerts.ListAsync(ct), AppJsonContext.Default.AlertsResponse));
+            ApiResults.Ok(await alerts.ListAsync(ct), MarketingJsonContext.Default.AlertsResponse));
         admin.MapPut("/subscriptions", async (AlertSubscriptionRequest req, AlertRepository alerts, CancellationToken ct) =>
         {
             Ensure.That(req.AlertId is > 0, "alert_id is required");
@@ -70,7 +43,7 @@ public static class AlertEndpoints
         ReapDeepAlertPayload? p;
         try
         {
-            p = JsonSerializer.Deserialize(body, AppJsonContext.Default.ReapDeepAlertPayload);
+            p = JsonSerializer.Deserialize(body, MarketingJsonContext.Default.ReapDeepAlertPayload);
         }
         catch (JsonException)
         {

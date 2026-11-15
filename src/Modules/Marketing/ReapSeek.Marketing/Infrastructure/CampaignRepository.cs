@@ -2,18 +2,19 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Identity;
-using ReapSeek.Api.Infrastructure;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Marketing.Api;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Api.Marketing;
+namespace ReapSeek.Marketing.Infrastructure;
 
-public sealed class CampaignRepository(NpgsqlDataSource db)
+internal sealed class CampaignRepository(NpgsqlDataSource db)
 {
-    public sealed record CampaignInsertRecord(
+    internal sealed record CampaignInsertRecord(
         string Name, long CohortId, string CohortName, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject, string Message);
-    public sealed record CustomerCouponsRecord(long CustomerId, DateTime Now);
-    public sealed record CampaignIdRecord(long Id);
-    public sealed record CampaignRecord(
+    internal sealed record CustomerCouponsRecord(long CustomerId, DateTime Now);
+    internal sealed record CampaignIdRecord(long Id);
+    internal sealed record CampaignRecord(
         long Id, string Name, long CohortId, string CohortName, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject,
         string Message, string Status, int Recipients, Guid[] UsedOrders, string? Error, DateTime CreatedAt, DateTime? SentAt);
 
