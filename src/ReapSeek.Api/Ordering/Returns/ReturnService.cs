@@ -2,7 +2,6 @@ using ReapSeek.Modules.Identity;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;

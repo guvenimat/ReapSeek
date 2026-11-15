@@ -1,9 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using ReapSeek.Api.Identity;
 using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Api.Infrastructure;
+using ReapSeek.Identity.Api;
 using ReapSeek.Shared.Caching;
 
 namespace ReapSeek.UnitTests;
@@ -35,7 +35,7 @@ public class CachingTests
         var loads = 0;
         var user = new UserInfo(1, "a@example.com", "A", "customer");
         for (var i = 0; i < 2; i++)
-            Assert.Equal(user, await cache.GetOrLoadAsync("k", CacheJsonContext.Default.UserInfo, TimeSpan.FromMinutes(1), () => { loads++; return Task.FromResult<UserInfo?>(user); }));
+            Assert.Equal(user, await cache.GetOrLoadAsync("k", IdentityJsonContext.Default.UserInfo, TimeSpan.FromMinutes(1), () => { loads++; return Task.FromResult<UserInfo?>(user); }));
         Assert.Equal(2, loads);
         Assert.False(await cache.RemoveAsync("k"));
     }

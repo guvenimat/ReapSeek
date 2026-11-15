@@ -1,6 +1,5 @@
 using Npgsql;
 using ReapSeek.Api.Ordering.Carts;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Domain.Common;

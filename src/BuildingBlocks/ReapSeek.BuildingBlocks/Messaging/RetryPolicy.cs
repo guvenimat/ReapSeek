@@ -1,12 +1,6 @@
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-namespace ReapSeek.Worker.Outbox;
+namespace ReapSeek.BuildingBlocks.Messaging;
 
-public static class OutboxPolicy
+public static class RetryPolicy
 {
     public const int MaxAttempts = 10;
     public const int ReapDeepMaxAttempts = 24;

@@ -181,13 +181,13 @@ Check "packages move to preparing and the payment succeeded" (@($o.packages | Wh
 Check "purchased items leave the cart" ((Send $guest GET "$api/api/v1/cart/summary").Json.item_count -eq 0)
 Check "stock stays reduced after payment" ((Stock $offerA) -eq $stockA - 3)
 Check "confirmation email is sent" (WaitFor { (Invoke-RestMethod -UseBasicParsing "$mailpit/api/v1/search?query=subject:$number").messages_count -eq 1 } 20)
-Check "order_paid was processed by the worker" (WaitFor { (Psql "SELECT count(*) FROM outbox WHERE type = 'order_paid' AND payload->>'number' = '$number' AND processed_at IS NOT NULL") -eq "1" } 20)
+Check "order_paid was processed by the worker" (WaitFor { (Psql "SELECT count(*) FROM platform.outbox WHERE type = 'order_paid' AND payload->>'number' = '$number' AND processed_at IS NOT NULL") -eq "1" } 20)
 $sk = $envValues.SANDBOX_SECRET_KEY
 $eventId = Psql "SELECT event_id FROM payment_events WHERE provider_payment_id = '$($pay.Id)'"
 $null = Send (NewClient) POST "$sandbox/v1/payments/$($pay.Id)/webhooks/resend?event_id=$eventId" $null @{ Authorization = "Bearer $sk" }
 $null = Send (NewClient) POST "$sandbox/v1/payments/$($pay.Id)/webhooks/resend" $null @{ Authorization = "Bearer $sk" }
 Start-Sleep -Seconds 1
-Check "repeated webhooks are idempotent" ((Order $guest $number).status -eq "paid" -and (Psql "SELECT count(*) FROM outbox WHERE type = 'order_paid' AND payload->>'number' = '$number'") -eq "1" -and (Psql "SELECT count(*) FROM payment_events WHERE provider_payment_id = '$($pay.Id)'") -eq "2")
+Check "repeated webhooks are idempotent" ((Order $guest $number).status -eq "paid" -and (Psql "SELECT count(*) FROM platform.outbox WHERE type = 'order_paid' AND payload->>'number' = '$number'") -eq "1" -and (Psql "SELECT count(*) FROM payment_events WHERE provider_payment_id = '$($pay.Id)'") -eq "2")
 $forged = Send (NewClient) POST "$api/api/v1/payments/sandbox/webhook" '{"id":"evt_forged","type":"payment.succeeded","created":"2026-10-30T00:00:00Z","data":{"payment_id":"x","reference":"x","amount":1,"currency":"TRY","status":"succeeded"}}' @{ "Sandbox-Signature" = "t=1,v1=00" }
 Check "forged webhook is 401" ($forged.Status -eq 401)
 Check "orders list shows the order" (@((Send $guest GET "$api/api/v1/orders").Json.orders | Where-Object { $_.number -eq $number -and $_.status -eq "paid" -and $_.item_count -eq 4 }).Count -eq 1)

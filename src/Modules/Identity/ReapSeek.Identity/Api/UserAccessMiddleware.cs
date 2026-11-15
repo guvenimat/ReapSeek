@@ -1,8 +1,11 @@
-using ReapSeek.Api.Infrastructure;
 
-namespace ReapSeek.Api.Identity;
+using Microsoft.AspNetCore.Http;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Identity.Application;
 
-public sealed class UserAccessMiddleware(RequestDelegate next, SessionService sessions)
+namespace ReapSeek.Identity.Api;
+
+internal sealed class UserAccessMiddleware(RequestDelegate next, SessionService sessions)
 {
     public async Task InvokeAsync(HttpContext ctx)
     {

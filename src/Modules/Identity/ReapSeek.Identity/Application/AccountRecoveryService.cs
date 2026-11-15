@@ -1,27 +1,24 @@
 using Dapper;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Npgsql;
-using ReapSeek.Api.Infrastructure;
+using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Application;
 
-public sealed record ForgotPasswordRequest(string? Email);
-public sealed record ResetPasswordRequest(string? Token, string? Password);
-public sealed record TokenRequest(string? Token);
-public sealed record TokenCheckResponse(bool Valid);
-
-public sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cache, ILogger<AccountRecoveryService> log)
+internal sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cache, ILogger<AccountRecoveryService> log)
 {
-    public sealed record UserLookupRecord(string Email, string Role);
-    public sealed record UserRecord(long Id, string Role, bool Suspended, bool Verified);
-    public sealed record RecentRecord(long UserId, string Purpose, DateTime Since);
-    public sealed record TokenLookupRecord(string TokenHash, string Purpose);
-    public sealed record TokenRecord(string TokenHash, long UserId);
-    public sealed record PasswordRecord(long UserId, string Hash);
-    public sealed record UserIdRecord(long UserId);
+    internal sealed record UserLookupRecord(string Email, string Role);
+    internal sealed record UserRecord(long Id, string Role, bool Suspended, bool Verified);
+    internal sealed record RecentRecord(long UserId, string Purpose, DateTime Since);
+    internal sealed record TokenLookupRecord(string TokenHash, string Purpose);
+    internal sealed record TokenRecord(string TokenHash, long UserId);
+    internal sealed record PasswordRecord(long UserId, string Hash);
+    internal sealed record UserIdRecord(long UserId);
 
     public async Task RequestPasswordResetAsync(string? email, string role, CancellationToken ct)
     {
@@ -121,7 +118,7 @@ public sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cache
     {
         var recent = await conn.ExecuteScalarAsync<int>("""
             SELECT (SELECT count(*) FROM account_tokens WHERE user_id = @UserId AND purpose = @Purpose AND created_at > @Since)
-                 + (SELECT count(*) FROM outbox WHERE type = 'account_email' AND processed_at IS NULL AND failed_at IS NULL
+                 + (SELECT count(*) FROM platform.outbox WHERE type = 'account_email' AND processed_at IS NULL AND failed_at IS NULL
                         AND payload->>'user_id' = @UserId::text AND payload->>'kind' = @Purpose)
             """, new RecentRecord(userId, purpose, DateTime.UtcNow.AddHours(-1)), tx);
         if (recent >= AccountTokens.MaxRequestsPerHour) return false;
@@ -137,39 +134,4 @@ public sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cache
               AND u.id = t.user_id AND u.suspended_at IS NULL
             RETURNING t.user_id
             """, new TokenLookupRecord(AccountTokens.Hash(token), purpose), tx);
-}
-
-public static class AccountRecoveryEndpoints
-{
-    const string InvalidLink = "This link is invalid or has expired. Ask for a new one.";
-
-    public static void MapAccountRecovery(this RouteGroupBuilder auth, RouteGroupBuilder backofficeAuth, RouteGroupBuilder api)
-    {
-        auth.MapPost("/password/forgot", async (ForgotPasswordRequest req, AccountRecoveryService recovery, CancellationToken ct) =>
-        {
-            await recovery.RequestPasswordResetAsync(req.Email, Roles.Customer, ct);
-            return Results.Accepted();
-        }).RequireRateLimiting(HostingExtensions.AuthRateLimit);
-        backofficeAuth.MapPost("/password/forgot", async (ForgotPasswordRequest req, AccountRecoveryService recovery, CancellationToken ct) =>
-        {
-            await recovery.RequestPasswordResetAsync(req.Email, Roles.Seller, ct);
-            return Results.Accepted();
-        }).RequireRateLimiting(HostingExtensions.AuthRateLimit);
-
-        auth.MapGet("/password/reset", async (string? token, AccountRecoveryService recovery, CancellationToken ct) =>
-            ApiResults.Ok(new TokenCheckResponse(await recovery.CheckAsync(token, AccountTokens.PasswordReset, ct)), AppJsonContext.Default.TokenCheckResponse));
-        auth.MapPost("/password/reset", async (ResetPasswordRequest req, AccountRecoveryService recovery, CancellationToken ct) =>
-            await recovery.ResetPasswordAsync(req.Token, req.Password, ct) ? Results.NoContent() : ApiResults.BadRequest(InvalidLink))
-            .RequireRateLimiting(HostingExtensions.AuthRateLimit);
-
-        auth.MapPost("/email/verify", async (TokenRequest req, AccountRecoveryService recovery, CancellationToken ct) =>
-            await recovery.VerifyEmailAsync(req.Token, ct) ? Results.NoContent() : ApiResults.BadRequest(InvalidLink))
-            .RequireRateLimiting(HostingExtensions.AuthRateLimit);
-        auth.MapPost("/email/verification", async (UserInfo user, AccountRecoveryService recovery, CancellationToken ct) =>
-            await recovery.ResendVerificationAsync(user.Id, ct) ? Results.Accepted() : ApiResults.Conflict("Your email address is already verified"))
-            .RequireCustomer();
-
-        api.MapPost("/backoffice/customers/{id:long}/password-reset", (long id, AccountRecoveryService recovery, CancellationToken ct) =>
-            recovery.AdminPasswordResetAsync(id, ct)).RequireAdmin();
-    }
 }

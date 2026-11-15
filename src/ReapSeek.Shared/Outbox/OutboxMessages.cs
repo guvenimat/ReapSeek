@@ -23,7 +23,6 @@ public static class OutboxTypes
     public const string ReturnRejected = "return_rejected";
     public const string ReturnReceived = "return_received";
     public const string ReturnRefunded = "return_refunded";
-    public const string QuestionAsked = "question_asked";
     public const string QuestionAnswered = "question_answered";
     public const string CampaignSend = "campaign_send";
     public const string CouponIssued = "coupon_issued";
@@ -79,6 +78,6 @@ public sealed record OutboxInsertRecord(string Type, string Payload, string? Tra
 public static class OutboxWriter
 {
     public static Task EnqueueAsync<T>(NpgsqlConnection conn, NpgsqlTransaction? tx, string type, T payload, JsonTypeInfo<T> typeInfo) =>
-        conn.ExecuteAsync("INSERT INTO outbox (type, payload, trace_parent) VALUES (@Type, @Payload::jsonb, @TraceParent)",
+        conn.ExecuteAsync("INSERT INTO platform.outbox (type, payload, trace_parent) VALUES (@Type, @Payload::jsonb, @TraceParent)",
             new OutboxInsertRecord(type, JsonSerializer.Serialize(payload, typeInfo), Telemetry.CurrentTraceParent()), tx);
 }

@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
@@ -8,7 +7,7 @@ using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Ordering.Carts;
 
-public sealed class CartService(CartRepository carts, SessionService sessions, IConfiguration cfg, TimeProvider clock)
+public sealed class CartService(CartRepository carts, ISessionReader sessions, IConfiguration cfg, TimeProvider clock) : IStorefrontSignIn
 {
     public const string CookieName = "rs_cart";
     const int MaxTokenLength = 64;
@@ -71,6 +70,8 @@ public sealed class CartService(CartRepository carts, SessionService sessions, I
         await carts.SaveAsync(cart, ct);
         return await PriceAsync(cart, ct);
     }
+
+    public Task SignedInAsync(HttpContext ctx, long customerId, CancellationToken ct) => MergeGuestCartAsync(ctx, customerId, ct);
 
     public async Task MergeGuestCartAsync(HttpContext ctx, long customerId, CancellationToken ct)
     {

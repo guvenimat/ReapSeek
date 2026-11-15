@@ -1,4 +1,7 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Mono.Cecil;
 using NetArchTest.Rules;
 using ReapSeek.Domain.Common;
@@ -6,7 +9,7 @@ using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.UnitTests;
 
-public class ArchitectureTests
+public partial class ArchitectureTests
 {
     static readonly Assembly Domain = typeof(AggregateRoot).Assembly;
     static readonly Assembly Shared = typeof(IPaymentGateway).Assembly;
@@ -19,6 +22,7 @@ public class ArchitectureTests
         typeof(ReapSeek.Engagement.Contracts.ReviewStat).Assembly,
         typeof(ReapSeek.Marketing.Contracts.CustomerCoupon).Assembly,
         typeof(ReapSeek.Finance.Contracts.ISellerFinance).Assembly,
+        typeof(ReapSeek.Identity.Contracts.ISellerAccounts).Assembly,
     ];
 
     static readonly Dictionary<Assembly, Type> ModuleProjects = new()
@@ -26,6 +30,7 @@ public class ArchitectureTests
         [typeof(ReapSeek.Engagement.EngagementModule).Assembly] = typeof(ReapSeek.Engagement.EngagementModule),
         [typeof(ReapSeek.Marketing.MarketingModule).Assembly] = typeof(ReapSeek.Marketing.MarketingModule),
         [typeof(ReapSeek.Finance.FinanceModule).Assembly] = typeof(ReapSeek.Finance.FinanceModule),
+        [typeof(ReapSeek.Identity.IdentityModule).Assembly] = typeof(ReapSeek.Identity.IdentityModule),
     };
 
     static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
@@ -33,7 +38,7 @@ public class ArchitectureTests
 
     static readonly Dictionary<string, string[]> PublicApi = new()
     {
-        ["Identity"] = ["SessionService", "SellerAccounts", "SellerLogin"],
+        ["Identity"] = [],
         ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductStatus",
             "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
             "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
@@ -138,7 +143,61 @@ public class ArchitectureTests
     [Fact]
     public void Web_building_blocks_know_no_module() =>
         Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
-            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance").GetResult(), "BuildingBlocks.Web");
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity").GetResult(), "BuildingBlocks.Web");
+
+    static readonly Assembly BuildingBlocks = typeof(ReapSeek.BuildingBlocks.Messaging.ModuleOutbox).Assembly;
+
+    [Fact]
+    public void Building_blocks_know_no_module()
+    {
+        Pass(Types.InAssembly(BuildingBlocks).ShouldNot().HaveDependencyOnAny(
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance",
+            "ReapSeek.BuildingBlocks.Web", "Microsoft.AspNetCore").GetResult(), "BuildingBlocks");
+        Assert.Equal(["ReapSeek.Shared"], BuildingBlocks.GetReferencedAssemblies().Select(r => r.Name!).Where(n => n.StartsWith("ReapSeek.", StringComparison.Ordinal)));
+        Assert.DoesNotContain(Shared.GetReferencedAssemblies(), r => r.Name!.StartsWith("ReapSeek.BuildingBlocks", StringComparison.Ordinal));
+    }
+
+    internal static IEnumerable<(Type Type, string Name, JsonSerializerContext? Context)> IntegrationEvents() =>
+        ContractProjects.SelectMany(assembly =>
+        {
+            var contexts = assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(JsonSerializerContext)))
+                .Select(t => (JsonSerializerContext)t.GetProperty("Default", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!).ToList();
+            return assembly.GetTypes()
+                .Where(t => t.GetField("EventName", BindingFlags.Public | BindingFlags.Static) is not null || IntegrationEventName().IsMatch(t.Name))
+                .Select(t => (t, t.GetField("EventName", BindingFlags.Public | BindingFlags.Static)?.GetRawConstantValue() as string ?? "",
+                    contexts.FirstOrDefault(c => c.GetTypeInfo(t) is not null)));
+        });
+
+    [System.Text.RegularExpressions.GeneratedRegex("V[0-9]+$")]
+    private static partial System.Text.RegularExpressions.Regex IntegrationEventName();
+
+    [Fact]
+    public void Integration_events_are_public_versioned_records_serializable_through_their_contracts_context()
+    {
+        var events = IntegrationEvents().ToList();
+        Assert.Contains(events, e => e.Type == typeof(ReapSeek.Engagement.Contracts.QuestionAskedV1));
+        foreach (var (type, name, context) in events)
+        {
+            Assert.True(type.IsPublic && type.IsSealed && type.GetMethod("<Clone>$") is not null, $"{type.Name} must be a public sealed record");
+            Assert.Matches(IntegrationEventName(), type.Name);
+            var version = IntegrationEventName().Match(type.Name).Value[1..];
+            var module = type.Namespace!.Split('.')[1].ToLowerInvariant();
+            Assert.Equal($"{module}.", name[..(module.Length + 1)]);
+            Assert.EndsWith($".v{version}", name);
+            Assert.NotNull(context);
+            Assert.Equal(JsonNamingPolicy.SnakeCaseLower, context!.Options.PropertyNamingPolicy);
+            var instance = RuntimeHelpers.GetUninitializedObject(type);
+            var json = JsonSerializer.Serialize(instance, context.GetTypeInfo(type)!);
+            Assert.Equal(json, JsonSerializer.Serialize(JsonSerializer.Deserialize(json, context.GetTypeInfo(type)!), context.GetTypeInfo(type)!));
+        }
+    }
+
+    [Fact]
+    public void Integration_event_wire_names_are_unique()
+    {
+        var names = IntegrationEvents().Select(e => e.Name).ToList();
+        Assert.Equal(names.Count, names.Distinct().Count());
+    }
 
     static readonly string[] SqlOutsideRepositories =
     [
@@ -146,7 +205,7 @@ public class ArchitectureTests
         "ReapSeek.Api.Seed.CatalogSeeder",
         "ReapSeek.Api.Catalog.Search.CategoryCache",
         "ReapSeek.Api.Ordering.Orders.OrderQueries",
-        "ReapSeek.Api.Identity.AccountRecoveryService",
+        "ReapSeek.Identity.Application.AccountRecoveryService",
         "ReapSeek.Api.Catalog.Media.ProductImageService",
         "ReapSeek.Api.Ordering.Returns.ReturnService",
         "ReapSeek.Api.Ordering.Shipping.ShippingService",
@@ -235,12 +294,17 @@ public class ArchitectureTests
         Assert.Contains(DataAccessTypesIn(marketing.Key, RootNamespace(marketing.Value), "Dapper"), t => t.Name == "AlertRepository");
         var finance = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Finance.FinanceModule));
         Assert.Contains(DataAccessTypesIn(finance.Key, RootNamespace(finance.Value), "Dapper"), t => t.Name == "SellerFinanceRepository");
+        var identity = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Identity.IdentityModule));
+        Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRepository");
+        Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRecoveryService");
     }
 
     [Fact]
     public void The_SQL_whitelist_has_no_stale_entries()
     {
-        var actual = DataAccessTypes("Dapper").Select(t => t.FullName!).ToHashSet();
+        var actual = DataAccessTypes("Dapper")
+            .Concat(ModuleProjects.SelectMany(m => DataAccessTypesIn(m.Key, RootNamespace(m.Value), "Dapper")))
+            .Select(t => t.FullName!).ToHashSet();
         Assert.All(SqlOutsideRepositories, name => Assert.Contains(name, actual));
     }
 

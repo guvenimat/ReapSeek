@@ -4,7 +4,7 @@ namespace ReapSeek.Shared;
 
 public static class Database
 {
-    public const string SearchPath = "identity,catalog,sellers,ordering,finance,engagement,marketing,platform,public";
+    public const string SearchPath = "platform,identity,catalog,sellers,ordering,finance,engagement,marketing,public";
 
     public static NpgsqlDataSource Create(string? connectionString)
     {

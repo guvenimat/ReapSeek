@@ -4,9 +4,7 @@ using System.Text.Json.Serialization;
 using ReapSeek.Api.Ordering.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Ordering.Checkout;
-using ReapSeek.Api.Identity.Customers;
 using ReapSeek.Api.Health;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Operations;
 using ReapSeek.Api.Ordering.Orders;
@@ -23,10 +21,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(HealthResponse))]
-[JsonSerializable(typeof(RegisterRequest))]
-[JsonSerializable(typeof(LoginRequest))]
-[JsonSerializable(typeof(PasswordChangeRequest))]
-[JsonSerializable(typeof(MeResponse))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(Dictionary<string, List<string>>))]
 [JsonSerializable(typeof(CategoryRow))]
@@ -46,14 +40,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(CouponPreview))]
 [JsonSerializable(typeof(OutboxResponse))]
 [JsonSerializable(typeof(ProductImagesResponse))]
-[JsonSerializable(typeof(CustomersResponse))]
-[JsonSerializable(typeof(ForgotPasswordRequest))]
-[JsonSerializable(typeof(ResetPasswordRequest))]
-[JsonSerializable(typeof(TokenRequest))]
-[JsonSerializable(typeof(TokenCheckResponse))]
-[JsonSerializable(typeof(CustomerDetail))]
-[JsonSerializable(typeof(CustomerAnalytics))]
-[JsonSerializable(typeof(SuspendRequest))]
 [JsonSerializable(typeof(OutboxRetryRequest))]
 [JsonSerializable(typeof(OutboxRetryResult))]
 [JsonSerializable(typeof(CreateReturnRequest))]

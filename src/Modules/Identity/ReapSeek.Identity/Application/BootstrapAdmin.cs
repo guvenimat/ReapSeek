@@ -1,9 +1,13 @@
 using ReapSeek.Modules.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Npgsql;
+using ReapSeek.Identity.Infrastructure;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Application;
 
-public sealed class BootstrapAdmin(AccountRepository accounts, IConfiguration cfg, ILogger<BootstrapAdmin> log) : IHostedService
+internal sealed class BootstrapAdmin(AccountRepository accounts, IConfiguration cfg, ILogger<BootstrapAdmin> log) : IHostedService
 {
     const int MaxAttempts = 30;
     static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);

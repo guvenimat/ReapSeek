@@ -7,6 +7,7 @@ COPY ReapSeek.Modules/ReapSeek.Modules.csproj ReapSeek.Modules/
 COPY Modules/Engagement/ReapSeek.Engagement.Contracts/ReapSeek.Engagement.Contracts.csproj Modules/Engagement/ReapSeek.Engagement.Contracts/
 COPY Modules/Marketing/ReapSeek.Marketing.Contracts/ReapSeek.Marketing.Contracts.csproj Modules/Marketing/ReapSeek.Marketing.Contracts/
 COPY Modules/Finance/ReapSeek.Finance.Contracts/ReapSeek.Finance.Contracts.csproj Modules/Finance/ReapSeek.Finance.Contracts/
+COPY Modules/Identity/ReapSeek.Identity.Contracts/ReapSeek.Identity.Contracts.csproj Modules/Identity/ReapSeek.Identity.Contracts/
 COPY ReapSeek.Simulator/ReapSeek.Simulator.csproj ReapSeek.Simulator/
 RUN dotnet restore ReapSeek.Simulator/ReapSeek.Simulator.csproj
 COPY ReapSeek.Domain/ ReapSeek.Domain/
@@ -15,6 +16,7 @@ COPY ReapSeek.Modules/ ReapSeek.Modules/
 COPY Modules/Engagement/ReapSeek.Engagement.Contracts/ Modules/Engagement/ReapSeek.Engagement.Contracts/
 COPY Modules/Marketing/ReapSeek.Marketing.Contracts/ Modules/Marketing/ReapSeek.Marketing.Contracts/
 COPY Modules/Finance/ReapSeek.Finance.Contracts/ Modules/Finance/ReapSeek.Finance.Contracts/
+COPY Modules/Identity/ReapSeek.Identity.Contracts/ Modules/Identity/ReapSeek.Identity.Contracts/
 COPY ReapSeek.Simulator/ ReapSeek.Simulator/
 RUN dotnet publish ReapSeek.Simulator/ReapSeek.Simulator.csproj -c Release --no-restore -o /app
 

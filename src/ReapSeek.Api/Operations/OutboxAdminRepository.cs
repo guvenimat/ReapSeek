@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.BuildingBlocks.Messaging;
 
 namespace ReapSeek.Api.Operations;
 
@@ -47,13 +48,13 @@ public sealed class OutboxAdminRepository(NpgsqlDataSource db)
                 count(*) FILTER (WHERE {OutboxStates.Filter(OutboxStates.Failed)})::int AS failed,
                 count(*) FILTER (WHERE {OutboxStates.Filter(OutboxStates.Discarded)})::int AS discarded,
                 count(*) FILTER (WHERE processed_at >= @Since)::int AS processed_last_day
-            FROM outbox
+            FROM {JobTables.Union} jobs
             WHERE processed_at IS NULL OR processed_at >= @Since
             GROUP BY type ORDER BY type
             """, args)).AsList();
         var messages = (await conn.QueryAsync<OutboxMessageRow>($"""
             SELECT id, type, payload::text AS payload, attempts, last_error, created_at, available_at, failed_at, discarded_at
-            FROM outbox
+            FROM {JobTables.Union} jobs
             WHERE {OutboxStates.Filter(state)} AND (@Type::text IS NULL OR type = @Type)
             ORDER BY id DESC LIMIT 100
             """, args)).AsList();
@@ -63,8 +64,8 @@ public sealed class OutboxAdminRepository(NpgsqlDataSource db)
     public async Task<OutboxChange> RetryAsync(long id, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var changed = await conn.ExecuteAsync("""
-            UPDATE outbox SET attempts = 0, failed_at = NULL, discarded_at = NULL, available_at = now()
+        var changed = await conn.ExecuteAsync($"""
+            UPDATE {JobTables.Of(id).Table} SET attempts = 0, failed_at = NULL, discarded_at = NULL, available_at = now()
             WHERE id = @Id AND failed_at IS NOT NULL AND processed_at IS NULL
             """, new MessageIdRecord(id));
         return changed == 1 ? OutboxChange.Changed : await MissingAsync(conn, id);
@@ -74,21 +75,24 @@ public sealed class OutboxAdminRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         var changed = await conn.ExecuteAsync(
-            "UPDATE outbox SET discarded_at = now() WHERE id = @Id AND failed_at IS NOT NULL AND discarded_at IS NULL", new MessageIdRecord(id));
+            $"UPDATE {JobTables.Of(id).Table} SET discarded_at = now() WHERE id = @Id AND failed_at IS NOT NULL AND discarded_at IS NULL", new MessageIdRecord(id));
         return changed == 1 ? OutboxChange.Changed : await MissingAsync(conn, id);
     }
 
     public async Task<int> RetryFailedAsync(string? type, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        return await conn.ExecuteAsync($"""
-            UPDATE outbox SET attempts = 0, failed_at = NULL, available_at = now()
-            WHERE {OutboxStates.Filter(OutboxStates.Failed)} AND (@Type::text IS NULL OR type = @Type)
-            """, new TypeRecord(type));
+        var retried = 0;
+        foreach (var table in JobTables.All)
+            retried += await conn.ExecuteAsync($"""
+                UPDATE {table.Table} SET attempts = 0, failed_at = NULL, available_at = now()
+                WHERE {OutboxStates.Filter(OutboxStates.Failed)} AND (@Type::text IS NULL OR {table.TypeColumn} = @Type)
+                """, new TypeRecord(type));
+        return retried;
     }
 
     static async Task<OutboxChange> MissingAsync(NpgsqlConnection conn, long id) =>
-        await conn.ExecuteScalarAsync<long?>("SELECT id FROM outbox WHERE id = @Id", new MessageIdRecord(id)) is null
+        await conn.ExecuteScalarAsync<long?>($"SELECT id FROM {JobTables.Of(id).Table} WHERE id = @Id", new MessageIdRecord(id)) is null
             ? OutboxChange.NotFound
             : OutboxChange.NotAllowed;
 }

@@ -1,5 +1,5 @@
+using ReapSeek.BuildingBlocks.Messaging;
 using ReapSeek.Worker.Identity;
-using ReapSeek.Api.Identity;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Migrations;
 using ReapSeek.Shared.Outbox;
@@ -30,9 +30,10 @@ public class InfrastructureTests
     public void The_database_search_path_matches_the_platform_baseline()
     {
         var migrations = MigrationRunner.Embedded();
-        var platform = migrations.Single(m => m.Module == "platform" && m.Version == "0001_baseline").Sql;
+        var platform = migrations.Last(m => m.Module == "platform" && m.Sql.Contains("SET search_path", StringComparison.Ordinal)).Sql;
         var expected = ReapSeek.Shared.Database.SearchPath.Replace(",", ", ");
         Assert.Contains($"SET search_path = {expected}'", platform);
+        Assert.StartsWith("platform,", ReapSeek.Shared.Database.SearchPath);
         var schemas = ReapSeek.Shared.Database.SearchPath.Split(',').Where(s => s != "public").ToList();
         Assert.Equal(MigrationRunner.Modules.Order(), schemas.Order());
         foreach (var schema in schemas)
@@ -43,16 +44,16 @@ public class InfrastructureTests
     public void Outbox_retries_back_off_exponentially_and_give_up()
     {
         var now = new DateTime(2026, 10, 30, 12, 0, 0, DateTimeKind.Utc);
-        Assert.Equal(now.AddSeconds(5), OutboxPolicy.RetryAt(1, now));
-        Assert.Equal(now.AddSeconds(10), OutboxPolicy.RetryAt(2, now));
-        Assert.Equal(now.AddSeconds(40), OutboxPolicy.RetryAt(4, now));
-        Assert.Equal(now.AddSeconds(1280), OutboxPolicy.RetryAt(OutboxPolicy.MaxAttempts - 1, now));
-        Assert.Null(OutboxPolicy.RetryAt(OutboxPolicy.MaxAttempts, now));
+        Assert.Equal(now.AddSeconds(5), RetryPolicy.RetryAt(1, now));
+        Assert.Equal(now.AddSeconds(10), RetryPolicy.RetryAt(2, now));
+        Assert.Equal(now.AddSeconds(40), RetryPolicy.RetryAt(4, now));
+        Assert.Equal(now.AddSeconds(1280), RetryPolicy.RetryAt(RetryPolicy.MaxAttempts - 1, now));
+        Assert.Null(RetryPolicy.RetryAt(RetryPolicy.MaxAttempts, now));
     }
 
     [Fact]
     public void Long_errors_are_truncated() =>
-        Assert.Equal(OutboxPolicy.MaxErrorLength, OutboxPolicy.Truncate(new string('x', 10_000)).Length);
+        Assert.Equal(RetryPolicy.MaxErrorLength, RetryPolicy.Truncate(new string('x', 10_000)).Length);
 
     [Fact]
     public void Welcome_email_escapes_the_name_in_html()

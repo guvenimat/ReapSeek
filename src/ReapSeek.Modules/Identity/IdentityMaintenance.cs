@@ -1,10 +1,10 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Identity.Contracts;
 
 namespace ReapSeek.Modules.Identity;
 
 public sealed record IdentityPurgeRecord(DateTime Now, DateTime TokenCutoff);
-public sealed record IdentityPurgeCounts(int Sessions, int Tokens);
 
 public static class IdentityMaintenance
 {

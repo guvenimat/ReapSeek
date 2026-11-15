@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 
 namespace ReapSeek.Api.Catalog;

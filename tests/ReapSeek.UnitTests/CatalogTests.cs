@@ -1,3 +1,4 @@
+using ReapSeek.BuildingBlocks.Messaging;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -211,10 +212,10 @@ public class CatalogTests
     public void ReapDeep_messages_retry_longer_than_others()
     {
         var now = DateTime.UnixEpoch;
-        Assert.Equal(OutboxPolicy.MaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.OrderPaid));
-        Assert.Equal(OutboxPolicy.ReapDeepMaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepEvents));
-        Assert.Equal(OutboxPolicy.ReapDeepMaxAttempts, OutboxPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepCatalog));
-        Assert.Equal(now.AddSeconds(2560), OutboxPolicy.RetryAt(OutboxPolicy.MaxAttempts, now, OutboxPolicy.ReapDeepMaxAttempts));
-        Assert.Null(OutboxPolicy.RetryAt(OutboxPolicy.ReapDeepMaxAttempts, now, OutboxPolicy.ReapDeepMaxAttempts));
+        Assert.Equal(RetryPolicy.MaxAttempts, RetryPolicy.MaxAttemptsFor(OutboxTypes.OrderPaid));
+        Assert.Equal(RetryPolicy.ReapDeepMaxAttempts, RetryPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepEvents));
+        Assert.Equal(RetryPolicy.ReapDeepMaxAttempts, RetryPolicy.MaxAttemptsFor(OutboxTypes.ReapDeepCatalog));
+        Assert.Equal(now.AddSeconds(2560), RetryPolicy.RetryAt(RetryPolicy.MaxAttempts, now, RetryPolicy.ReapDeepMaxAttempts));
+        Assert.Null(RetryPolicy.RetryAt(RetryPolicy.ReapDeepMaxAttempts, now, RetryPolicy.ReapDeepMaxAttempts));
     }
 }

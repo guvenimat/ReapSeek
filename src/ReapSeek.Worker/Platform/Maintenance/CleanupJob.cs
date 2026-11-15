@@ -1,3 +1,4 @@
+using ReapSeek.BuildingBlocks.Messaging;
 using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Identity;
@@ -47,6 +48,7 @@ public sealed class CleanupJob(NpgsqlDataSource db, IConfiguration cfg, TimeProv
         await using var conn = await db.OpenConnectionAsync(ct);
         var identity = await IdentityMaintenance.PurgeAsync(conn, now, now - TokenRetention);
         var outbox = await conn.ExecuteAsync("DELETE FROM platform.outbox WHERE processed_at < @OutboxCutoff", new CutoffRecord(now, now, now - _outboxRetention, now));
+        outbox += await MessagingMaintenance.PurgeAsync(conn, now - _outboxRetention);
         var carts = await CartMaintenance.PurgeGuestCartsAsync(conn, now - _guestCartRetention);
         return new CleanupCountsRecord(identity.Sessions, identity.Tokens, outbox, carts);
     }

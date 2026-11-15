@@ -1,24 +1,28 @@
-using ReapSeek.Api.Identity;
-using ReapSeek.Api.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Identity.Infrastructure;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 
-namespace ReapSeek.Api.Identity.Customers;
+namespace ReapSeek.Identity.Api;
 
-public sealed record CustomerRow(
+internal sealed record CustomerRow(
     long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, int Orders, decimal Spent, DateTime? LastOrderAt);
-public sealed record CustomersResponse(List<CustomerRow> Customers, int Total, int Page, int PageSize);
-public sealed record CustomerOrderRow(string Number, string Status, decimal Total, int Packages, DateTime PlacedAt);
-public sealed record CustomerReturnRow(string Number, string OrderNumber, string Status, string Reason, decimal RefundAmount, DateTime RequestedAt);
-public sealed record CustomerReviewRow(long ProductId, string ProductTitle, int Rating, string Title, string Status, DateTime CreatedAt);
-public sealed record CustomerCouponRow(string Code, string Campaign, string Kind, decimal Value, DateTime ExpiresAt, string? UsedOrderNumber);
-public sealed record CustomerStats(int Orders, decimal Spent, decimal Refunded, decimal AverageOrder, int Returns, int Reviews, DateTime? FirstOrderAt, DateTime? LastOrderAt);
-public sealed record CustomerDetail(
+internal sealed record CustomersResponse(List<CustomerRow> Customers, int Total, int Page, int PageSize);
+internal sealed record CustomerOrderRow(string Number, string Status, decimal Total, int Packages, DateTime PlacedAt);
+internal sealed record CustomerReturnRow(string Number, string OrderNumber, string Status, string Reason, decimal RefundAmount, DateTime RequestedAt);
+internal sealed record CustomerReviewRow(long ProductId, string ProductTitle, int Rating, string Title, string Status, DateTime CreatedAt);
+internal sealed record CustomerCouponRow(string Code, string Campaign, string Kind, decimal Value, DateTime ExpiresAt, string? UsedOrderNumber);
+internal sealed record CustomerStats(int Orders, decimal Spent, decimal Refunded, decimal AverageOrder, int Returns, int Reviews, DateTime? FirstOrderAt, DateTime? LastOrderAt);
+internal sealed record CustomerDetail(
     long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt, string DistinctId, CustomerStats Stats,
     List<CustomerOrderRow> Orders, List<CustomerReturnRow> Returns, List<CustomerReviewRow> Reviews, List<CustomerCouponRow> Coupons);
-public sealed record SuspendRequest(string? Reason);
+internal sealed record SuspendRequest(string? Reason);
 
-public static class CustomerQuery
+internal static class CustomerQuery
 {
     public static readonly string[] Sorts = ["recent", "spent", "orders", "last_order"];
 
@@ -34,11 +38,11 @@ public static class CustomerQuery
         string.IsNullOrWhiteSpace(q) ? null : "%" + q.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
 }
 
-public static class CustomerEndpoints
+internal static class CustomerEndpoints
 {
     const int PageSize = 25;
 
-    public static void MapCustomers(this RouteGroupBuilder api)
+    public static void MapCustomers(this IEndpointRouteBuilder api)
     {
         var admin = api.MapGroup("/backoffice/customers").RequireAdmin();
 
@@ -48,17 +52,17 @@ public static class CustomerEndpoints
             var st = string.IsNullOrEmpty(status) ? null : Ensure.OneOf(status, "status", "active", "suspended");
             var p = Ensure.InRange(page ?? 1, 1, 10_000, "page");
             var (rows, total) = await customers.ListAsync(CustomerQuery.Pattern(q), s, st, p, PageSize, ct);
-            return ApiResults.Ok(new CustomersResponse(rows, total, p, PageSize), AppJsonContext.Default.CustomersResponse);
+            return ApiResults.Ok(new CustomersResponse(rows, total, p, PageSize), IdentityJsonContext.Default.CustomersResponse);
         });
 
         admin.MapGet("/{id:long}", async (long id, CustomerRepository customers, CancellationToken ct) =>
             await customers.DetailAsync(id, ct) is { } detail
-                ? ApiResults.Ok(detail, AppJsonContext.Default.CustomerDetail)
+                ? ApiResults.Ok(detail, IdentityJsonContext.Default.CustomerDetail)
                 : ApiResults.NotFound("Customer not found"));
 
         admin.MapGet("/{id:long}/reapdeep", async (long id, CustomerRepository customers, ReapDeepProfile reapDeep, CancellationToken ct) =>
             await customers.ExistsAsync(id, ct)
-                ? ApiResults.Ok(await reapDeep.ForCustomerAsync(id, ct), AppJsonContext.Default.CustomerAnalytics)
+                ? ApiResults.Ok(await reapDeep.ForCustomerAsync(id, ct), IdentityJsonContext.Default.CustomerAnalytics)
                 : ApiResults.NotFound("Customer not found"));
 
         admin.MapPost("/{id:long}/suspend", async (long id, SuspendRequest req, CustomerRepository customers, RedisCache cache, ILoggerFactory logs, CancellationToken ct) =>

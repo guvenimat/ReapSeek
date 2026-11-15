@@ -1,3 +1,5 @@
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Engagement.Contracts;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Worker.Catalog.Caching;
@@ -67,6 +69,9 @@ public static class HostingExtensions
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
         services.AddHostedService<OutboxProcessor>();
+        services.AddMessagingWorker(new MessagingOptions(TimeSpan.FromMilliseconds(cfg.GetValue("Outbox:PollMilliseconds", 1000))), subscriptions => subscriptions
+            .Add<QuestionAskedV1, QuestionHandler>(MessagingModules.Engagement, QuestionAskedV1.EventName, EngagementEventsJsonContext.Default.QuestionAskedV1,
+                MessagingModules.Engagement, QuestionHandler.AskedHandler));
         return builder;
     }
 }

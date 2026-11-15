@@ -1,6 +1,5 @@
 using System.Text.Json;
 using ReapSeek.Api.Ordering.Carts;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Shared;
@@ -10,7 +9,7 @@ using ReapSeek.Shared.Caching;
 namespace ReapSeek.Api.Catalog.Recommendations;
 
 public sealed class RecommendationService(
-    RecommenderClient recommender, RedisCache cache, SearchService search, CartService carts, SessionService sessions, IConfiguration cfg,
+    RecommenderClient recommender, RedisCache cache, SearchService search, CartService carts, ISessionReader sessions, IConfiguration cfg,
     TimeProvider clock, ILogger<RecommendationService> log)
 {
     static readonly TimeSpan StaleTtl = TimeSpan.FromHours(24);

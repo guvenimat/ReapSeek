@@ -1,3 +1,4 @@
+using ReapSeek.BuildingBlocks.Messaging;
 using System.Diagnostics;
 using Npgsql;
 using ReapSeek.Shared.Observability;
@@ -36,7 +37,7 @@ public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher di
 
     async Task<int> ProcessBatchAsync(CancellationToken ct)
     {
-        var messages = await outbox.ClaimAsync(BatchSize, DateTime.UtcNow + OutboxPolicy.Lease, ct);
+        var messages = await outbox.ClaimAsync(BatchSize, DateTime.UtcNow + RetryPolicy.Lease, ct);
         foreach (var group in messages.GroupBy(OutboxDispatcher.GroupOf))
         {
             var batch = group.ToList();
@@ -60,10 +61,10 @@ public sealed class OutboxProcessor(OutboxRepository outbox, OutboxDispatcher di
                 activity?.AddException(ex);
                 foreach (var message in batch)
                 {
-                    var retryAt = OutboxPolicy.RetryAt(message.Attempts, DateTime.UtcNow, OutboxPolicy.MaxAttemptsFor(message.Type));
+                    var retryAt = RetryPolicy.RetryAt(message.Attempts, DateTime.UtcNow, RetryPolicy.MaxAttemptsFor(message.Type));
                     log.LogWarning("Outbox message {Id} ({Type}) failed on attempt {Attempt}: {Message}{Final}",
                         message.Id, message.Type, message.Attempts, ex.Message, retryAt is null ? "; giving up" : "");
-                    await outbox.FailAsync(message.Id, OutboxPolicy.Truncate(ex.ToString()), retryAt, ct);
+                    await outbox.FailAsync(message.Id, RetryPolicy.Truncate(ex.ToString()), retryAt, ct);
                     Telemetry.OutboxProcessed.Add(1, new("type", message.Type), new("outcome", retryAt is null ? "gave_up" : "retry"));
                 }
             }
