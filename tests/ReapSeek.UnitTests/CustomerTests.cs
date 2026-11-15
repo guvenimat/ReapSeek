@@ -1,5 +1,6 @@
+using ReapSeek.Identity.Api;
+using ReapSeek.Identity.Infrastructure;
 using System.Text.Json;
-using ReapSeek.Api.Identity.Customers;
 
 namespace ReapSeek.UnitTests;
 

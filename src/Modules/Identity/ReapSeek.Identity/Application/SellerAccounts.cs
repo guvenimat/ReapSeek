@@ -1,11 +1,12 @@
-using ReapSeek.Api.Infrastructure;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Identity.Api;
+using ReapSeek.Identity.Contracts;
+using ReapSeek.Identity.Infrastructure;
 using ReapSeek.Modules.Identity;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Application;
 
-public sealed record SellerLogin(long Id, string Email, string Name, DateTime CreatedAt);
-
-public sealed class SellerAccounts(AccountRepository accounts)
+internal sealed class SellerAccounts(AccountRepository accounts) : ISellerAccounts
 {
     public async Task<List<SellerLogin>> ListAsync(long sellerId, CancellationToken ct) =>
         (await accounts.SellerUsersAsync(sellerId, ct)).Select(u => new SellerLogin(u.Id, u.Email, u.Name, u.CreatedAt)).ToList();

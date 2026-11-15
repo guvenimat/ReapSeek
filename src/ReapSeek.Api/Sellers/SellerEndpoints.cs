@@ -1,5 +1,4 @@
 using ReapSeek.Api.Catalog;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 

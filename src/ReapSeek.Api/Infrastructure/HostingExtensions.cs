@@ -6,9 +6,7 @@ using OpenTelemetry.Trace;
 using ReapSeek.Api.Ordering.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Ordering.Checkout;
-using ReapSeek.Api.Identity.Customers;
 using ReapSeek.Api.Health;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Operations;
 using ReapSeek.Api.Ordering.Orders;
@@ -32,6 +30,7 @@ using ReapSeek.Shared.Search;
 using ReapSeek.Engagement;
 using ReapSeek.Marketing;
 using ReapSeek.Finance;
+using ReapSeek.Identity;
 
 namespace ReapSeek.Api.Infrastructure;
 
@@ -61,6 +60,7 @@ public static class HostingExtensions
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
             o.SerializerOptions.TypeInfoResolverChain.Insert(1, EngagementModule.JsonTypeInfoResolver);
             o.SerializerOptions.TypeInfoResolverChain.Insert(2, MarketingModule.JsonTypeInfoResolver);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(3, IdentityModule.JsonTypeInfoResolver);
             o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
         });
         services.AddExceptionHandler<ApiExceptionHandler>();
@@ -94,16 +94,11 @@ public static class HostingExtensions
         services.AddSingleton<UploadStore>();
         services.AddSingleton<ProductImageService>();
 
-        services.AddSingleton<AccountRepository>();
-        services.AddSingleton<SessionService>();
-        services.AddSingleton<SellerAccounts>();
+        services.AddIdentity();
         services.AddSingleton<OutboxAdminRepository>();
         services.AddSingleton<DatabaseProbe>();
         services.AddMarketing();
-        services.AddSingleton<CustomerRepository>();
         services.AddSingleton<StoreRepository>();
-        services.AddSingleton<AccountRecoveryService>();
-        services.AddHostedService<BootstrapAdmin>();
         services.AddSingleton<CatalogRepository>();
         services.AddSingleton<CatalogService>();
         services.AddSingleton<SellerRepository>();
@@ -116,6 +111,7 @@ public static class HostingExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<CartRepository>();
         services.AddSingleton<CartService>();
+        services.AddSingleton<IStorefrontSignIn>(sp => sp.GetRequiredService<CartService>());
         services.AddSandboxProviders();
         services.AddSingleton<ShippingService>();
         services.AddSingleton<CheckoutService>();
@@ -135,7 +131,6 @@ public static class HostingExtensions
         services.AddSingleton<ReturnService>();
         services.AddEngagement();
         services.AddSingleton<ReapDeepAudience>();
-        services.AddSingleton<ReapDeepProfile>();
         return builder;
     }
 
@@ -145,14 +140,10 @@ public static class HostingExtensions
         app.Use(SecurityHeaders);
         app.UseExceptionHandler();
         app.UseRateLimiter();
-        app.UseMiddleware<UserAccessMiddleware>();
+        app.UseIdentitySessions();
 
         var api = app.MapGroup("/api/v1");
-        var storefrontAuth = api.MapGroup("/auth");
-        var backofficeAuth = api.MapGroup("/backoffice/auth");
-        storefrontAuth.MapStorefrontAuth();
-        backofficeAuth.MapBackofficeAuth();
-        storefrontAuth.MapAccountRecovery(backofficeAuth, api);
+        api.MapIdentityEndpoints();
         api.MapStorefrontCatalog();
         api.MapStorefrontProducts();
         api.MapGroup("/cart").MapCart();
@@ -169,7 +160,6 @@ public static class HostingExtensions
         api.MapMarketingEndpoints();
         api.MapOutboxAdmin();
         api.MapProductImages();
-        api.MapCustomers();
         api.MapShipping();
         app.MapMedia();
         app.MapHealth();

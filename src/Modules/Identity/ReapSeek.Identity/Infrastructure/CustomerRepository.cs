@@ -4,19 +4,20 @@ using ReapSeek.Modules.Catalog;
 using ReapSeek.Modules.Engagement;
 using ReapSeek.Modules.Marketing;
 using ReapSeek.Modules.Ordering;
+using ReapSeek.Identity.Api;
 using ReapSeek.Shared.Analytics;
 
-namespace ReapSeek.Api.Identity.Customers;
+namespace ReapSeek.Identity.Infrastructure;
 
-public enum SuspensionChange { Changed, NotFound, Unchanged }
+internal enum SuspensionChange { Changed, NotFound, Unchanged }
 
-public sealed class CustomerRepository(NpgsqlDataSource db)
+internal sealed class CustomerRepository(NpgsqlDataSource db)
 {
-    public sealed record ListRecord(string? Pattern, string? Status);
-    public sealed record ListRow(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt);
-    public sealed record IdRecord(long Id);
-    public sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt);
-    public sealed record SuspendRecord(long Id, string? Reason);
+    internal sealed record ListRecord(string? Pattern, string? Status);
+    internal sealed record ListRow(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt);
+    internal sealed record IdRecord(long Id);
+    internal sealed record ProfileRecord(long Id, string Name, string Email, DateTime CreatedAt, DateTime? SuspendedAt, string? SuspendedReason, DateTime? EmailVerifiedAt);
+    internal sealed record SuspendRecord(long Id, string? Reason);
 
     public static async Task<Dictionary<long, string>> ProductTitlesAsync(NpgsqlConnection conn, long[] ids) =>
         (await CatalogLookups.ProductsAsync(conn, ids)).ToDictionary(p => p.Key, p => p.Value.Title);

@@ -19,6 +19,7 @@ public class ArchitectureTests
         typeof(ReapSeek.Engagement.Contracts.ReviewStat).Assembly,
         typeof(ReapSeek.Marketing.Contracts.CustomerCoupon).Assembly,
         typeof(ReapSeek.Finance.Contracts.ISellerFinance).Assembly,
+        typeof(ReapSeek.Identity.Contracts.ISellerAccounts).Assembly,
     ];
 
     static readonly Dictionary<Assembly, Type> ModuleProjects = new()
@@ -26,6 +27,7 @@ public class ArchitectureTests
         [typeof(ReapSeek.Engagement.EngagementModule).Assembly] = typeof(ReapSeek.Engagement.EngagementModule),
         [typeof(ReapSeek.Marketing.MarketingModule).Assembly] = typeof(ReapSeek.Marketing.MarketingModule),
         [typeof(ReapSeek.Finance.FinanceModule).Assembly] = typeof(ReapSeek.Finance.FinanceModule),
+        [typeof(ReapSeek.Identity.IdentityModule).Assembly] = typeof(ReapSeek.Identity.IdentityModule),
     };
 
     static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
@@ -33,7 +35,7 @@ public class ArchitectureTests
 
     static readonly Dictionary<string, string[]> PublicApi = new()
     {
-        ["Identity"] = ["SessionService", "SellerAccounts", "SellerLogin"],
+        ["Identity"] = [],
         ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductStatus",
             "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
             "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
@@ -138,7 +140,7 @@ public class ArchitectureTests
     [Fact]
     public void Web_building_blocks_know_no_module() =>
         Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
-            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance").GetResult(), "BuildingBlocks.Web");
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity").GetResult(), "BuildingBlocks.Web");
 
     static readonly string[] SqlOutsideRepositories =
     [
@@ -146,7 +148,7 @@ public class ArchitectureTests
         "ReapSeek.Api.Seed.CatalogSeeder",
         "ReapSeek.Api.Catalog.Search.CategoryCache",
         "ReapSeek.Api.Ordering.Orders.OrderQueries",
-        "ReapSeek.Api.Identity.AccountRecoveryService",
+        "ReapSeek.Identity.Application.AccountRecoveryService",
         "ReapSeek.Api.Catalog.Media.ProductImageService",
         "ReapSeek.Api.Ordering.Returns.ReturnService",
         "ReapSeek.Api.Ordering.Shipping.ShippingService",
@@ -235,12 +237,17 @@ public class ArchitectureTests
         Assert.Contains(DataAccessTypesIn(marketing.Key, RootNamespace(marketing.Value), "Dapper"), t => t.Name == "AlertRepository");
         var finance = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Finance.FinanceModule));
         Assert.Contains(DataAccessTypesIn(finance.Key, RootNamespace(finance.Value), "Dapper"), t => t.Name == "SellerFinanceRepository");
+        var identity = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Identity.IdentityModule));
+        Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRepository");
+        Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRecoveryService");
     }
 
     [Fact]
     public void The_SQL_whitelist_has_no_stale_entries()
     {
-        var actual = DataAccessTypes("Dapper").Select(t => t.FullName!).ToHashSet();
+        var actual = DataAccessTypes("Dapper")
+            .Concat(ModuleProjects.SelectMany(m => DataAccessTypesIn(m.Key, RootNamespace(m.Value), "Dapper")))
+            .Select(t => t.FullName!).ToHashSet();
         Assert.All(SqlOutsideRepositories, name => Assert.Contains(name, actual));
     }
 

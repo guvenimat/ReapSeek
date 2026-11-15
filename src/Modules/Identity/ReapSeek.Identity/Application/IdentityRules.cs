@@ -1,12 +1,13 @@
 using ReapSeek.Modules.Identity;
 using System.Text.RegularExpressions;
+using ReapSeek.Identity.Api;
 using ReapSeek.Shared;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Application;
 
-public sealed record Registration(string Email, string Name, string Password);
+internal sealed record Registration(string Email, string Name, string Password);
 
-public static partial class IdentityRules
+internal static partial class IdentityRules
 {
     public const int MaxEmailLength = 254;
     public const int MaxNameLength = 100;

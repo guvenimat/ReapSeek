@@ -1,14 +1,15 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Infrastructure;
 
-public sealed class AccountRepository(NpgsqlDataSource db)
+internal sealed class AccountRepository(NpgsqlDataSource db)
 {
-    public sealed record CredentialsRecord(long Id, string PasswordHash, string Role, bool Suspended);
-    public sealed record SellerUserRecord(long Id, string Email, string Name, DateTime CreatedAt);
+    internal sealed record CredentialsRecord(long Id, string PasswordHash, string Role, bool Suspended);
+    internal sealed record SellerUserRecord(long Id, string Email, string Name, DateTime CreatedAt);
 
     const string UniqueViolation = "23505";
 

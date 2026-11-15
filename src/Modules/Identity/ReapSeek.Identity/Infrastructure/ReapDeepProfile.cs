@@ -2,28 +2,30 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using ReapSeek.Shared.Analytics;
 
-namespace ReapSeek.Api.Identity.Customers;
+namespace ReapSeek.Identity.Infrastructure;
 
-public sealed record RfmProfile(string Segment, string SegmentName, int R, int F, long RecencyDays, long Orders, double Monetary, int WindowDays);
-public sealed record ActivityRow(string Event, DateTime Timestamp, string? ItemId, string? ProductTitle, string? Detail);
-public sealed record CustomerAnalytics(string Status, RfmProfile? Rfm, List<ActivityRow> Activity);
+internal sealed record RfmProfile(string Segment, string SegmentName, int R, int F, long RecencyDays, long Orders, double Monetary, int WindowDays);
+internal sealed record ActivityRow(string Event, DateTime Timestamp, string? ItemId, string? ProductTitle, string? Detail);
+internal sealed record CustomerAnalytics(string Status, RfmProfile? Rfm, List<ActivityRow> Activity);
 
-public sealed record ReapDeepRfm(int WindowDays, string? Segment, string? SegmentName, int? R, int? F, long? RecencyDays, long? Orders, double? Monetary);
-public sealed record ReapDeepEvent(string Event, DateTime Timestamp, string DistinctId, JsonElement Columns, JsonElement Properties);
-public sealed record ReapDeepEvents(List<ReapDeepEvent> Events);
-public sealed record ReapDeepPerson(string Id, string[] DistinctIds);
-public sealed record ReapDeepPersons(List<ReapDeepPerson> Persons);
+internal sealed record ReapDeepRfm(int WindowDays, string? Segment, string? SegmentName, int? R, int? F, long? RecencyDays, long? Orders, double? Monetary);
+internal sealed record ReapDeepEvent(string Event, DateTime Timestamp, string DistinctId, JsonElement Columns, JsonElement Properties);
+internal sealed record ReapDeepEvents(List<ReapDeepEvent> Events);
+internal sealed record ReapDeepPerson(string Id, string[] DistinctIds);
+internal sealed record ReapDeepPersons(List<ReapDeepPerson> Persons);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
 [JsonSerializable(typeof(ReapDeepRfm))]
 [JsonSerializable(typeof(ReapDeepEvents))]
 [JsonSerializable(typeof(ReapDeepPersons))]
-public sealed partial class ProfileJsonContext : JsonSerializerContext;
+internal sealed partial class ProfileJsonContext : JsonSerializerContext;
 
-public static class ActivityRules
+internal static class ActivityRules
 {
     public static string? ItemId(ReapDeepEvent e) =>
         Text(e.Columns, "item_id") ?? Text(e.Properties, "item_id");
@@ -45,7 +47,7 @@ public static class ActivityRules
             : null;
 }
 
-public sealed class ReapDeepProfile : IDisposable
+internal sealed class ReapDeepProfile : IDisposable
 {
     const int ActivityLimit = 25;
     readonly HttpClient? _http;

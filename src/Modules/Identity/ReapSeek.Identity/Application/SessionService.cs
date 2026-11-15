@@ -1,12 +1,16 @@
 using ReapSeek.Modules.Identity;
 using System.Security.Cryptography;
 using System.Text;
-using ReapSeek.Api.Infrastructure;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Identity.Api;
+using ReapSeek.Identity.Infrastructure;
 using ReapSeek.Shared.Caching;
 
-namespace ReapSeek.Api.Identity;
+namespace ReapSeek.Identity.Application;
 
-public sealed class SessionService(AccountRepository accounts, RedisCache cache, IConfiguration cfg)
+internal sealed class SessionService(AccountRepository accounts, RedisCache cache, IConfiguration cfg) : ISessionReader
 {
     static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
     const int MaxTokenLength = 128;
@@ -17,7 +21,7 @@ public sealed class SessionService(AccountRepository accounts, RedisCache cache,
     {
         if (TokenHash(ctx.Request, audience) is not { } hash) return null;
         if (ctx.Items.TryGetValue(audience, out var resolved)) return resolved as UserInfo;
-        var user = await cache.GetOrLoadAsync(CacheKeys.Session(hash), CacheJsonContext.Default.UserInfo, CacheTtl,
+        var user = await cache.GetOrLoadAsync(CacheKeys.Session(hash), IdentityJsonContext.Default.UserInfo, CacheTtl,
             () => accounts.FindSessionAsync(hash, audience.Name, ctx.RequestAborted));
         ctx.Items[audience] = user;
         return user;

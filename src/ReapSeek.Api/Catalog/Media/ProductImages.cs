@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Outbox;

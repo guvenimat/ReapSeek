@@ -1,12 +1,11 @@
 using ReapSeek.Finance.Contracts;
+using ReapSeek.Identity.Contracts;
 using ReapSeek.Api.Ordering.Shipping;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Api.Catalog;
-using ReapSeek.Api.Identity;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 using ReapSeek.Modules.Finance;
-
 namespace ReapSeek.Api.Sellers.SellerPanel;
 
 public static class SellerPanelEndpoints
@@ -69,13 +68,13 @@ public static class SellerPanelEndpoints
             ApiResults.Ok(await payouts.RunAsync(clock.GetUtcNow().UtcDateTime, ct), AppJsonContext.Default.PayoutRunResult));
         admin.MapPost("/catalog/products/{id:long}/review", async (long id, ReviewRequest req, SellerPanelService service, CancellationToken ct) =>
             ApiResults.Ok(await service.ReviewAsync(id, req, ct), AppJsonContext.Default.ProductDetail));
-        admin.MapGet("/sellers/{id:long}/users", async (long id, SellerAccounts accounts, CancellationToken ct) =>
+        admin.MapGet("/sellers/{id:long}/users", async (long id, ISellerAccounts accounts, CancellationToken ct) =>
             ApiResults.Ok(new SellerUsersResponse((await accounts.ListAsync(id, ct)).Select(u => new SellerUserRow(u.Id, u.Email, u.Name, u.CreatedAt)).ToList()),
                 AppJsonContext.Default.SellerUsersResponse));
         admin.MapPost("/sellers/{id:long}/users", CreateSellerUser);
     }
 
-    static async Task<IResult> CreateSellerUser(long id, CreateSellerUserRequest req, SellerAccounts accounts, SellerPanelRepository panel, CancellationToken ct)
+    static async Task<IResult> CreateSellerUser(long id, CreateSellerUserRequest req, ISellerAccounts accounts, SellerPanelRepository panel, CancellationToken ct)
     {
         _ = await panel.AccountAsync(id, ct) ?? throw new NotFoundException("Seller not found");
         var created = await accounts.CreateAsync(id, req.Email, req.Name, req.Password, ct);
