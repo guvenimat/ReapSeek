@@ -15,20 +15,28 @@ public class InfrastructureTests
     {
         var migrations = MigrationRunner.Embedded();
         Assert.NotEmpty(migrations);
-        Assert.Equal("0001_identity_and_outbox", migrations[0].Version);
-        Assert.Equal(migrations.Select(m => m.Version).Order(StringComparer.Ordinal), migrations.Select(m => m.Version));
+        Assert.Equal(("platform", "0001_baseline"), (migrations[0].Module, migrations[0].Version));
+        Assert.Equal(MigrationRunner.Modules, migrations.Select(m => m.Module).Distinct());
+        foreach (var group in migrations.GroupBy(m => m.Module))
+        {
+            Assert.Equal("0001_baseline", group.First().Version);
+            Assert.Equal(group.Select(m => m.Version).Order(StringComparer.Ordinal), group.Select(m => m.Version));
+            Assert.Equal(group.Count(), group.Select(m => m.Version[..4]).Distinct().Count());
+        }
         Assert.All(migrations, m => Assert.False(string.IsNullOrWhiteSpace(m.Sql)));
-        Assert.Equal(migrations.Count, migrations.Select(m => m.Version[..4]).Distinct().Count());
     }
 
     [Fact]
-    public void The_database_search_path_matches_the_module_schemas_migration()
+    public void The_database_search_path_matches_the_platform_baseline()
     {
-        var sql = MigrationRunner.Embedded().Single(m => m.Version == "0018_module_schemas").Sql;
+        var migrations = MigrationRunner.Embedded();
+        var platform = migrations.Single(m => m.Module == "platform" && m.Version == "0001_baseline").Sql;
         var expected = ReapSeek.Shared.Database.SearchPath.Replace(",", ", ");
-        Assert.Contains($"SET search_path = {expected}", sql);
-        foreach (var schema in ReapSeek.Shared.Database.SearchPath.Split(',').Where(s => s != "public"))
-            Assert.Contains($"CREATE SCHEMA IF NOT EXISTS {schema};", sql);
+        Assert.Contains($"SET search_path = {expected}'", platform);
+        var schemas = ReapSeek.Shared.Database.SearchPath.Split(',').Where(s => s != "public").ToList();
+        Assert.Equal(MigrationRunner.Modules.Order(), schemas.Order());
+        foreach (var schema in schemas)
+            Assert.Contains($"CREATE SCHEMA IF NOT EXISTS {schema};", migrations.Single(m => m.Module == schema && m.Version == "0001_baseline").Sql);
     }
 
     [Fact]

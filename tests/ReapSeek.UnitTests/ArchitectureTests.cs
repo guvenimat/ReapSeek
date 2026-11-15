@@ -14,11 +14,18 @@ public class ArchitectureTests
     static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.HostingExtensions).Assembly;
     static readonly Assembly Web = typeof(ReapSeek.BuildingBlocks.Web.ApiResults).Assembly;
     static readonly Assembly Worker = typeof(ReapSeek.Worker.Outbox.OutboxDispatcher).Assembly;
-    static readonly Assembly EngagementContracts = typeof(ReapSeek.Engagement.Contracts.ReviewStat).Assembly;
+    static readonly Assembly[] ContractProjects =
+    [
+        typeof(ReapSeek.Engagement.Contracts.ReviewStat).Assembly,
+        typeof(ReapSeek.Marketing.Contracts.CustomerCoupon).Assembly,
+        typeof(ReapSeek.Finance.Contracts.ISellerFinance).Assembly,
+    ];
 
     static readonly Dictionary<Assembly, Type> ModuleProjects = new()
     {
         [typeof(ReapSeek.Engagement.EngagementModule).Assembly] = typeof(ReapSeek.Engagement.EngagementModule),
+        [typeof(ReapSeek.Marketing.MarketingModule).Assembly] = typeof(ReapSeek.Marketing.MarketingModule),
+        [typeof(ReapSeek.Finance.FinanceModule).Assembly] = typeof(ReapSeek.Finance.FinanceModule),
     };
 
     static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
@@ -32,7 +39,7 @@ public class ArchitectureTests
             "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
         ["Sellers"] = [],
         ["Ordering"] = ["CartService", "SellerPackages", "SellerPackageRow", "SellerPackagesResponse", "PackageAddress", "PackageLineRow", "PackageFilter"],
-        ["Finance"] = ["SellerFinance", "SellerBalanceResponse", "BalanceSummary", "LedgerRow", "PayoutRow", "PayoutsResponse"],
+        ["Finance"] = [],
         ["Engagement"] = [],
         ["Marketing"] = [],
     };
@@ -109,15 +116,29 @@ public class ArchitectureTests
     }
 
     [Fact]
-    public void Module_contracts_depend_on_nothing_but_the_base_library() =>
-        Pass(Types.InAssembly(EngagementContracts).ShouldNot().HaveDependencyOnAny(
-            "Dapper", "Npgsql", "Microsoft.AspNetCore", "Microsoft.Extensions", "ReapSeek.Shared", "ReapSeek.Domain", "ReapSeek.Modules",
-            "ReapSeek.BuildingBlocks", "ReapSeek.Api", "ReapSeek.Worker").GetResult(), "Contracts");
+    public void Module_projects_reference_no_other_module_project()
+    {
+        var names = ModuleProjects.Keys.Select(m => m.GetName().Name!).ToHashSet();
+        foreach (var module in ModuleProjects.Keys)
+            Assert.DoesNotContain(module.GetReferencedAssemblies(), r => names.Contains(r.Name!));
+    }
+
+    [Fact]
+    public void Module_contracts_depend_on_nothing_but_the_base_library()
+    {
+        foreach (var contracts in ContractProjects)
+        {
+            Pass(Types.InAssembly(contracts).ShouldNot().HaveDependencyOnAny(
+                "Dapper", "Npgsql", "Microsoft.AspNetCore", "Microsoft.Extensions", "ReapSeek.Shared", "ReapSeek.Domain", "ReapSeek.Modules",
+                "ReapSeek.BuildingBlocks", "ReapSeek.Api", "ReapSeek.Worker").GetResult(), contracts.GetName().Name!);
+            Assert.DoesNotContain(contracts.GetReferencedAssemblies(), r => r.Name!.StartsWith("ReapSeek.", StringComparison.Ordinal));
+        }
+    }
 
     [Fact]
     public void Web_building_blocks_know_no_module() =>
         Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
-            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement").GetResult(), "BuildingBlocks.Web");
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance").GetResult(), "BuildingBlocks.Web");
 
     static readonly string[] SqlOutsideRepositories =
     [
@@ -209,6 +230,11 @@ public class ArchitectureTests
     {
         var engagement = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Engagement.EngagementModule));
         Assert.Contains(DataAccessTypesIn(engagement.Key, RootNamespace(engagement.Value), "Dapper"), t => t.Name == "ReviewRepository");
+        var marketing = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Marketing.MarketingModule));
+        Assert.Contains(DataAccessTypesIn(marketing.Key, RootNamespace(marketing.Value), "Dapper"), t => t.Name == "CampaignRepository");
+        Assert.Contains(DataAccessTypesIn(marketing.Key, RootNamespace(marketing.Value), "Dapper"), t => t.Name == "AlertRepository");
+        var finance = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Finance.FinanceModule));
+        Assert.Contains(DataAccessTypesIn(finance.Key, RootNamespace(finance.Value), "Dapper"), t => t.Name == "SellerFinanceRepository");
     }
 
     [Fact]

@@ -53,7 +53,7 @@ Write-Host "`n[1] Health and migrations"
 $plain = NewClient
 Check "API /healthz is ok" ((Send $plain GET "$api/healthz").Json.status -eq "ok")
 Check "back office proxies /healthz" ((Send $plain GET "$backoffice/healthz").Json.status -eq "ok")
-Check "migration 0001 is recorded" ((Psql "SELECT count(*) FROM schema_migrations WHERE version = '0001_identity_and_outbox'") -eq "1")
+Check "the identity baseline migration is recorded" ((Psql "SELECT count(*) FROM schema_migrations WHERE module = 'identity' AND version = '0001_baseline'") -eq "1")
 
 Write-Host "`n[2] Registration"
 $jane = NewClient

@@ -3,6 +3,7 @@ using Npgsql;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
+using ReapSeek.Marketing.Contracts;
 
 namespace ReapSeek.Modules.Marketing;
 
@@ -13,7 +14,6 @@ public static class CouponStore
     public sealed record CampaignRecord(
         long Id, string Name, long CohortId, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject, string Message, string Status);
     public sealed record CouponOrderRecord(Guid OrderId);
-    public sealed record CustomerCoupon(string Code, string Campaign, string Kind, decimal Value, DateTime ExpiresAt, Guid? UsedOrderId);
     public sealed record CouponCustomerRecord(long CustomerId);
     public sealed record IssueRecord(long CampaignId, long[] CustomerIds, string[] Codes, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, DateTime ExpiresAt);
 

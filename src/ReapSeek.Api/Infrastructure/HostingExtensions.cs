@@ -1,17 +1,14 @@
-using ReapSeek.Api.Finance;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
-using ReapSeek.Api.Marketing.Alerts;
 using ReapSeek.Api.Ordering.Carts;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Ordering.Checkout;
 using ReapSeek.Api.Identity.Customers;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Identity;
-using ReapSeek.Api.Marketing;
 using ReapSeek.Api.Catalog.Media;
 using ReapSeek.Api.Operations;
 using ReapSeek.Api.Ordering.Orders;
@@ -33,6 +30,8 @@ using ReapSeek.Modules.Finance;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 using ReapSeek.Engagement;
+using ReapSeek.Marketing;
+using ReapSeek.Finance;
 
 namespace ReapSeek.Api.Infrastructure;
 
@@ -61,6 +60,7 @@ public static class HostingExtensions
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
             o.SerializerOptions.TypeInfoResolverChain.Insert(1, EngagementModule.JsonTypeInfoResolver);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(2, MarketingModule.JsonTypeInfoResolver);
             o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
         });
         services.AddExceptionHandler<ApiExceptionHandler>();
@@ -99,8 +99,7 @@ public static class HostingExtensions
         services.AddSingleton<SellerAccounts>();
         services.AddSingleton<OutboxAdminRepository>();
         services.AddSingleton<DatabaseProbe>();
-        services.AddSingleton<AlertRepository>();
-        services.AddSingleton<CampaignRepository>();
+        services.AddMarketing();
         services.AddSingleton<CustomerRepository>();
         services.AddSingleton<StoreRepository>();
         services.AddSingleton<AccountRecoveryService>();
@@ -128,8 +127,7 @@ public static class HostingExtensions
         services.AddSingleton<SellerPanelRepository>();
         services.AddSingleton<SellerPackagesRepository>();
         services.AddSingleton<SellerPackages>();
-        services.AddSingleton<SellerFinanceRepository>();
-        services.AddSingleton<SellerFinance>();
+        services.AddFinance();
         services.AddSingleton<SellerCatalogRepository>();
         services.AddSingleton<SellerCatalog>();
         services.AddSingleton<SellerPanelService>();
@@ -168,8 +166,7 @@ public static class HostingExtensions
         api.MapReturns();
         api.MapEngagementEndpoints();
         api.MapStores();
-        api.MapCampaigns();
-        api.MapAlerts();
+        api.MapMarketingEndpoints();
         api.MapOutboxAdmin();
         api.MapProductImages();
         api.MapCustomers();

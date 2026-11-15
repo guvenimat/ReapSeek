@@ -3,6 +3,10 @@
     <Project Path="src/BuildingBlocks/ReapSeek.BuildingBlocks.Web/ReapSeek.BuildingBlocks.Web.csproj" />
     <Project Path="src/Modules/Engagement/ReapSeek.Engagement.Contracts/ReapSeek.Engagement.Contracts.csproj" />
     <Project Path="src/Modules/Engagement/ReapSeek.Engagement/ReapSeek.Engagement.csproj" />
+    <Project Path="src/Modules/Marketing/ReapSeek.Marketing.Contracts/ReapSeek.Marketing.Contracts.csproj" />
+    <Project Path="src/Modules/Marketing/ReapSeek.Marketing/ReapSeek.Marketing.csproj" />
+    <Project Path="src/Modules/Finance/ReapSeek.Finance.Contracts/ReapSeek.Finance.Contracts.csproj" />
+    <Project Path="src/Modules/Finance/ReapSeek.Finance/ReapSeek.Finance.csproj" />
     <Project Path="src/ReapSeek.Api/ReapSeek.Api.csproj" />
     <Project Path="src/ReapSeek.Domain/ReapSeek.Domain.csproj" />
     <Project Path="src/ReapSeek.Modules/ReapSeek.Modules.csproj" />
