@@ -45,7 +45,7 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
             await campaigns.HandleAsync(message, ct);
             return;
         }
-        if (message.Type is OutboxTypes.QuestionAsked or OutboxTypes.QuestionAnswered)
+        if (message.Type == OutboxTypes.QuestionAnswered)
         {
             await questions.HandleAsync(message, ct);
             return;

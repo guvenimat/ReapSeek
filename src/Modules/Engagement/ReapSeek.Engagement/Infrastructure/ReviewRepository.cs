@@ -1,5 +1,7 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Engagement.Contracts;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Modules.Ordering;
@@ -12,6 +14,8 @@ namespace ReapSeek.Engagement.Infrastructure;
 
 internal sealed class ReviewRepository(NpgsqlDataSource db)
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Engagement);
+
     internal sealed record ReviewRecord(long Id, int Rating, string Title, string Body, string AuthorName, string? VariantLabel, DateTime CreatedAt);
     internal sealed record ReviewRowRecord(long Id, int Rating, string Title, string Body, long CustomerId, string? VariantLabel, DateTime CreatedAt);
     internal sealed record CountRecord(int Rating, int Count);
@@ -100,7 +104,8 @@ internal sealed class ReviewRepository(NpgsqlDataSource db)
         await using var tx = await conn.BeginTransactionAsync(ct);
         var id = await conn.ExecuteScalarAsync<long>("INSERT INTO questions (product_id, customer_id, body) VALUES (@ProductId, @CustomerId, @Body) RETURNING id",
             new { ProductId = productId, CustomerId = customerId, Body = body }, tx);
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.QuestionAsked, new QuestionEventMessage(id, null), OutboxJsonContext.Default.QuestionEventMessage);
+        await Outbox.PublishAsync(conn, tx, QuestionAskedV1.EventName, new QuestionAskedV1(id, productId, customerId, DateTime.UtcNow),
+            EngagementEventsJsonContext.Default.QuestionAskedV1);
         await tx.CommitAsync(ct);
         return id;
     }

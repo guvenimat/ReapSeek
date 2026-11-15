@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using ReapSeek.BuildingBlocks.Messaging;
 
 namespace ReapSeek.UnitTests;
 
@@ -36,6 +37,12 @@ public partial class ModuleSqlTests
     [GeneratedRegex(@"\b(SELECT|UPDATE|INSERT|DELETE|nextval)\b", RegexOptions.IgnoreCase)]
     private static partial Regex Sql();
 
+    [GeneratedRegex(@"(?<![\w.])(?:(\w+)\.)?(outbox|inbox)\b")]
+    private static partial Regex MessagingTable();
+
+    static string OwnerOf(Match messagingTable) =>
+        messagingTable.Groups[1].Success ? messagingTable.Groups[1].Value : messagingTable.Groups[2].Value == "outbox" ? "platform" : "unqualified";
+
     static IEnumerable<(string File, string Module, string Table, string Owner)> CrossModuleSql()
     {
         var owner = Tables.SelectMany(t => t.Value.Select(name => (name, t.Key))).ToDictionary(x => x.name, x => x.Key);
@@ -54,6 +61,9 @@ public partial class ModuleSqlTests
                 foreach (var name in table.Matches(text).Select(m => m.Value).Distinct())
                     if (owner[name] != module && owner[name] != "platform")
                         yield return (relative, module, name, owner[name]);
+                foreach (Match m in MessagingTable().Matches(text))
+                    if (OwnerOf(m) is var schema && schema != module && schema != "platform")
+                        yield return (relative, module, m.Groups[2].Value, schema);
             }
         }
     }
@@ -90,7 +100,8 @@ public partial class ModuleSqlTests
         var created = MigrationFiles().SelectMany(f => Regex.Matches(f.Sql, @"CREATE (?:TABLE|VIEW|SEQUENCE)(?: IF NOT EXISTS)? ([\w.]+)", RegexOptions.IgnoreCase)
             .Select(m => m.Groups[1].Value)).ToList();
         Assert.NotEmpty(created);
-        var known = Tables.SelectMany(t => t.Value.Select(n => $"{t.Key}.{n}")).ToHashSet();
+        var known = Tables.SelectMany(t => t.Value.Select(n => $"{t.Key}.{n}"))
+            .Concat(MessagingModules.All.SelectMany(m => new[] { m.Outbox, m.Inbox })).ToHashSet();
         Assert.Empty(created.Except(known));
         Assert.Empty(known.Except(created));
     }
@@ -128,6 +139,33 @@ public partial class ModuleSqlTests
                 count++;
             }
         Assert.True(count > 50);
+    }
+
+    [Fact]
+    public void Every_module_has_its_own_outbox_and_inbox_with_its_own_inbox_id_range()
+    {
+        Assert.Equal(Tables.Keys.Where(m => m != "platform").Order(), MessagingModules.All.Select(m => m.Name).Order());
+        Assert.Equal(MessagingModules.All.Count, MessagingModules.All.Select(m => m.Ordinal).Distinct().Count());
+        foreach (var module in MessagingModules.All)
+        {
+            var sql = string.Concat(MigrationFiles().Where(f => f.Module == module.Name).Select(f => f.Sql));
+            Assert.Contains($"CREATE TABLE {module.Outbox} (", sql);
+            Assert.Contains($"CREATE TABLE {module.Inbox} (", sql);
+            Assert.Contains($"START WITH {module.FirstInboxId} MINVALUE {module.FirstInboxId} MAXVALUE {module.FirstInboxId + MessagingModules.InboxIdRange - 2}", sql);
+            Assert.Contains("UNIQUE (source_module, source_message_id, handler_name)", sql);
+            Assert.Equal(module, MessagingModules.OfInboxId(module.FirstInboxId));
+        }
+        Assert.Null(MessagingModules.OfInboxId(42));
+        Assert.True((MessagingModules.All.Max(m => m.Ordinal) + 1) * MessagingModules.InboxIdRange < 1L << 53);
+    }
+
+    [Fact]
+    public void Messaging_tables_are_owned_by_their_qualifying_schema()
+    {
+        string[] Owners(string sql) => MessagingTable().Matches(sql).Select(OwnerOf).ToArray();
+        Assert.Equal(["engagement", "catalog"], Owners("INSERT INTO engagement.outbox SELECT * FROM catalog.inbox"));
+        Assert.Equal(["platform", "unqualified"], Owners("SELECT 1 FROM outbox, inbox"));
+        Assert.Empty(Owners("SELECT outbox_id, x.outbox_failed FROM t"));
     }
 
     static IEnumerable<(string Module, string File, string Sql)> MigrationFiles()

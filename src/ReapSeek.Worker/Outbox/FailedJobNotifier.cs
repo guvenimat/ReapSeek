@@ -1,3 +1,4 @@
+using ReapSeek.BuildingBlocks.Messaging;
 using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
@@ -20,6 +21,7 @@ namespace ReapSeek.Worker.Outbox;
 public sealed class FailedJobNotifier(NpgsqlDataSource db, EmailSender email, IConfiguration cfg)
 {
     public sealed record FailedJobRecord(string Type, int Attempts, string? LastError);
+    public sealed record FailedJobIdRecord(long Id);
 
     readonly string _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
 
@@ -30,8 +32,9 @@ public sealed class FailedJobNotifier(NpgsqlDataSource db, EmailSender email, IC
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.OutboxFailedMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         await using var conn = await db.OpenConnectionAsync(ct);
+        var table = JobTables.Of(payload.MessageId);
         var job = await conn.QuerySingleOrDefaultAsync<FailedJobRecord>(
-            "SELECT type, attempts, last_error FROM outbox WHERE id = @Id AND failed_at IS NOT NULL", new { Id = payload.MessageId });
+            $"SELECT {table.TypeColumn} AS type, attempts, last_error FROM {table.Table} WHERE id = @Id AND failed_at IS NOT NULL", new FailedJobIdRecord(payload.MessageId));
         if (job is null) return;
         var url = $"{_backofficeUrl}/#/jobs";
         var headline = $"Background job {payload.MessageId} ({job.Type}) gave up";
