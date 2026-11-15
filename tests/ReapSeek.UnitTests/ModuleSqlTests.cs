@@ -81,10 +81,53 @@ public partial class ModuleSqlTests
     [Fact]
     public void Every_table_belongs_to_a_module()
     {
-        var known = Tables.SelectMany(t => t.Value).ToHashSet();
-        var migrations = Directory.EnumerateFiles(Path.Combine(Root(), "src", "ReapSeek.Shared", "Migrations"), "*.sql").Select(File.ReadAllText);
-        var created = migrations.SelectMany(sql => Regex.Matches(sql, @"CREATE (?:TABLE|VIEW|SEQUENCE)(?: IF NOT EXISTS)? (?:\w+\.)?(\w+)", RegexOptions.IgnoreCase)
-            .Select(m => m.Groups[1].Value)).Where(n => n != "schema_migrations").ToHashSet();
+        var created = MigrationFiles().SelectMany(f => Regex.Matches(f.Sql, @"CREATE (?:TABLE|VIEW|SEQUENCE)(?: IF NOT EXISTS)? ([\w.]+)", RegexOptions.IgnoreCase)
+            .Select(m => m.Groups[1].Value)).ToList();
+        Assert.NotEmpty(created);
+        var known = Tables.SelectMany(t => t.Value.Select(n => $"{t.Key}.{n}")).ToHashSet();
         Assert.Empty(created.Except(known));
+        Assert.Empty(known.Except(created));
+    }
+
+    [Fact]
+    public void Migrations_live_only_in_module_folders()
+    {
+        var dir = Path.Combine(Root(), "src", "ReapSeek.Shared", "Migrations");
+        Assert.Empty(Directory.EnumerateFiles(dir, "*.sql"));
+        Assert.Equal(Tables.Keys.Order(), Directory.EnumerateDirectories(dir).Select(Path.GetFileName).Order()!);
+        Assert.All(Tables.Keys, m => Assert.True(File.Exists(Path.Combine(dir, m, "0001_baseline.sql")), m));
+    }
+
+    [Fact]
+    public void A_module_migration_never_mentions_another_module_schema()
+    {
+        foreach (var (module, file, sql) in MigrationFiles())
+            foreach (var other in Tables.Keys.Append("public").Where(s => s != module))
+                Assert.False(Regex.IsMatch(sql, $@"\b{other}\s*\.", RegexOptions.IgnoreCase), $"{file} mentions {other}.");
+    }
+
+    [Fact]
+    public void Every_object_in_a_module_migration_is_created_in_that_module_schema()
+    {
+        var statement = new Regex(@"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNIQUE\s+)?(?:MATERIALIZED\s+)?(TABLE|VIEW|SEQUENCE|FUNCTION|PROCEDURE|TYPE|DOMAIN|TRIGGER|INDEX|SCHEMA)\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?([\w.]+)(?:[^;]*?\bON\s+([\w.]+))?",
+            RegexOptions.IgnoreCase);
+        var count = 0;
+        foreach (var (module, file, sql) in MigrationFiles())
+            foreach (Match m in statement.Matches(sql))
+            {
+                var kind = m.Groups[1].Value.ToUpperInvariant();
+                var target = kind is "INDEX" or "TRIGGER" ? m.Groups[3].Value : m.Groups[2].Value;
+                if (kind == "SCHEMA") Assert.Equal(module, target);
+                else Assert.True(target.StartsWith($"{module}.", StringComparison.Ordinal), $"{file}: {m.Value}");
+                count++;
+            }
+        Assert.True(count > 50);
+    }
+
+    static IEnumerable<(string Module, string File, string Sql)> MigrationFiles()
+    {
+        var dir = Path.Combine(Root(), "src", "ReapSeek.Shared", "Migrations");
+        return Directory.EnumerateDirectories(dir).SelectMany(d => Directory.EnumerateFiles(d, "*.sql")
+            .Select(f => (Path.GetFileName(d), Path.GetRelativePath(dir, f), File.ReadAllText(f))));
     }
 }
