@@ -1,12 +1,10 @@
+using ReapSeek.Modules.Catalog;
+
 namespace ReapSeek.Api.Catalog.Search;
 
 public sealed record SearchRequest(
     string? Query, string? Category, List<string> Brands, List<string> Colors, List<string> Sizes,
     decimal? MinPrice, decimal? MaxPrice, bool InStockOnly, string Sort, int Page, int PageSize);
-
-public sealed record ProductCard(
-    long Id, string Slug, string Title, string Brand, string CategoryName, decimal? Price, decimal? ListPrice,
-    int Discount, bool InStock, int SellerCount, string? ImageUrl, double? Rating = null, int ReviewCount = 0);
 
 public sealed record ProductCardsResponse(List<ProductCard> Products);
 

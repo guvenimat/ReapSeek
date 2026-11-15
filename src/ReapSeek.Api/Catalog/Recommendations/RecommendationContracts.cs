@@ -1,4 +1,5 @@
 using ReapSeek.Api.Catalog.Search;
+using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.Api.Catalog.Recommendations;
 

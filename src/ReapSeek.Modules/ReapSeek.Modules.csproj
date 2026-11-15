@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ReapSeek.Domain\ReapSeek.Domain.csproj" />
     <ProjectReference Include="..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
+    <ProjectReference Include="..\Modules\Engagement\ReapSeek.Engagement.Contracts\ReapSeek.Engagement.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

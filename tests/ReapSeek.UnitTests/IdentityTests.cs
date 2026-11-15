@@ -1,6 +1,7 @@
 using ReapSeek.Modules.Identity;
 using Microsoft.AspNetCore.Http;
 using ReapSeek.Api.Identity;
+using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Shared;
 
 namespace ReapSeek.UnitTests;

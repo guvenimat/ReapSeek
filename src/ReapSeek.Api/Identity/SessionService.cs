@@ -6,12 +6,6 @@ using ReapSeek.Shared.Caching;
 
 namespace ReapSeek.Api.Identity;
 
-public sealed record SessionAudience(string Name, string CookieName, TimeSpan Lifetime, SameSiteMode SameSite)
-{
-    public static readonly SessionAudience Storefront = new("storefront", "rs_session", TimeSpan.FromDays(30), SameSiteMode.Lax);
-    public static readonly SessionAudience Backoffice = new("backoffice", "rs_bo_session", TimeSpan.FromHours(12), SameSiteMode.Strict);
-}
-
 public sealed class SessionService(AccountRepository accounts, RedisCache cache, IConfiguration cfg)
 {
     static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
