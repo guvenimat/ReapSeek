@@ -5,20 +5,22 @@ using ReapSeek.Modules.Identity;
 using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Sellers;
 using ReapSeek.Shared.Outbox;
+using ReapSeek.Engagement.Api;
+using ReapSeek.Engagement.Application;
 
-namespace ReapSeek.Api.Engagement.Reviews;
+namespace ReapSeek.Engagement.Infrastructure;
 
-public sealed class ReviewRepository(NpgsqlDataSource db)
+internal sealed class ReviewRepository(NpgsqlDataSource db)
 {
-    public sealed record ReviewRecord(long Id, int Rating, string Title, string Body, string AuthorName, string? VariantLabel, DateTime CreatedAt);
-    public sealed record ReviewRowRecord(long Id, int Rating, string Title, string Body, long CustomerId, string? VariantLabel, DateTime CreatedAt);
-    public sealed record CountRecord(int Rating, int Count);
-    public sealed record QuestionRecord(long Id, string Body, long CustomerId, DateTime CreatedAt);
-    public sealed record AnswerRecord(long Id, long QuestionId, long SellerId, string Body, DateTime CreatedAt);
-    public sealed record ReviewUpsertRecord(long ProductId, long CustomerId, int Rating, string Title, string Body, string? VariantLabel);
-    public sealed record SellerQuestionRecord(long Id, long ProductId, string Body, long CustomerId, DateTime CreatedAt, string? MyAnswer, int AnswerCount);
-    public sealed record ModerationReviewRecord(long Id, long ProductId, int Rating, string Title, string Body, long CustomerId, string Status, DateTime CreatedAt);
-    public sealed record ModerationQuestionRecord(long Id, long ProductId, string Body, long CustomerId, string Status, int AnswerCount, DateTime CreatedAt);
+    internal sealed record ReviewRecord(long Id, int Rating, string Title, string Body, string AuthorName, string? VariantLabel, DateTime CreatedAt);
+    internal sealed record ReviewRowRecord(long Id, int Rating, string Title, string Body, long CustomerId, string? VariantLabel, DateTime CreatedAt);
+    internal sealed record CountRecord(int Rating, int Count);
+    internal sealed record QuestionRecord(long Id, string Body, long CustomerId, DateTime CreatedAt);
+    internal sealed record AnswerRecord(long Id, long QuestionId, long SellerId, string Body, DateTime CreatedAt);
+    internal sealed record ReviewUpsertRecord(long ProductId, long CustomerId, int Rating, string Title, string Body, string? VariantLabel);
+    internal sealed record SellerQuestionRecord(long Id, long ProductId, string Body, long CustomerId, DateTime CreatedAt, string? MyAnswer, int AnswerCount);
+    internal sealed record ModerationReviewRecord(long Id, long ProductId, int Rating, string Title, string Body, long CustomerId, string Status, DateTime CreatedAt);
+    internal sealed record ModerationQuestionRecord(long Id, long ProductId, string Body, long CustomerId, string Status, int AnswerCount, DateTime CreatedAt);
 
     public async Task<bool> ProductExistsAsync(long productId, CancellationToken ct)
     {

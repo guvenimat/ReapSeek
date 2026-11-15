@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/BuildingBlocks/ReapSeek.BuildingBlocks.Web/ReapSeek.BuildingBlocks.Web.csproj" />
+    <Project Path="src/Modules/Engagement/ReapSeek.Engagement.Contracts/ReapSeek.Engagement.Contracts.csproj" />
+    <Project Path="src/Modules/Engagement/ReapSeek.Engagement/ReapSeek.Engagement.csproj" />
     <Project Path="src/ReapSeek.Api/ReapSeek.Api.csproj" />
     <Project Path="src/ReapSeek.Domain/ReapSeek.Domain.csproj" />
     <Project Path="src/ReapSeek.Modules/ReapSeek.Modules.csproj" />

@@ -35,7 +35,7 @@ public sealed class CategoryCache(NpgsqlDataSource db, RedisCache cache)
     }
 }
 
-public sealed class SearchService(OpenSearchClient search, CategoryCache categories)
+public sealed class SearchService(OpenSearchClient search, CategoryCache categories) : IProductCards
 {
     public async Task<SearchResponse> SearchAsync(SearchRequest request, CancellationToken ct)
     {

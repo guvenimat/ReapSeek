@@ -4,6 +4,7 @@ using Npgsql;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Catalog.Search;
+using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Sellers.Stores;

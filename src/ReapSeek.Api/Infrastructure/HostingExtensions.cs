@@ -19,10 +19,8 @@ using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Api.Catalog.Products;
 using ReapSeek.Api.Catalog.Recommendations;
 using ReapSeek.Api.Ordering.Returns;
-using ReapSeek.Api.Engagement.Reviews;
 using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Api.Sellers.Stores;
-using ReapSeek.Api.Engagement.Wishlist;
 using ReapSeek.Api.Sellers.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Api.Ordering.Shipping;
@@ -34,13 +32,14 @@ using ReapSeek.Shared.Observability;
 using ReapSeek.Modules.Finance;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
+using ReapSeek.Engagement;
 
 namespace ReapSeek.Api.Infrastructure;
 
 public static class HostingExtensions
 {
-    public const string AuthRateLimit = "auth";
-    public const string ContentRateLimit = "content";
+    public const string AuthRateLimit = RateLimits.Auth;
+    public const string ContentRateLimit = RateLimits.Content;
     const int DefaultAuthAttemptsPerMinute = 10;
     const int DefaultContentPostsPerMinute = 10;
     static readonly TimeSpan AuthWindow = TimeSpan.FromMinutes(1);
@@ -61,6 +60,7 @@ public static class HostingExtensions
         services.ConfigureHttpJsonOptions(o =>
         {
             o.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(1, EngagementModule.JsonTypeInfoResolver);
             o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
         });
         services.AddExceptionHandler<ApiExceptionHandler>();
@@ -102,7 +102,6 @@ public static class HostingExtensions
         services.AddSingleton<AlertRepository>();
         services.AddSingleton<CampaignRepository>();
         services.AddSingleton<CustomerRepository>();
-        services.AddSingleton<WishlistRepository>();
         services.AddSingleton<StoreRepository>();
         services.AddSingleton<AccountRecoveryService>();
         services.AddHostedService<BootstrapAdmin>();
@@ -112,6 +111,7 @@ public static class HostingExtensions
         services.AddSingleton<OpenSearchClient>();
         services.AddSingleton<CategoryCache>();
         services.AddSingleton<SearchService>();
+        services.AddSingleton<IProductCards>(sp => sp.GetRequiredService<SearchService>());
         services.AddSingleton<ProductRepository>();
         services.AddSingleton<ProductService>();
         services.AddSingleton(TimeProvider.System);
@@ -135,7 +135,7 @@ public static class HostingExtensions
         services.AddSingleton<SellerPanelService>();
         services.AddSingleton<PayoutRunner>();
         services.AddSingleton<ReturnService>();
-        services.AddSingleton<ReviewRepository>();
+        services.AddEngagement();
         services.AddSingleton<ReapDeepAudience>();
         services.AddSingleton<ReapDeepProfile>();
         return builder;
@@ -166,8 +166,7 @@ public static class HostingExtensions
         api.MapGroup("/backoffice/sellers").MapSellersAdmin();
         api.MapSellerPanel();
         api.MapReturns();
-        api.MapReviews();
-        api.MapWishlist();
+        api.MapEngagementEndpoints();
         api.MapStores();
         api.MapCampaigns();
         api.MapAlerts();

@@ -1,25 +1,29 @@
-using ReapSeek.Api.Identity;
-using ReapSeek.Api.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Engagement.Application;
+using ReapSeek.Engagement.Infrastructure;
 using ReapSeek.Shared;
 
-namespace ReapSeek.Api.Engagement.Reviews;
+namespace ReapSeek.Engagement.Api;
 
-public static class ReviewEndpoints
+internal static class ReviewEndpoints
 {
-    public static void MapReviews(this RouteGroupBuilder api)
+    public static void MapReviews(this IEndpointRouteBuilder api)
     {
         var products = api.MapGroup("/catalog/products/{id:long}");
         products.MapGet("/reviews", async (long id, ReviewRepository reviews, string? sort, int? page, CancellationToken ct) =>
         {
             var s = sort is { Length: > 0 } ? Ensure.OneOf(sort, "sort", ReviewRules.Sorts) : "newest";
-            return ApiResults.Ok(await reviews.ReviewsAsync(id, s, Ensure.InRange(page ?? 1, 1, 1000, "page"), ct), AppJsonContext.Default.ReviewsResponse);
+            return ApiResults.Ok(await reviews.ReviewsAsync(id, s, Ensure.InRange(page ?? 1, 1, 1000, "page"), ct), EngagementJsonContext.Default.ReviewsResponse);
         });
         products.MapGet("/questions", async (long id, ReviewRepository reviews, int? page, CancellationToken ct) =>
-            ApiResults.Ok(await reviews.QuestionsAsync(id, Ensure.InRange(page ?? 1, 1, 1000, "page"), ct), AppJsonContext.Default.QuestionsResponse));
+            ApiResults.Ok(await reviews.QuestionsAsync(id, Ensure.InRange(page ?? 1, 1, 1000, "page"), ct), EngagementJsonContext.Default.QuestionsResponse));
 
         products.MapGet("/my-review", async (long id, UserInfo user, ReviewRepository reviews, CancellationToken ct) =>
             ApiResults.Ok(new MyReviewResponse(await reviews.PurchasedVariantAsync(id, user.Id, ct) is not null, await reviews.MyReviewAsync(id, user.Id, ct)),
-                AppJsonContext.Default.MyReviewResponse)).RequireCustomer();
+                EngagementJsonContext.Default.MyReviewResponse)).RequireCustomer();
         products.MapPut("/review", async (long id, ProductReviewRequest req, UserInfo user, ReviewRepository reviews, CancellationToken ct) =>
         {
             var review = ReviewRules.Review(req);
@@ -27,31 +31,31 @@ public static class ReviewEndpoints
             var variant = await reviews.PurchasedVariantAsync(id, user.Id, ct);
             if (variant is null) return ApiResults.Forbidden("Only customers who received this product can review it");
             await reviews.UpsertReviewAsync(new ReviewRepository.ReviewUpsertRecord(id, user.Id, review.Rating, review.Title, review.Body, variant), ct);
-            return ApiResults.Ok(new MyReviewResponse(true, await reviews.MyReviewAsync(id, user.Id, ct)), AppJsonContext.Default.MyReviewResponse);
-        }).RequireCustomer().RequireRateLimiting(HostingExtensions.ContentRateLimit);
+            return ApiResults.Ok(new MyReviewResponse(true, await reviews.MyReviewAsync(id, user.Id, ct)), EngagementJsonContext.Default.MyReviewResponse);
+        }).RequireCustomer().RequireRateLimiting(RateLimits.Content);
         products.MapPost("/questions", async (long id, AskRequest req, UserInfo user, ReviewRepository reviews, CancellationToken ct) =>
         {
             var body = ReviewRules.Question(req);
             if (!await reviews.ProductExistsAsync(id, ct)) throw new NotFoundException("Product not found");
             await reviews.AskAsync(id, user.Id, body, ct);
-            return ApiResults.Created(await reviews.QuestionsAsync(id, 1, ct), AppJsonContext.Default.QuestionsResponse);
-        }).RequireCustomer().RequireRateLimiting(HostingExtensions.ContentRateLimit);
+            return ApiResults.Created(await reviews.QuestionsAsync(id, 1, ct), EngagementJsonContext.Default.QuestionsResponse);
+        }).RequireCustomer().RequireRateLimiting(RateLimits.Content);
 
         var seller = api.MapGroup("/seller/questions").RequireSeller();
         seller.MapGet("/", async (UserInfo user, ReviewRepository reviews, bool? answered, CancellationToken ct) =>
-            ApiResults.Ok(new SellerQuestionsResponse(await reviews.SellerQuestionsAsync(SellerOf(user), answered, ct)), AppJsonContext.Default.SellerQuestionsResponse));
+            ApiResults.Ok(new SellerQuestionsResponse(await reviews.SellerQuestionsAsync(SellerOf(user), answered, ct)), EngagementJsonContext.Default.SellerQuestionsResponse));
         seller.MapPut("/{id:long}/answer", async (long id, AnswerRequest req, UserInfo user, ReviewRepository reviews, CancellationToken ct) =>
         {
             var body = ReviewRules.Answer(req);
             if (!await reviews.AnswerAsync(id, SellerOf(user), body, ct)) throw new NotFoundException("Question not found");
             return ApiResults.Ok(new SellerQuestionsResponse((await reviews.SellerQuestionsAsync(SellerOf(user), null, ct)).Where(q => q.Id == id).ToList()),
-                AppJsonContext.Default.SellerQuestionsResponse);
-        }).RequireRateLimiting(HostingExtensions.ContentRateLimit);
+                EngagementJsonContext.Default.SellerQuestionsResponse);
+        }).RequireRateLimiting(RateLimits.Content);
 
         var admin = api.MapGroup("/backoffice").RequireAdmin();
         admin.MapGet("/moderation", async (ReviewRepository reviews, string? status, CancellationToken ct) =>
             ApiResults.Ok(await reviews.ModerationAsync(status is { Length: > 0 } ? Ensure.OneOf(status, "status", ReviewRules.Statuses) : null, ct),
-                AppJsonContext.Default.ModerationResponse));
+                EngagementJsonContext.Default.ModerationResponse));
         admin.MapPatch("/reviews/{id:long}", async (long id, ModerationRequest req, ReviewRepository reviews, CancellationToken ct) =>
             await reviews.SetReviewStatusAsync(id, Ensure.OneOf(req.Status ?? "", "status", ReviewRules.Statuses), ct) ? Results.NoContent() : ApiResults.NotFound("Review not found"));
         admin.MapPatch("/questions/{id:long}", async (long id, ModerationRequest req, ReviewRepository reviews, CancellationToken ct) =>

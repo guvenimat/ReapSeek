@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using ReapSeek.Shared;
+using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.Api.Catalog.Search;
 

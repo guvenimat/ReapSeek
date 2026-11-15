@@ -4,11 +4,13 @@ COPY Directory.Build.props ./
 COPY ReapSeek.Domain/ReapSeek.Domain.csproj ReapSeek.Domain/
 COPY ReapSeek.Shared/ReapSeek.Shared.csproj ReapSeek.Shared/
 COPY ReapSeek.Modules/ReapSeek.Modules.csproj ReapSeek.Modules/
+COPY Modules/Engagement/ReapSeek.Engagement.Contracts/ReapSeek.Engagement.Contracts.csproj Modules/Engagement/ReapSeek.Engagement.Contracts/
 COPY ReapSeek.Simulator/ReapSeek.Simulator.csproj ReapSeek.Simulator/
 RUN dotnet restore ReapSeek.Simulator/ReapSeek.Simulator.csproj
 COPY ReapSeek.Domain/ ReapSeek.Domain/
 COPY ReapSeek.Shared/ ReapSeek.Shared/
 COPY ReapSeek.Modules/ ReapSeek.Modules/
+COPY Modules/Engagement/ReapSeek.Engagement.Contracts/ Modules/Engagement/ReapSeek.Engagement.Contracts/
 COPY ReapSeek.Simulator/ ReapSeek.Simulator/
 RUN dotnet publish ReapSeek.Simulator/ReapSeek.Simulator.csproj -c Release --no-restore -o /app
 

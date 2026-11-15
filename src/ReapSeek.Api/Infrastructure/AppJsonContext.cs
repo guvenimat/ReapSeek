@@ -15,12 +15,10 @@ using ReapSeek.Api.Ordering.Orders;
 using ReapSeek.Api.Catalog.Products;
 using ReapSeek.Api.Catalog.Recommendations;
 using ReapSeek.Api.Ordering.Returns;
-using ReapSeek.Api.Engagement.Reviews;
 using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Api.Sellers.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Api.Sellers.Stores;
-using ReapSeek.Api.Engagement.Wishlist;
 using ReapSeek.Modules.Finance;
 
 namespace ReapSeek.Api.Infrastructure;
@@ -71,15 +69,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(AudienceRequest))]
 [JsonSerializable(typeof(AudiencePreviewResponse))]
 [JsonSerializable(typeof(CustomerCouponsResponse))]
-[JsonSerializable(typeof(ReviewsResponse))]
-[JsonSerializable(typeof(MyReviewResponse))]
-[JsonSerializable(typeof(ProductReviewRequest))]
-[JsonSerializable(typeof(QuestionsResponse))]
-[JsonSerializable(typeof(AskRequest))]
-[JsonSerializable(typeof(AnswerRequest))]
-[JsonSerializable(typeof(SellerQuestionsResponse))]
-[JsonSerializable(typeof(ModerationResponse))]
-[JsonSerializable(typeof(ModerationRequest))]
 [JsonSerializable(typeof(CreateReturnRequest))]
 [JsonSerializable(typeof(CreatedReturn))]
 [JsonSerializable(typeof(RejectReturnRequest))]
@@ -103,9 +92,6 @@ namespace ReapSeek.Api.Infrastructure;
 [JsonSerializable(typeof(CategoryTreeResponse))]
 [JsonSerializable(typeof(SearchResponse))]
 [JsonSerializable(typeof(ProductCardsResponse))]
-[JsonSerializable(typeof(WishlistResponse))]
-[JsonSerializable(typeof(WishlistIdsResponse))]
-[JsonSerializable(typeof(WishlistRequest))]
 [JsonSerializable(typeof(StoreSellerResponse))]
 [JsonSerializable(typeof(SuggestResponse))]
 [JsonSerializable(typeof(StoreProduct))]

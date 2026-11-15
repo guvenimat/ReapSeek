@@ -26,7 +26,7 @@ public partial class ModuleSqlTests
     static string? SchemaOf(string relative)
     {
         var parts = relative.Replace('\\', '/').Split('/');
-        if (parts.Length < 4 || !Projects.Contains(parts[1])) return null;
+        if (parts.Length < 4 || !(Projects.Contains(parts[1]) || parts[1] == "Modules")) return null;
         return Modules.Contains(parts[2]) ? parts[2].ToLowerInvariant() : null;
     }
 
@@ -73,6 +73,9 @@ public partial class ModuleSqlTests
         Assert.Equal("ordering", SchemaOf(Path.Combine("src", "ReapSeek.Api", "Ordering", "Carts", "CartRepository.cs")));
         Assert.Equal("catalog", SchemaOf(Path.Combine("src", "ReapSeek.Worker", "Catalog", "Search", "SearchRepository.cs")));
         Assert.Null(SchemaOf(Path.Combine("src", "ReapSeek.Api", "Seed", "CatalogSeeder.cs")));
+        var reviews = Path.Combine("src", "Modules", "Engagement", "ReapSeek.Engagement", "Infrastructure", "ReviewRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, reviews)));
+        Assert.Equal("engagement", SchemaOf(reviews));
     }
 
     [Fact]

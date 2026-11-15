@@ -1,6 +1,8 @@
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.AspNetCore.Http;
 
-namespace ReapSeek.Api.Infrastructure;
+namespace ReapSeek.BuildingBlocks.Web;
 
 public sealed record ErrorResponse(string Error, string? Code = null);
 
@@ -11,7 +13,7 @@ public static class ApiResults
     public static IResult Created<T>(T value, JsonTypeInfo<T> type) => Results.Json(value, type, statusCode: StatusCodes.Status201Created);
 
     public static IResult Error(int status, string message) =>
-        Results.Json(new ErrorResponse(message), AppJsonContext.Default.ErrorResponse, statusCode: status);
+        Results.Json(new ErrorResponse(message), WebJsonContext.Default.ErrorResponse, statusCode: status);
 
     public static IResult BadRequest(string message) => Error(StatusCodes.Status400BadRequest, message);
 
@@ -23,3 +25,7 @@ public static class ApiResults
 
     public static IResult Conflict(string message) => Error(StatusCodes.Status409Conflict, message);
 }
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSerializable(typeof(ErrorResponse))]
+internal sealed partial class WebJsonContext : JsonSerializerContext;

@@ -11,16 +11,23 @@ public class ArchitectureTests
     static readonly Assembly Domain = typeof(AggregateRoot).Assembly;
     static readonly Assembly Shared = typeof(IPaymentGateway).Assembly;
     static readonly Assembly ModulesAssembly = typeof(ReapSeek.Modules.Ordering.OrderStore).Assembly;
-    static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.ApiResults).Assembly;
+    static readonly Assembly Api = typeof(ReapSeek.Api.Infrastructure.HostingExtensions).Assembly;
+    static readonly Assembly Web = typeof(ReapSeek.BuildingBlocks.Web.ApiResults).Assembly;
     static readonly Assembly Worker = typeof(ReapSeek.Worker.Outbox.OutboxDispatcher).Assembly;
+    static readonly Assembly EngagementContracts = typeof(ReapSeek.Engagement.Contracts.ReviewStat).Assembly;
+
+    static readonly Dictionary<Assembly, Type> ModuleProjects = new()
+    {
+        [typeof(ReapSeek.Engagement.EngagementModule).Assembly] = typeof(ReapSeek.Engagement.EngagementModule),
+    };
 
     static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
     static readonly string[] PlatformAreas = ["Infrastructure", "Seed", "Health", "Operations"];
 
     static readonly Dictionary<string, string[]> PublicApi = new()
     {
-        ["Identity"] = ["UserInfo", "UserAccess", "SessionService", "SessionAudience", "SellerAccounts", "SellerLogin"],
-        ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductCard", "ProductStatus",
+        ["Identity"] = ["SessionService", "SellerAccounts", "SellerLogin"],
+        ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductStatus",
             "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
             "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
         ["Sellers"] = [],
@@ -80,8 +87,37 @@ public class ArchitectureTests
         Pass(Types.InAssembly(Worker).ShouldNot().HaveDependencyOn("ReapSeek.Api").GetResult(), "Worker");
 
     [Fact]
-    public void Endpoints_hold_no_SQL() =>
+    public void Endpoints_hold_no_SQL()
+    {
         Pass(Types.InAssembly(Api).That().HaveNameEndingWith("Endpoints").ShouldNot().HaveDependencyOnAny("Dapper", "Npgsql").GetResult(), "Endpoints");
+        foreach (var module in ModuleProjects.Keys)
+            Pass(Types.InAssembly(module).That().HaveNameEndingWith("Endpoints").ShouldNot().HaveDependencyOnAny("Dapper", "Npgsql").GetResult(), module.GetName().Name!);
+    }
+
+    [Fact]
+    public void Module_projects_expose_only_their_entry_class()
+    {
+        foreach (var (module, entry) in ModuleProjects)
+            Assert.Equal([entry], module.GetExportedTypes());
+    }
+
+    [Fact]
+    public void Module_projects_know_neither_the_API_nor_the_worker()
+    {
+        foreach (var module in ModuleProjects.Keys)
+            Pass(Types.InAssembly(module).ShouldNot().HaveDependencyOnAny("ReapSeek.Api", "ReapSeek.Worker").GetResult(), module.GetName().Name!);
+    }
+
+    [Fact]
+    public void Module_contracts_depend_on_nothing_but_the_base_library() =>
+        Pass(Types.InAssembly(EngagementContracts).ShouldNot().HaveDependencyOnAny(
+            "Dapper", "Npgsql", "Microsoft.AspNetCore", "Microsoft.Extensions", "ReapSeek.Shared", "ReapSeek.Domain", "ReapSeek.Modules",
+            "ReapSeek.BuildingBlocks", "ReapSeek.Api", "ReapSeek.Worker").GetResult(), "Contracts");
+
+    [Fact]
+    public void Web_building_blocks_know_no_module() =>
+        Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement").GetResult(), "BuildingBlocks.Web");
 
     static readonly string[] SqlOutsideRepositories =
     [
@@ -115,15 +151,19 @@ public class ArchitectureTests
                 _ => false,
             })));
 
-    static Type[] DataAccessTypes(params string[] prefixes)
+    static Type[] DataAccessTypes(params string[] prefixes) => DataAccessTypesIn(Api, "ReapSeek.Api.", prefixes);
+
+    static Type[] DataAccessTypesIn(Assembly assembly, string rootNamespace, params string[] prefixes)
     {
-        using var module = ModuleDefinition.ReadModule(Api.Location);
+        using var module = ModuleDefinition.ReadModule(assembly.Location);
         return module.GetTypes()
             .Where(t => Uses(t, prefixes))
             .Select(t => Outermost(t).FullName)
-            .Where(n => n.StartsWith("ReapSeek.Api.", StringComparison.Ordinal))
-            .Distinct().Select(n => Api.GetType(n, throwOnError: true)!).ToArray();
+            .Where(n => n.StartsWith(rootNamespace, StringComparison.Ordinal))
+            .Distinct().Select(n => assembly.GetType(n, throwOnError: true)!).ToArray();
     }
+
+    static string RootNamespace(Type entry) => entry.Namespace! + ".";
 
     [Fact]
     public void Data_access_types_are_used_only_inside_their_module()
@@ -158,9 +198,17 @@ public class ArchitectureTests
     public void SQL_lives_in_repositories()
     {
         var offenders = DataAccessTypes("Dapper")
+            .Concat(ModuleProjects.SelectMany(m => DataAccessTypesIn(m.Key, RootNamespace(m.Value), "Dapper")))
             .Where(t => !t.Name.EndsWith("Repository", StringComparison.Ordinal) && !SqlOutsideRepositories.Contains(t.FullName))
             .Select(t => t.FullName!).Order().ToList();
         Assert.True(offenders.Count == 0, $"SQL outside repositories: {string.Join(", ", offenders)}");
+    }
+
+    [Fact]
+    public void The_SQL_rules_see_module_projects()
+    {
+        var engagement = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Engagement.EngagementModule));
+        Assert.Contains(DataAccessTypesIn(engagement.Key, RootNamespace(engagement.Value), "Dapper"), t => t.Name == "ReviewRepository");
     }
 
     [Fact]

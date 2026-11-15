@@ -1,13 +1,11 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Engagement.Contracts;
 
 namespace ReapSeek.Modules.Engagement;
 
-public sealed record ReviewStat(long ProductId, double Rating, int Count);
 public sealed record ReviewProductIdsRecord(long[] ProductIds);
-public sealed record RecentReview(long Id, long CustomerId, long ProductId, int Rating);
 public sealed record ReviewWindowRecord(int Days);
-public sealed record CustomerReview(long ProductId, int Rating, string Title, string Status, DateTime CreatedAt);
 public sealed record ReviewCustomerRecord(long CustomerId);
 
 public static class ReviewStats
