@@ -1,4 +1,3 @@
-using ReapSeek.Api.Finance;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -32,6 +31,7 @@ using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
 using ReapSeek.Engagement;
 using ReapSeek.Marketing;
+using ReapSeek.Finance;
 
 namespace ReapSeek.Api.Infrastructure;
 
@@ -127,8 +127,7 @@ public static class HostingExtensions
         services.AddSingleton<SellerPanelRepository>();
         services.AddSingleton<SellerPackagesRepository>();
         services.AddSingleton<SellerPackages>();
-        services.AddSingleton<SellerFinanceRepository>();
-        services.AddSingleton<SellerFinance>();
+        services.AddFinance();
         services.AddSingleton<SellerCatalogRepository>();
         services.AddSingleton<SellerCatalog>();
         services.AddSingleton<SellerPanelService>();

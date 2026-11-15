@@ -1,4 +1,4 @@
-using ReapSeek.Api.Finance;
+using ReapSeek.Finance.Contracts;
 using ReapSeek.Api.Ordering.Shipping;
 using System.Text.Json.Serialization;
 using ReapSeek.Api.Ordering.Carts;
@@ -17,7 +17,6 @@ using ReapSeek.Api.Catalog.Search;
 using ReapSeek.Api.Sellers.SellerPanel;
 using ReapSeek.Api.Sellers;
 using ReapSeek.Api.Sellers.Stores;
-using ReapSeek.Modules.Finance;
 
 namespace ReapSeek.Api.Infrastructure;
 

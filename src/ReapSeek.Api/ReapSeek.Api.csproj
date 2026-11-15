@@ -18,6 +18,7 @@
     <ProjectReference Include="..\BuildingBlocks\ReapSeek.BuildingBlocks.Web\ReapSeek.BuildingBlocks.Web.csproj" />
     <ProjectReference Include="..\Modules\Engagement\ReapSeek.Engagement\ReapSeek.Engagement.csproj" />
     <ProjectReference Include="..\Modules\Marketing\ReapSeek.Marketing\ReapSeek.Marketing.csproj" />
+    <ProjectReference Include="..\Modules\Finance\ReapSeek.Finance\ReapSeek.Finance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

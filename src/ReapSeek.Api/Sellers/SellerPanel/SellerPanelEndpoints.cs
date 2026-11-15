@@ -1,4 +1,4 @@
-using ReapSeek.Api.Finance;
+using ReapSeek.Finance.Contracts;
 using ReapSeek.Api.Ordering.Shipping;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Api.Catalog;
@@ -58,12 +58,12 @@ public static class SellerPanelEndpoints
         seller.MapPost("/packages/{id:guid}/ship", async (Guid id, UserInfo user, SellerPackages packages, CancellationToken ct) =>
             ApiResults.Ok(await packages.ShipAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerPackageRow));
 
-        seller.MapGet("/balance", async (UserInfo user, SellerFinance finance, SellerPackages packages, TimeProvider clock, CancellationToken ct) =>
+        seller.MapGet("/balance", async (UserInfo user, ISellerFinance finance, SellerPackages packages, TimeProvider clock, CancellationToken ct) =>
             ApiResults.Ok(await finance.BalanceAsync(SellerOf(user), clock.GetUtcNow().UtcDateTime, await packages.InTransitAsync(SellerOf(user), ct), ct),
                 AppJsonContext.Default.SellerBalanceResponse));
 
         var admin = api.MapGroup("/backoffice").RequireAdmin();
-        admin.MapGet("/payouts", async (SellerFinance finance, CancellationToken ct) =>
+        admin.MapGet("/payouts", async (ISellerFinance finance, CancellationToken ct) =>
             ApiResults.Ok(new PayoutsResponse(await finance.PayoutsAsync(null, ct)), AppJsonContext.Default.PayoutsResponse));
         admin.MapPost("/payouts/run", async (PayoutRunner payouts, TimeProvider clock, CancellationToken ct) =>
             ApiResults.Ok(await payouts.RunAsync(clock.GetUtcNow().UtcDateTime, ct), AppJsonContext.Default.PayoutRunResult));
