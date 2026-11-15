@@ -118,7 +118,7 @@ internal sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cac
     {
         var recent = await conn.ExecuteScalarAsync<int>("""
             SELECT (SELECT count(*) FROM account_tokens WHERE user_id = @UserId AND purpose = @Purpose AND created_at > @Since)
-                 + (SELECT count(*) FROM outbox WHERE type = 'account_email' AND processed_at IS NULL AND failed_at IS NULL
+                 + (SELECT count(*) FROM platform.outbox WHERE type = 'account_email' AND processed_at IS NULL AND failed_at IS NULL
                         AND payload->>'user_id' = @UserId::text AND payload->>'kind' = @Purpose)
             """, new RecentRecord(userId, purpose, DateTime.UtcNow.AddHours(-1)), tx);
         if (recent >= AccountTokens.MaxRequestsPerHour) return false;

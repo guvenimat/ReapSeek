@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\ReapSeek.Shared\ReapSeek.Shared.csproj" />
     <ProjectReference Include="..\..\src\ReapSeek.Modules\ReapSeek.Modules.csproj" />
     <ProjectReference Include="..\..\src\ReapSeek.Api\ReapSeek.Api.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\ReapSeek.BuildingBlocks\ReapSeek.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\BuildingBlocks\ReapSeek.BuildingBlocks.Web\ReapSeek.BuildingBlocks.Web.csproj" />
     <ProjectReference Include="..\..\src\Modules\Engagement\ReapSeek.Engagement.Contracts\ReapSeek.Engagement.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Engagement\ReapSeek.Engagement\ReapSeek.Engagement.csproj" />

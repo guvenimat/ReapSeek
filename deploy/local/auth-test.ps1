@@ -83,7 +83,7 @@ while (-not $mail -and (Get-Date) -lt $deadline) {
 }
 Check "welcome email reached Mailpit" ($null -ne $mail)
 Check "email subject is 'Welcome to ReapSeek'" ($mail.Subject -ceq "Welcome to ReapSeek")
-$outbox = Psql "SELECT processed_at IS NOT NULL, attempts, failed_at IS NULL FROM outbox WHERE type = 'user_registered' AND payload->>'email' = '$email'"
+$outbox = Psql "SELECT processed_at IS NOT NULL, attempts, failed_at IS NULL FROM platform.outbox WHERE type = 'user_registered' AND payload->>'email' = '$email'"
 Check "outbox message processed once ($outbox)" ($outbox -eq "t|1|t")
 
 Write-Host "`n[4] Sign in"
