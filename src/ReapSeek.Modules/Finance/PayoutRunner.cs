@@ -3,11 +3,10 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using ReapSeek.Modules.Sellers;
 using ReapSeek.Domain.Ledger;
+using ReapSeek.Finance.Contracts;
 using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.Modules.Finance;
-
-public sealed record PayoutRunResult(DateTime PeriodEnd, int Created, int Transferred, int TransferFailures);
 
 public sealed class PayoutRunner
 {

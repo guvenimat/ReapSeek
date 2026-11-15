@@ -1,16 +1,17 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Marketing.Api;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Api.Marketing.Alerts;
+namespace ReapSeek.Marketing.Infrastructure;
 
-public sealed class AlertRepository(NpgsqlDataSource db)
+internal sealed class AlertRepository(NpgsqlDataSource db)
 {
-    public sealed record AlertInsertRecord(
+    internal sealed record AlertInsertRecord(
         long AlertId, string AlertName, string State, string Condition, double Threshold, string TimeWindow, double Value, double? PreviousValue,
         string Message, string InsightName, DateTime CheckedAt);
-    public sealed record SubscriptionRecord(long AlertId, string Secret);
-    public sealed record AlertIdRecord(long Id);
+    internal sealed record SubscriptionRecord(long AlertId, string Secret);
+    internal sealed record AlertIdRecord(long Id);
 
     public async Task<AlertsResponse> ListAsync(CancellationToken ct)
     {

@@ -1,20 +1,15 @@
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ledger;
+using ReapSeek.Finance.Contracts;
 using ReapSeek.Modules.Sellers;
 
-namespace ReapSeek.Api.Finance;
+namespace ReapSeek.Finance.Infrastructure;
 
-public sealed record BalanceSummary(decimal InTransit, decimal Pending, decimal Available, decimal PaidOut, DateTime NextPayoutAt);
-public sealed record LedgerRow(long Id, string OrderNumber, string Kind, decimal Amount, DateTime AvailableAt, long? PayoutId, DateTime CreatedAt);
-public sealed record PayoutRow(long Id, long SellerId, string SellerName, DateTime PeriodEnd, decimal Amount, int EntryCount, string? TransferReference, DateTime CreatedAt);
-public sealed record SellerBalanceResponse(BalanceSummary Summary, List<LedgerRow> Entries, List<PayoutRow> Payouts);
-public sealed record PayoutsResponse(List<PayoutRow> Payouts);
-
-public sealed class SellerFinanceRepository(NpgsqlDataSource db)
+internal sealed class SellerFinanceRepository(NpgsqlDataSource db)
 {
-    public sealed record BalanceRecord(decimal Pending, decimal Available, decimal PaidOut);
-    public sealed record PayoutRecord(long Id, long SellerId, DateTime PeriodEnd, decimal Amount, int EntryCount, string? TransferReference, DateTime CreatedAt);
+    internal sealed record BalanceRecord(decimal Pending, decimal Available, decimal PaidOut);
+    internal sealed record PayoutRecord(long Id, long SellerId, DateTime PeriodEnd, decimal Amount, int EntryCount, string? TransferReference, DateTime CreatedAt);
 
     public async Task<SellerBalanceResponse> BalanceAsync(long sellerId, DateTime nowUtc, decimal inTransit, CancellationToken ct)
     {
@@ -53,12 +48,4 @@ public sealed class SellerFinanceRepository(NpgsqlDataSource db)
         return rows.Select(r => new PayoutRow(r.Id, r.SellerId, sellers.GetValueOrDefault(r.SellerId)?.Name ?? "", r.PeriodEnd, r.Amount, r.EntryCount,
             r.TransferReference, r.CreatedAt)).ToList();
     }
-}
-
-public sealed class SellerFinance(SellerFinanceRepository finance)
-{
-    public Task<SellerBalanceResponse> BalanceAsync(long sellerId, DateTime nowUtc, decimal inTransit, CancellationToken ct) =>
-        finance.BalanceAsync(sellerId, nowUtc, inTransit, ct);
-
-    public Task<List<PayoutRow>> PayoutsAsync(long? sellerId, CancellationToken ct) => finance.PayoutsAsync(sellerId, ct);
 }
