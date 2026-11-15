@@ -4,12 +4,14 @@ using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Identity;
 using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Marketing.Api;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
 
 namespace ReapSeek.Marketing.Infrastructure;
 
 internal sealed class CampaignRepository(NpgsqlDataSource db)
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Marketing);
+
     internal sealed record CampaignInsertRecord(
         string Name, long CohortId, string CohortName, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, int ValidDays, string Subject, string Message);
     internal sealed record CustomerCouponsRecord(long CustomerId, DateTime Now);
@@ -77,7 +79,7 @@ internal sealed class CampaignRepository(NpgsqlDataSource db)
             ?? throw new NotFoundException("Campaign not found");
         if (status is not ("draft" or "failed")) throw new ConflictException("This campaign was already sent", "campaign_sent");
         await conn.ExecuteAsync("UPDATE campaigns SET status = 'sending', error = NULL WHERE id = @Id", new CampaignIdRecord(id), tx);
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.CampaignSend, new CampaignMessage(id, null), OutboxJsonContext.Default.CampaignMessage);
+        await Outbox.PublishAsync(conn, tx, Contracts.CampaignSendV1.EventName, new Contracts.CampaignSendV1(id), Contracts.MarketingEventsJsonContext.Default.CampaignSendV1);
         await tx.CommitAsync(ct);
         return await ToRowAsync(conn, await conn.QuerySingleAsync<CampaignRecord>(Select + " WHERE c.id = @Id", new CampaignIdRecord(id)));
     }

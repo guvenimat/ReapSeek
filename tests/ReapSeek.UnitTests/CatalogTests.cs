@@ -179,8 +179,8 @@ public class CatalogTests
     {
         var a = new OutboxRepository.MessageRecord(1, OutboxTypes.ProductsChanged, "{}", 1, DateTime.UnixEpoch, null);
         var b = new OutboxRepository.MessageRecord(2, OutboxTypes.CatalogReindex, "{}", 1, DateTime.UnixEpoch, null);
-        var c = new OutboxRepository.MessageRecord(3, OutboxTypes.UserRegistered, "{}", 1, DateTime.UnixEpoch, null);
-        var d = new OutboxRepository.MessageRecord(4, OutboxTypes.UserRegistered, "{}", 1, DateTime.UnixEpoch, null);
+        var c = new OutboxRepository.MessageRecord(3, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
+        var d = new OutboxRepository.MessageRecord(4, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(b));
         Assert.NotEqual(OutboxDispatcher.GroupOf(c), OutboxDispatcher.GroupOf(d));
         var e = new OutboxRepository.MessageRecord(5, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);

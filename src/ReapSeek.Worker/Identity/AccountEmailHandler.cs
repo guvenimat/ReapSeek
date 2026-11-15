@@ -1,10 +1,9 @@
 using System.Net;
-using System.Text.Json;
 using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Identity;
-using ReapSeek.Shared.Outbox;
-using ReapSeek.Worker.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Identity.Contracts;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -14,7 +13,11 @@ using ReapSeek.Worker.Notifications;
 namespace ReapSeek.Worker.Identity;
 
 public sealed class AccountEmailHandler(NpgsqlDataSource db, EmailSender email, IConfiguration cfg, TimeProvider clock, ILogger<AccountEmailHandler> log)
+    : IInboxHandler<UserRegisteredV1>, IInboxHandler<AccountEmailV1>
 {
+    public const string WelcomeHandler = "user-registered-welcome-email";
+    public const string AccountHandler = "account-email-send";
+
     public sealed record AccountRecord(long Id, string Email, string Name, string Role, bool Suspended, bool Verified);
     public sealed record UserIdRecord(long UserId);
     public sealed record TokenInsertRecord(string TokenHash, long UserId, string Purpose, DateTime CreatedAt, DateTime ExpiresAt);
@@ -22,17 +25,10 @@ public sealed class AccountEmailHandler(NpgsqlDataSource db, EmailSender email, 
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     readonly string _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public Task HandleAsync(UserRegisteredV1 message, InboxMessage envelope, CancellationToken ct) => WelcomeAsync(message.UserId, ct);
+
+    public async Task HandleAsync(AccountEmailV1 payload, InboxMessage envelope, CancellationToken ct)
     {
-        if (message.Type == OutboxTypes.UserRegistered)
-        {
-            var registered = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.UserRegistered)
-                ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
-            await WelcomeAsync(registered.UserId, ct);
-            return;
-        }
-        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.AccountEmailMessage)
-            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         var account = await AccountAsync(payload.UserId, ct);
         if (account is null) return;
         switch (payload.Kind)

@@ -1,14 +1,13 @@
 using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
-using System.Text.Json;
 using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Analytics;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Engagement.Contracts;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -19,6 +18,8 @@ namespace ReapSeek.Worker.Engagement.Wishlist;
 
 public sealed class PriceDropJob(NpgsqlDataSource db, IConfiguration cfg, ILogger<PriceDropJob> log) : BackgroundService
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Engagement);
+
     public const decimal MinimumDrop = 0.05m;
     public sealed record DropRecord(long CustomerId, long ProductId, decimal OldPrice, decimal NewPrice);
     public sealed record CandidateRecord(long CustomerId, long ProductId, decimal Base);
@@ -63,25 +64,26 @@ public sealed class PriceDropJob(NpgsqlDataSource db, IConfiguration cfg, ILogge
             """, new DueRecord(due.Select(d => d.CustomerId).ToArray(), due.Select(d => d.ProductId).ToArray(), due.Select(d => d.Base).ToArray(),
             due.Select(d => prices[d.ProductId]).ToArray()), tx)).AsList();
         foreach (var d in drops)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.PriceDropped, new PriceDropMessage(d.CustomerId, d.ProductId, d.OldPrice, d.NewPrice),
-                OutboxJsonContext.Default.PriceDropMessage);
+            await Outbox.PublishAsync(conn, tx, PriceDroppedV1.EventName, new PriceDroppedV1(d.CustomerId, d.ProductId, d.OldPrice, d.NewPrice),
+                EngagementEventsJsonContext.Default.PriceDroppedV1);
         await tx.CommitAsync(ct);
         return drops.Count;
     }
 }
 
 public sealed class PriceDropHandler(NpgsqlDataSource db, EmailSender email, ReapDeepIngestClient reapDeep, IConfiguration cfg, TimeProvider clock)
+    : IInboxHandler<PriceDroppedV1>
 {
+    public const string NotifyHandler = "price-drop-customer-email";
+
     public sealed record IdRecord(long Id);
     public sealed record PersonRecord(string Email, string Name);
     public sealed record ProductRecord(string Title, string Slug);
 
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(PriceDroppedV1 payload, InboxMessage envelope, CancellationToken ct)
     {
-        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.PriceDropMessage)
-            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         await using var conn = await db.OpenConnectionAsync(ct);
         var customer = (await People.ReachableCustomersAsync(conn, [payload.CustomerId])).Count == 1 ? await People.FindAsync(conn, payload.CustomerId) : null;
         var product = await CatalogLookups.ProductAsync(conn, payload.ProductId);
@@ -104,7 +106,7 @@ public sealed class PriceDropHandler(NpgsqlDataSource db, EmailSender email, Rea
             """;
         await email.SendAsync(new EmailMessage(customer.Email, subject, text, html), ct);
         if (reapDeep.IsConfigured)
-            await reapDeep.CaptureAsync([new CaptureEvent("price_drop_notified", ReapDeepIdentity.DistinctId(payload.CustomerId), $"price-drop-{message.Id}",
+            await reapDeep.CaptureAsync([new CaptureEvent("price_drop_notified", ReapDeepIdentity.DistinctId(payload.CustomerId), $"price-drop-{envelope.Id}",
                 clock.GetUtcNow().UtcDateTime, new PurchaseProperties(payload.ProductId.ToString(CultureInfo.InvariantCulture), "", payload.NewPrice, 0, saved, "TRY", 0, "", "server"))], ct);
     }
 }

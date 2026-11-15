@@ -142,7 +142,7 @@ internal sealed class ReviewRepository(NpgsqlDataSource db)
             RETURNING id
             """, new { QuestionId = questionId, SellerId = sellerId, Body = body, Products = products }, tx);
         if (id is null) return false;
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.QuestionAnswered, new QuestionEventMessage(questionId, id), OutboxJsonContext.Default.QuestionEventMessage);
+        await Outbox.PublishAsync(conn, tx, QuestionAnsweredV1.EventName, new QuestionAnsweredV1(questionId, id.Value), EngagementEventsJsonContext.Default.QuestionAnsweredV1);
         await tx.CommitAsync(ct);
         return true;
     }
