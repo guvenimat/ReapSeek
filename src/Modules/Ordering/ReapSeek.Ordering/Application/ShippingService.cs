@@ -1,18 +1,18 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Providers;
 
-namespace ReapSeek.Api.Ordering.Shipping;
+namespace ReapSeek.Ordering.Application;
 
-public enum ShippingWebhookOutcome { Applied, Duplicate, Rejected, Malformed }
+internal enum ShippingWebhookOutcome { Applied, Duplicate, Rejected, Malformed }
 
-public sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, TimeProvider clock, ILogger<ShippingService> log)
+internal sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, TimeProvider clock, ILogger<ShippingService> log)
 {
     public sealed record PackageRefRecord(Guid Id, Guid OrderId, string Status, string? ShipmentStatus);
     public sealed record ShipmentEventRecord(string EventId, string TrackingNumber, string Kind, string Status, DateTime OccurredAt);
@@ -69,20 +69,4 @@ public sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, Tim
         await tx.CommitAsync(ct);
         return ShippingWebhookOutcome.Applied;
     }
-}
-
-public static class ShippingEndpoints
-{
-    public static void MapShipping(this RouteGroupBuilder api) =>
-        api.MapPost("/shipping/sandbox/webhook", async (HttpRequest request, ShippingService shipping, CancellationToken ct) =>
-        {
-            using var reader = new StreamReader(request.Body);
-            var body = await reader.ReadToEndAsync(ct);
-            return await shipping.HandleSandboxWebhookAsync(body, request.Headers["Sandbox-Signature"], ct) switch
-            {
-                ShippingWebhookOutcome.Rejected => ApiResults.Unauthorized("Invalid signature"),
-                ShippingWebhookOutcome.Malformed => ApiResults.BadRequest("Malformed event"),
-                _ => Results.Ok(),
-            };
-        });
 }

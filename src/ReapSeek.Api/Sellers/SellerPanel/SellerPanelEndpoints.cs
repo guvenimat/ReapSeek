@@ -1,6 +1,6 @@
 using ReapSeek.Finance.Contracts;
 using ReapSeek.Identity.Contracts;
-using ReapSeek.Api.Ordering.Shipping;
+using ReapSeek.Ordering.Contracts;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Catalog.Contracts;
 using ReapSeek.Api.Infrastructure;
@@ -42,20 +42,20 @@ public static class SellerPanelEndpoints
         seller.MapGet("/proposals", async (UserInfo user, ISellerCatalog sellerCatalog, CancellationToken ct) =>
             ApiResults.Ok(new ProposalsResponse(await sellerCatalog.ProposalsAsync(SellerOf(user), ct)), AppJsonContext.Default.ProposalsResponse));
 
-        seller.MapGet("/packages", async (UserInfo user, SellerPackages packages, string? status, int? page, CancellationToken ct) =>
+        seller.MapGet("/packages", async (UserInfo user, ISellerPackages packages, string? status, int? page, CancellationToken ct) =>
         {
             var p = Ensure.InRange(page ?? 1, 1, 1000, "page");
-            var (rows, total) = await packages.ListAsync(SellerOf(user), PackageFilter.Status(status), p, PageSize, ct);
+            var (rows, total) = await packages.ListAsync(SellerOf(user), status, p, PageSize, ct);
             return ApiResults.Ok(new SellerPackagesResponse(rows, total, p, PageSize), AppJsonContext.Default.SellerPackagesResponse);
         });
-        seller.MapGet("/packages/{id:guid}", async (Guid id, UserInfo user, SellerPackages packages, CancellationToken ct) =>
+        seller.MapGet("/packages/{id:guid}", async (Guid id, UserInfo user, ISellerPackages packages, CancellationToken ct) =>
             await packages.GetAsync(SellerOf(user), id, ct) is { } package
                 ? ApiResults.Ok(package, AppJsonContext.Default.SellerPackageRow)
                 : ApiResults.NotFound("Package not found"));
-        seller.MapPost("/packages/{id:guid}/ship", async (Guid id, UserInfo user, SellerPackages packages, CancellationToken ct) =>
+        seller.MapPost("/packages/{id:guid}/ship", async (Guid id, UserInfo user, ISellerPackages packages, CancellationToken ct) =>
             ApiResults.Ok(await packages.ShipAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerPackageRow));
 
-        seller.MapGet("/balance", async (UserInfo user, ISellerFinance finance, SellerPackages packages, TimeProvider clock, CancellationToken ct) =>
+        seller.MapGet("/balance", async (UserInfo user, ISellerFinance finance, ISellerPackages packages, TimeProvider clock, CancellationToken ct) =>
             ApiResults.Ok(await finance.BalanceAsync(SellerOf(user), clock.GetUtcNow().UtcDateTime, await packages.InTransitAsync(SellerOf(user), ct), ct),
                 AppJsonContext.Default.SellerBalanceResponse));
 

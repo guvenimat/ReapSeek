@@ -1,3 +1,4 @@
+using ReapSeek.Ordering.Api;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
@@ -7,30 +8,9 @@ using ReapSeek.Domain.Returns;
 using ReapSeek.Shared;
 using ReapSeek.Modules.Ordering;
 
-namespace ReapSeek.Api.Ordering.Orders;
+namespace ReapSeek.Ordering.Application;
 
-public sealed record OrderSummary(
-    string Number, string Status, decimal Total, string Currency, int ItemCount, int PackageCount, string? ImageUrl,
-    DateTime PlacedAt, DateTime? PaidAt, string? CustomerEmail);
-public sealed record OrdersPage(List<OrderSummary> Orders, long Total, int Page, int PageSize);
-public sealed record OrderLineView(
-    long ProductId, string ProductTitle, string VariantLabel, string Sku, string? ImageUrl, decimal UnitPrice, int Quantity, decimal Total, Guid Id, int ReturnableQuantity);
-public sealed record TrackingEventView(string Kind, string Status, DateTime OccurredAt);
-public sealed record OrderPackageView(
-    Guid Id, long SellerId, string SellerName, string Status, decimal Subtotal, decimal ShippingFee, string? TrackingNumber, List<OrderLineView> Lines,
-    string? ShipmentStatus, DateTime? ShippedAt, DateTime? DeliveredAt, DateTime? ReturnDeadline, bool Returnable, List<TrackingEventView> Tracking);
-public sealed record ReturnLineView(Guid OrderLineId, string ProductTitle, string VariantLabel, int Quantity, decimal Total);
-public sealed record ReturnView(
-    Guid Id, string Number, Guid PackageId, string SellerName, string Status, string Reason, string? Comment, decimal Total, DateTime RequestedAt,
-    string? RejectionNote, string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, List<ReturnLineView> Lines, List<TrackingEventView> Tracking);
-public sealed record OrderPaymentView(string Provider, string Status, string? FailureReason, DateTime CreatedAt);
-public sealed record OrderDetail(
-    string Number, string Status, DateTime PlacedAt, DateTime? PaidAt, DateTime PaymentDeadline, string? CloseReason, ShippingAddress Address,
-    decimal Subtotal, decimal ShippingTotal, decimal Total, string Currency, List<OrderPackageView> Packages, List<OrderPaymentView> Payments,
-    long CustomerId, string? CustomerEmail, string? PaymentUrl, List<ReturnView> Returns, decimal DiscountTotal = 0, string? CouponCode = null,
-    bool Cancellable = false, DateTime? RefundedAt = null);
-
-public sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
+internal sealed class OrderQueries(NpgsqlDataSource db, TimeProvider clock)
 {
     public sealed record IdRecord(Guid Id);
     public sealed record ShipmentRecord(Guid Id, string? ShipmentStatus);

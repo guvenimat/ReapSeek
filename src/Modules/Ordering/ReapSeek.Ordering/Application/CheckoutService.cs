@@ -1,7 +1,9 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Ordering.Api;
+using ReapSeek.Ordering.Infrastructure;
 using Npgsql;
-using ReapSeek.Api.Ordering.Carts;
-using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Marketing;
 using ReapSeek.Domain.Ordering;
@@ -11,9 +13,9 @@ using ReapSeek.Modules.Marketing;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Modules.Ordering;
 
-namespace ReapSeek.Api.Ordering.Checkout;
+namespace ReapSeek.Ordering.Application;
 
-public sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payments, IConfiguration cfg, TimeProvider clock, ILogger<CheckoutService> log)
+internal sealed class CheckoutService(NpgsqlDataSource db, IPaymentGateway payments, IConfiguration cfg, TimeProvider clock, ILogger<CheckoutService> log)
 {
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     readonly string _webhookUrl = cfg["Payments:WebhookUrl"] ?? "http://localhost:8100/api/v1/payments/sandbox/webhook";

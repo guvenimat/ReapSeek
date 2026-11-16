@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Diagnostics;
-using ReapSeek.Api.Ordering.Payments;
 using ReapSeek.Domain.Common;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;

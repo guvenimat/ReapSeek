@@ -1,12 +1,13 @@
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Modules.Ordering;
 
-namespace ReapSeek.Api.Ordering.Orders;
+namespace ReapSeek.Ordering.Application;
 
-public enum CancelOutcome { Cancelled, NotFound }
+internal enum CancelOutcome { Cancelled, NotFound }
 
-public sealed class OrderCancellation(NpgsqlDataSource db, TimeProvider clock, ILogger<OrderCancellation> log)
+internal sealed class OrderCancellation(NpgsqlDataSource db, TimeProvider clock, ILogger<OrderCancellation> log)
 {
     public async Task<CancelOutcome> CancelAsync(string number, long customerId, CancellationToken ct)
     {

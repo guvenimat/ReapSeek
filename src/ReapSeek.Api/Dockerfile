@@ -9,6 +9,7 @@ COPY Modules/Marketing/ReapSeek.Marketing.Contracts/ReapSeek.Marketing.Contracts
 COPY Modules/Finance/ReapSeek.Finance.Contracts/ReapSeek.Finance.Contracts.csproj Modules/Finance/ReapSeek.Finance.Contracts/
 COPY Modules/Identity/ReapSeek.Identity.Contracts/ReapSeek.Identity.Contracts.csproj Modules/Identity/ReapSeek.Identity.Contracts/
 COPY Modules/Catalog/ReapSeek.Catalog.Contracts/ReapSeek.Catalog.Contracts.csproj Modules/Catalog/ReapSeek.Catalog.Contracts/
+COPY Modules/Ordering/ReapSeek.Ordering.Contracts/ReapSeek.Ordering.Contracts.csproj Modules/Ordering/ReapSeek.Ordering.Contracts/
 COPY BuildingBlocks/ReapSeek.BuildingBlocks/ReapSeek.BuildingBlocks.csproj BuildingBlocks/ReapSeek.BuildingBlocks/
 COPY BuildingBlocks/ReapSeek.BuildingBlocks.Web/ReapSeek.BuildingBlocks.Web.csproj BuildingBlocks/ReapSeek.BuildingBlocks.Web/
 COPY Modules/Engagement/ReapSeek.Engagement/ReapSeek.Engagement.csproj Modules/Engagement/ReapSeek.Engagement/
@@ -16,6 +17,7 @@ COPY Modules/Marketing/ReapSeek.Marketing/ReapSeek.Marketing.csproj Modules/Mark
 COPY Modules/Finance/ReapSeek.Finance/ReapSeek.Finance.csproj Modules/Finance/ReapSeek.Finance/
 COPY Modules/Identity/ReapSeek.Identity/ReapSeek.Identity.csproj Modules/Identity/ReapSeek.Identity/
 COPY Modules/Catalog/ReapSeek.Catalog/ReapSeek.Catalog.csproj Modules/Catalog/ReapSeek.Catalog/
+COPY Modules/Ordering/ReapSeek.Ordering/ReapSeek.Ordering.csproj Modules/Ordering/ReapSeek.Ordering/
 COPY ReapSeek.Api/ReapSeek.Api.csproj ReapSeek.Api/
 RUN dotnet restore ReapSeek.Api/ReapSeek.Api.csproj -r linux-x64
 COPY ReapSeek.Domain/ ReapSeek.Domain/

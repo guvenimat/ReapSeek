@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Modules\Finance\ReapSeek.Finance\ReapSeek.Finance.csproj" />
     <ProjectReference Include="..\Modules\Identity\ReapSeek.Identity\ReapSeek.Identity.csproj" />
     <ProjectReference Include="..\Modules\Catalog\ReapSeek.Catalog\ReapSeek.Catalog.csproj" />
+    <ProjectReference Include="..\Modules\Ordering\ReapSeek.Ordering\ReapSeek.Ordering.csproj" />
   </ItemGroup>
 
   <ItemGroup>

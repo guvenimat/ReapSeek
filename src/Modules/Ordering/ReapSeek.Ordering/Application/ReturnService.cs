@@ -1,8 +1,9 @@
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Ordering.Api;
 using ReapSeek.Modules.Identity;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Domain.Returns;
@@ -10,19 +11,9 @@ using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Modules.Ordering;
 
-namespace ReapSeek.Api.Ordering.Returns;
+namespace ReapSeek.Ordering.Application;
 
-public sealed record ReturnItemRequest(Guid? OrderLineId, int? Quantity);
-public sealed record CreateReturnRequest(Guid? PackageId, List<ReturnItemRequest>? Items, string? Reason, string? Comment);
-public sealed record CreatedReturn(Guid Id, string Number, string Status, decimal Total);
-public sealed record RejectReturnRequest(string? Note);
-public sealed record SellerReturnLine(string ProductTitle, string VariantLabel, string Sku, int Quantity, decimal UnitPrice);
-public sealed record SellerReturnRow(
-    Guid Id, string Number, string OrderNumber, string Status, string Reason, string? Comment, decimal Total, DateTime RequestedAt, string? RejectionNote,
-    string? ReturnTracking, DateTime? ReceivedAt, DateTime? RefundedAt, string CustomerName, List<SellerReturnLine> Lines);
-public sealed record SellerReturnsResponse(List<SellerReturnRow> Returns);
-
-public sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimeProvider clock)
+internal sealed class ReturnService(NpgsqlDataSource db, ICarrier carrier, TimeProvider clock)
 {
     public sealed record ReturnRowRecord(
         Guid Id, string Number, string OrderNumber, string Status, string Reason, string? Comment, decimal Total, DateTime RequestedAt, string? RejectionNote,

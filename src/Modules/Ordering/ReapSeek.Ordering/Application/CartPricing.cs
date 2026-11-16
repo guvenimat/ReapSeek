@@ -1,13 +1,14 @@
+using ReapSeek.Ordering.Api;
+using ReapSeek.Ordering.Infrastructure;
 using System.Globalization;
 using System.Text.Json;
-using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 
-namespace ReapSeek.Api.Ordering.Carts;
+namespace ReapSeek.Ordering.Application;
 
-public static class CartPricing
+internal static class CartPricing
 {
     static readonly string[] OptionOrder = ["Color", "Size", "Storage", "Memory"];
 
@@ -16,7 +17,7 @@ public static class CartPricing
 
     public static string VariantLabel(string optionsJson)
     {
-        var options = JsonSerializer.Deserialize(optionsJson, AppJsonContext.Default.DictionaryStringString) ?? [];
+        var options = JsonSerializer.Deserialize(optionsJson, OrderingJsonContext.Default.DictionaryStringString) ?? [];
         return string.Join(" · ", options
             .OrderBy(kv => Array.IndexOf(OptionOrder, kv.Key) is var i and >= 0 ? i : int.MaxValue)
             .ThenBy(kv => kv.Key, StringComparer.Ordinal)

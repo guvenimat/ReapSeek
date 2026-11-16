@@ -80,7 +80,7 @@ public partial class ModuleSqlTests
     {
         var root = Root();
         Assert.True(File.Exists(Path.Combine(root, "src", "ReapSeek.Modules", "Ordering", "OrderStore.cs")));
-        Assert.Equal("ordering", SchemaOf(Path.Combine("src", "ReapSeek.Api", "Ordering", "Carts", "CartRepository.cs")));
+        Assert.Equal("sellers", SchemaOf(Path.Combine("src", "ReapSeek.Api", "Sellers", "SellerRepository.cs")));
         Assert.Equal("catalog", SchemaOf(Path.Combine("src", "ReapSeek.Worker", "Catalog", "Search", "SearchRepository.cs")));
         Assert.Null(SchemaOf(Path.Combine("src", "ReapSeek.Api", "Seed", "CatalogSeeder.cs")));
         var reviews = Path.Combine("src", "Modules", "Engagement", "ReapSeek.Engagement", "Infrastructure", "ReviewRepository.cs");
@@ -98,6 +98,9 @@ public partial class ModuleSqlTests
         var products = Path.Combine("src", "Modules", "Catalog", "ReapSeek.Catalog", "Infrastructure", "CatalogRepository.cs");
         Assert.True(File.Exists(Path.Combine(root, products)));
         Assert.Equal("catalog", SchemaOf(products));
+        var carts = Path.Combine("src", "Modules", "Ordering", "ReapSeek.Ordering", "Infrastructure", "CartRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, carts)));
+        Assert.Equal("ordering", SchemaOf(carts));
     }
 
     [Fact]
