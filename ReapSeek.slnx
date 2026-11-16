@@ -14,6 +14,7 @@
     <Project Path="src/Modules/Catalog/ReapSeek.Catalog/ReapSeek.Catalog.csproj" />
     <Project Path="src/Modules/Ordering/ReapSeek.Ordering.Contracts/ReapSeek.Ordering.Contracts.csproj" />
     <Project Path="src/Modules/Ordering/ReapSeek.Ordering/ReapSeek.Ordering.csproj" />
+    <Project Path="src/Modules/Sellers/ReapSeek.Sellers.Contracts/ReapSeek.Sellers.Contracts.csproj" />
     <Project Path="src/Modules/Sellers/ReapSeek.Sellers/ReapSeek.Sellers.csproj" />
     <Project Path="src/ReapSeek.Api/ReapSeek.Api.csproj" />
     <Project Path="src/ReapSeek.Domain/ReapSeek.Domain.csproj" />

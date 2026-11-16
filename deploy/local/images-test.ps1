@@ -138,6 +138,7 @@ Check "positions are renumbered" ((($removed.Json.images | ForEach-Object { $_.p
 
 Write-Host "`n[4] Sellers on their own proposals"
 $seller = (A POST "/sellers" @{ name = "Image Seller $tag"; city = "Izmir"; commission_rate = 0.1 }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $sellerEmail = "images.$tag@example.com"
 $null = A POST "/sellers/$($seller.id)/users" @{ email = $sellerEmail; name = "Image Owner"; password = "seller-pass-1" }
 $me = NewClient

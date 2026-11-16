@@ -69,6 +69,7 @@ $brand = ((A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Ve
 $sa = (A POST "/sellers" @{ name = "PDP Seller A $tag"; city = "Izmir" }).Json
 $sb = (A POST "/sellers" @{ name = "PDP Seller B $tag"; city = "Ankara" }).Json
 $sc = (A POST "/sellers" @{ name = "PDP Seller C $tag"; city = "Bursa" }).Json
+Check "the new sellers reach the catalog" (Wait-SellerSnapshot @($sa.id, $sb.id, $sc.id))
 $product = (A POST "/catalog/products" @{ title = "Aurelia Silk Gown $tag"; brand_id = $brand.id; category_id = $dresses.id; description = "A flowing silk gown."; attributes = @{ Material = "Silk" }; variant_axes = @{ Color = @("Black", "White"); Size = @("M", "S") } }).Json
 $v = @{}
 foreach ($x in $product.variants) { $v["$($x.options.Color)/$($x.options.Size)"] = $x.id }
@@ -77,6 +78,7 @@ $null = A PUT "/catalog/offers" @{ seller_id = $sb.id; variant_id = $v["Black/S"
 $null = A PUT "/catalog/offers" @{ seller_id = $sb.id; variant_id = $v["Black/M"]; price = 130; stock = 0 }
 $null = A PUT "/catalog/offers" @{ seller_id = $sc.id; variant_id = $v["White/S"]; price = 90; stock = 8 }
 $null = A PATCH "/sellers/$($sc.id)" @{ status = "suspended" }
+Check "the suspension reaches the catalog" (Wait-SellerSnapshot @($sc.id) "suspended")
 Check "draft product is 404" ((Send $plain GET "$api/api/v1/catalog/products/$($product.slug)").Status -eq 404)
 $null = A PATCH "/catalog/products/$($product.id)" @{ status = "active" }
 $p = (Send $plain GET "$api/api/v1/catalog/products/$($product.slug)").Json

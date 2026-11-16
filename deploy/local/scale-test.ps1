@@ -112,6 +112,7 @@ function Bo([string]$method, [string]$path, $body = $null) { Send $admin $method
 $dresses = (Bo GET "/catalog/categories").Json.categories | Where-Object { $_.slug -eq "dresses" }
 $brand = (Bo GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Velora" }
 $seller = (Bo POST "/sellers" @{ name = "Scale Seller $tag"; city = "Izmir" }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $product = (Bo POST "/catalog/products" @{ title = "Scale Dress $tag"; brand_id = $brand.id; category_id = $dresses.id; variant_axes = @{ Color = @("Black") } }).Json
 $variant = $product.variants[0].id
 $null = Bo PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $variant; price = 300; stock = 10 }

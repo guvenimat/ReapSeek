@@ -15,10 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks\ReapSeek.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks.Web\ReapSeek.BuildingBlocks.Web.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
     <ProjectReference Include="..\ReapSeek.Catalog.Contracts\ReapSeek.Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\..\Sellers\ReapSeek.Sellers.Contracts\ReapSeek.Sellers.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

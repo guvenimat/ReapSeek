@@ -95,6 +95,7 @@ $sellerB = (A POST $s @{ name = "Seller B $tag"; city = "Ankara" }).Json
 Check "sellers are created with default commission" ($sellerA.commission_rate -eq 0.12 -and $sellerB.commission_rate -eq 0.15 -and $sellerB.status -eq "active")
 Check "duplicate seller is 409" ((A POST $s @{ name = "seller a $tag" }).Status -eq 409)
 Check "commission above 50% is 400" ((A POST $s @{ name = "Greedy $tag"; commission_rate = 0.6 }).Status -eq 400)
+Check "the new sellers reach the catalog" (Wait-SellerSnapshot @($sellerA.id, $sellerB.id))
 
 Write-Host "`n[4] Products and variants"
 Check "too short title is 400" ((A POST "$c/products" @{ title = "ab"; brand_id = $brand.id; category_id = $cat.id }).Status -eq 400)
@@ -127,9 +128,9 @@ Check "paused offer loses the buy box" ((BuyBox $p).seller_id -eq $sellerA.id)
 $p = (A PUT "$c/offers" @{ seller_id = $sellerB.id; variant_id = $v1; price = 90; stock = 5 }).Json
 Check "re-saving the same seller and variant updates the offer" (@(@($p.variants | Where-Object { $_.id -eq $v1 })[0].offers).Count -eq 2 -and (BuyBox $p).seller_id -eq $sellerB.id)
 Check "suspending a seller -> 200" ((A PATCH "$s/$($sellerB.id)" @{ status = "suspended" }).Json.status -eq "suspended")
-Check "suspended seller loses the buy box" ((BuyBox (A GET "$c/products/$($product.id)").Json).seller_id -eq $sellerA.id)
+Check "suspended seller loses the buy box" (WaitFor { (BuyBox (A GET "$c/products/$($product.id)").Json).seller_id -eq $sellerA.id } 15)
 $null = A PATCH "$s/$($sellerB.id)" @{ status = "active" }
-Check "reactivated seller wins it back" ((BuyBox (A GET "$c/products/$($product.id)").Json).seller_id -eq $sellerB.id)
+Check "reactivated seller wins it back" (WaitFor { (BuyBox (A GET "$c/products/$($product.id)").Json).seller_id -eq $sellerB.id } 15)
 Check "seller list counts offers and products" (@((A GET $s).Json.sellers | Where-Object { $_.id -eq $sellerA.id -and $_.offer_count -eq 1 -and $_.product_count -eq 1 }).Count -eq 1)
 
 Write-Host "`n[6] Editing and listing"

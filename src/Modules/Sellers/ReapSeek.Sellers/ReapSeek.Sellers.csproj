@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks\ReapSeek.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks.Web\ReapSeek.BuildingBlocks.Web.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
@@ -22,6 +23,7 @@
     <ProjectReference Include="..\..\Ordering\ReapSeek.Ordering.Contracts\ReapSeek.Ordering.Contracts.csproj" />
     <ProjectReference Include="..\..\Finance\ReapSeek.Finance.Contracts\ReapSeek.Finance.Contracts.csproj" />
     <ProjectReference Include="..\..\Identity\ReapSeek.Identity.Contracts\ReapSeek.Identity.Contracts.csproj" />
+    <ProjectReference Include="..\ReapSeek.Sellers.Contracts\ReapSeek.Sellers.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

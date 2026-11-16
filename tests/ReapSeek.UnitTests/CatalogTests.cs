@@ -189,6 +189,38 @@ public class CatalogTests
         Assert.NotEqual(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(e));
     }
 
+    static SellerSnapshotStateRecord Snapshot(long version, string status = "active", decimal rating = 4.5m, string name = "Shop") =>
+        new(7, name, "shop", "Izmir", status, rating, version);
+
+    [Fact]
+    public void A_seller_change_applies_only_when_it_is_newer_than_the_snapshot()
+    {
+        Assert.True(SellerSnapshotRules.Supersedes(null, Snapshot(0)));
+        Assert.True(SellerSnapshotRules.Supersedes(Snapshot(3), Snapshot(4)));
+        Assert.False(SellerSnapshotRules.Supersedes(Snapshot(4), Snapshot(4)));
+        Assert.False(SellerSnapshotRules.Supersedes(Snapshot(5, "suspended"), Snapshot(4, "active")));
+    }
+
+    [Fact]
+    public void A_seller_change_reindexes_products_only_when_a_snapshot_field_changes()
+    {
+        Assert.True(SellerSnapshotRules.ChangesProducts(null, Snapshot(0)));
+        Assert.False(SellerSnapshotRules.ChangesProducts(Snapshot(1), Snapshot(2)));
+        Assert.False(SellerSnapshotRules.ChangesProducts(Snapshot(1, rating: 4.5m), Snapshot(2, rating: 4.50m)));
+        Assert.True(SellerSnapshotRules.ChangesProducts(Snapshot(1), Snapshot(2, "suspended")));
+        Assert.True(SellerSnapshotRules.ChangesProducts(Snapshot(1), Snapshot(2, rating: 4.6m)));
+        Assert.True(SellerSnapshotRules.ChangesProducts(Snapshot(1), Snapshot(2, name: "Shop Two")));
+    }
+
+    [Fact]
+    public void A_seller_change_event_maps_every_snapshot_field()
+    {
+        var change = new ReapSeek.Sellers.Contracts.SellerChangedV1(7, "Shop", "shop", "Izmir", "suspended", 4.2m, 9);
+        Assert.Equal(new SellerSnapshotStateRecord(7, "Shop", "shop", "Izmir", "suspended", 4.2m, 9), SellerSnapshotStateRecord.From(change));
+        var json = JsonSerializer.Serialize(change, ReapSeek.Sellers.Contracts.SellersEventsJsonContext.Default.SellerChangedV1);
+        Assert.Equal("""{"seller_id":7,"name":"Shop","slug":"shop","city":"Izmir","status":"suspended","rating":4.2,"version":9}""", json);
+    }
+
     [Fact]
     public void Seller_scores_shrink_toward_the_platform_mean()
     {

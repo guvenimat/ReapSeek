@@ -22,3 +22,16 @@ function Initialize-LocalEnv {
     }
     return $values
 }
+
+function Wait-SellerSnapshot([long[]]$Ids, [string]$Status = "active", [int]$Seconds = 20) {
+    $sql = "SELECT count(*) FROM catalog.seller_snapshots WHERE status = '$Status' AND id IN ($($Ids -join ','))"
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    do {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        $count = $sql | docker.exe exec -i reapseek-postgres psql -U reapseek -d reapseek -At 2>&1
+        $ErrorActionPreference = $prev
+        if ("$count".Trim() -eq "$($Ids.Count)") { return $true }
+        Start-Sleep -Milliseconds 500
+    } until ((Get-Date) -gt $deadline)
+    return $false
+}
