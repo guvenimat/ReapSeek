@@ -35,21 +35,14 @@ public partial class ArchitectureTests
         [typeof(ReapSeek.Identity.IdentityModule).Assembly] = typeof(ReapSeek.Identity.IdentityModule),
         [typeof(ReapSeek.Catalog.CatalogModule).Assembly] = typeof(ReapSeek.Catalog.CatalogModule),
         [typeof(ReapSeek.Ordering.OrderingModule).Assembly] = typeof(ReapSeek.Ordering.OrderingModule),
+        [typeof(ReapSeek.Sellers.SellersModule).Assembly] = typeof(ReapSeek.Sellers.SellersModule),
     };
 
-    static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
     static readonly string[] PlatformAreas = ["Infrastructure", "Seed", "Health", "Operations"];
+    const string CompositionRoot = "Infrastructure";
 
-    static readonly Dictionary<string, string[]> PublicApi = new()
-    {
-        ["Identity"] = [],
-        ["Catalog"] = [],
-        ["Sellers"] = [],
-        ["Ordering"] = [],
-        ["Finance"] = [],
-        ["Engagement"] = [],
-        ["Marketing"] = [],
-    };
+    static readonly string[] ModuleProjectDependencies =
+        ["ReapSeek.Shared", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.BuildingBlocks", "ReapSeek.BuildingBlocks.Web"];
 
     static IEnumerable<string> TopLevelAreas => Api.GetTypes()
         .Select(t => t.Namespace).OfType<string>()
@@ -57,20 +50,17 @@ public partial class ArchitectureTests
         .Select(n => n["ReapSeek.Api.".Length..].Split('.')[0])
         .Distinct();
 
-    static string ModuleOf(Type t) => t.Namespace!["ReapSeek.Api.".Length..].Split('.')[0];
+    static string AreaOf(Type t) => t.Namespace!["ReapSeek.Api.".Length..].Split('.')[0];
 
-    static string[] OutsideOf(string module) =>
-        ApiModules.Where(m => m != module).Select(m => $"ReapSeek.Api.{m}").ToArray();
-
-    static List<string> ModuleViolations(string module, string[] targets)
+    static List<string> AreaViolations(string area, string[] targets)
     {
         if (targets.Length == 0) return [];
         var failures = new List<string>();
-        foreach (var ns in OutsideOf(module))
+        foreach (var ns in PlatformAreas.Where(a => a != area && a != CompositionRoot).Select(a => $"ReapSeek.Api.{a}"))
         {
             var r = Types.InAssembly(Api).That().ResideInNamespaceStartingWith(ns + ".").Or().ResideInNamespace(ns)
                 .ShouldNot().HaveDependencyOnAny(targets).GetResult();
-            if (!r.IsSuccessful) failures.AddRange(r.FailingTypeNames.Select(t => $"{t} -> {module}"));
+            if (!r.IsSuccessful) failures.AddRange(r.FailingTypeNames.Select(t => $"{t} -> {area}"));
         }
         return failures;
     }
@@ -145,7 +135,7 @@ public partial class ArchitectureTests
     [Fact]
     public void Web_building_blocks_know_no_module() =>
         Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
-            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity", "ReapSeek.Catalog", "ReapSeek.Ordering").GetResult(), "BuildingBlocks.Web");
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity", "ReapSeek.Catalog", "ReapSeek.Ordering", "ReapSeek.Sellers").GetResult(), "BuildingBlocks.Web");
 
     static readonly Assembly BuildingBlocks = typeof(ReapSeek.BuildingBlocks.Messaging.ModuleOutbox).Assembly;
 
@@ -154,7 +144,7 @@ public partial class ArchitectureTests
     {
         Pass(Types.InAssembly(BuildingBlocks).ShouldNot().HaveDependencyOnAny(
             "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance",
-            "ReapSeek.Identity", "ReapSeek.Catalog", "ReapSeek.Ordering", "ReapSeek.BuildingBlocks.Web", "Microsoft.AspNetCore").GetResult(), "BuildingBlocks");
+            "ReapSeek.Identity", "ReapSeek.Catalog", "ReapSeek.Ordering", "ReapSeek.Sellers", "ReapSeek.BuildingBlocks.Web", "Microsoft.AspNetCore").GetResult(), "BuildingBlocks");
         Assert.Equal(["ReapSeek.Shared"], BuildingBlocks.GetReferencedAssemblies().Select(r => r.Name!).Where(n => n.StartsWith("ReapSeek.", StringComparison.Ordinal)));
         Assert.DoesNotContain(Shared.GetReferencedAssemblies(), r => r.Name!.StartsWith("ReapSeek.BuildingBlocks", StringComparison.Ordinal));
     }
@@ -257,31 +247,34 @@ public partial class ArchitectureTests
     [Fact]
     public void Data_access_types_are_used_only_inside_their_module()
     {
-        var dataAccess = DataAccessTypes("Dapper", "Npgsql");
-        Assert.Contains(dataAccess, t => t.Name == "SellerPanelRepository");
-        var failures = ApiModules.SelectMany(m => ModuleViolations(m,
-            dataAccess.Where(t => ModuleOf(t) == m && !PublicApi[m].Contains(t.Name)).Select(t => t.FullName!).ToArray())).ToList();
-        Assert.Empty(failures);
-    }
+        foreach (var (module, entry) in ModuleProjects)
+        {
+            var types = DataAccessTypesIn(module, RootNamespace(entry), "Dapper", "Npgsql");
+            Assert.NotEmpty(types);
+            Assert.All(types, t => Assert.False(t.IsVisible, $"{t.FullName} is visible outside {module.GetName().Name}"));
+        }
+        var sellers = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Sellers.SellersModule));
+        Assert.Contains(DataAccessTypesIn(sellers.Key, RootNamespace(sellers.Value), "Dapper", "Npgsql"), t => t.Name == "SellerPanelRepository");
 
-    [Fact]
-    public void Modules_use_each_other_only_through_their_public_API()
-    {
-        var failures = ApiModules.SelectMany(m => ModuleViolations(m, Api.GetTypes()
-            .Where(t => t.Namespace is not null && t.Namespace.StartsWith("ReapSeek.Api.", StringComparison.Ordinal) && ModuleOf(t) == m)
-            .Where(t => !t.IsNested && !PublicApi[m].Contains(t.Name))
-            .Select(t => t.FullName!).ToArray())).Distinct().Order().ToList();
+        var dataAccess = DataAccessTypes("Dapper", "Npgsql");
+        Assert.Contains(dataAccess, t => t.Name == "OutboxAdminRepository");
+        var failures = PlatformAreas.Where(a => a != CompositionRoot).SelectMany(a => AreaViolations(a,
+            dataAccess.Where(t => AreaOf(t) == a).Select(t => t.FullName!).ToArray())).ToList();
         Assert.True(failures.Count == 0, string.Join("\n", failures));
     }
 
     [Fact]
-    public void The_public_API_lists_only_existing_types()
+    public void Modules_use_each_other_only_through_their_contracts()
     {
-        var names = Api.GetTypes().Where(t => !t.IsNested && t.Namespace is not null).GroupBy(ModuleOfOrEmpty).ToDictionary(g => g.Key, g => g.Select(t => t.Name).ToHashSet());
-        Assert.All(PublicApi, kv => Assert.All(kv.Value, name => Assert.Contains(name, names[kv.Key])));
+        var allowed = ContractProjects.Select(c => c.GetName().Name!).Concat(ModuleProjectDependencies).ToHashSet();
+        foreach (var module in ModuleProjects.Keys)
+        {
+            var references = module.GetReferencedAssemblies().Select(r => r.Name!).Where(n => n.StartsWith("ReapSeek.", StringComparison.Ordinal)).ToList();
+            Assert.All(references, r => Assert.True(allowed.Contains(r), $"{module.GetName().Name} references {r}"));
+        }
+        var sellers = typeof(ReapSeek.Sellers.SellersModule).Assembly.GetReferencedAssemblies().Select(r => r.Name!).ToHashSet();
+        Assert.Superset(new HashSet<string> { "ReapSeek.Catalog.Contracts", "ReapSeek.Ordering.Contracts", "ReapSeek.Finance.Contracts", "ReapSeek.Identity.Contracts" }, sellers);
     }
-
-    static string ModuleOfOrEmpty(Type t) => t.Namespace!.StartsWith("ReapSeek.Api.", StringComparison.Ordinal) ? ModuleOf(t) : "";
 
     [Fact]
     public void SQL_lives_in_repositories()
@@ -312,6 +305,9 @@ public partial class ArchitectureTests
         var ordering = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Ordering.OrderingModule));
         Assert.Contains(DataAccessTypesIn(ordering.Key, RootNamespace(ordering.Value), "Dapper"), t => t.Name == "CartRepository");
         Assert.Contains(DataAccessTypesIn(ordering.Key, RootNamespace(ordering.Value), "Dapper"), t => t.Name == "OrderQueries");
+        var sellers = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Sellers.SellersModule));
+        Assert.Contains(DataAccessTypesIn(sellers.Key, RootNamespace(sellers.Value), "Dapper"), t => t.Name == "SellerRepository");
+        Assert.Contains(DataAccessTypesIn(sellers.Key, RootNamespace(sellers.Value), "Dapper"), t => t.Name == "StoreRepository");
     }
 
     [Fact]
@@ -333,6 +329,12 @@ public partial class ArchitectureTests
     }
 
     [Fact]
-    public void Every_API_area_is_a_module_or_platform_code() =>
-        Assert.Subset(ApiModules.Concat(PlatformAreas).ToHashSet(), TopLevelAreas.ToHashSet());
+    public void The_API_holds_only_platform_code()
+    {
+        Assert.Equal(PlatformAreas.Order(), TopLevelAreas.Order());
+        var outside = Api.GetTypes().Where(t => t.Namespace is { } n && n.StartsWith("ReapSeek.", StringComparison.Ordinal)
+                && !PlatformAreas.Any(a => n == $"ReapSeek.Api.{a}" || n.StartsWith($"ReapSeek.Api.{a}.", StringComparison.Ordinal)))
+            .Select(t => t.FullName!).ToList();
+        Assert.True(outside.Count == 0, $"Non-platform code in the API: {string.Join(", ", outside)}");
+    }
 }

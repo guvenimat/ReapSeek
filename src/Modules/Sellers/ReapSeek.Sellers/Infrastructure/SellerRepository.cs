@@ -1,12 +1,13 @@
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Infrastructure;
+using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Modules.Catalog;
+using ReapSeek.Sellers.Api;
 using ReapSeek.Shared.Outbox;
 
-namespace ReapSeek.Api.Sellers;
+namespace ReapSeek.Sellers.Infrastructure;
 
-public sealed class SellerRepository(NpgsqlDataSource db)
+internal sealed class SellerRepository(NpgsqlDataSource db)
 {
     public sealed record SellerRecord(long Id, string Name, string Slug, string City, string Status, decimal CommissionRate, decimal Rating, DateTime CreatedAt);
     public sealed record SellerChangeRecord(long Id, string Name, string Slug, string City, string Status, decimal Commission);
