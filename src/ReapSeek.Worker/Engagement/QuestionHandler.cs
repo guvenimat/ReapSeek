@@ -2,14 +2,11 @@ using ReapSeek.Modules.Catalog;
 using ReapSeek.Modules.Identity;
 using ReapSeek.Modules.Sellers;
 using System.Net;
-using System.Text.Json;
 using Dapper;
 using Npgsql;
 using ReapSeek.BuildingBlocks.Messaging;
 using ReapSeek.Engagement.Contracts;
-using ReapSeek.Shared.Outbox;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -17,11 +14,13 @@ using ReapSeek.Worker.Identity;
 using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Engagement;
 
-public sealed class QuestionHandler(NpgsqlDataSource db, EmailSender email, IConfiguration cfg) : IInboxHandler<QuestionAskedV1>
+public sealed class QuestionHandler(NpgsqlDataSource db, EmailSender email, IConfiguration cfg) : IInboxHandler<QuestionAskedV1>, IInboxHandler<QuestionAnsweredV1>
 {
     public const string AskedHandler = "question-asked-seller-email";
+    public const string AnsweredHandler = "question-answered-customer-email";
 
     public sealed record QuestionIdRecord(long Id);
+    public sealed record AnswerIdRecord(long Id);
     public sealed record QuestionRecord(string Body, long ProductId, long CustomerId);
     public sealed record QuestionView(string Body, long ProductId, long CustomerId, string ProductTitle, string ProductSlug);
     public sealed record AnswerRowRecord(string Body, long SellerId);
@@ -45,14 +44,12 @@ public sealed class QuestionHandler(NpgsqlDataSource db, EmailSender email, ICon
                 $"""<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2330"><h1 style="color:#5b2bd6;font-size:22px">New question</h1><p>A shopper asked about <strong>{WebUtility.HtmlEncode(q.ProductTitle)}</strong>:</p><blockquote>{WebUtility.HtmlEncode(q.Body)}</blockquote><p><a href="{WebUtility.HtmlEncode(url)}">Answer it in the seller center</a></p></div>"""), ct);
     }
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(QuestionAnsweredV1 message, InboxMessage envelope, CancellationToken ct)
     {
-        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.QuestionEventMessage)
-            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         await using var conn = await db.OpenConnectionAsync(ct);
-        if (await LoadAsync(conn, payload.QuestionId) is not { } q) return;
+        if (await LoadAsync(conn, message.QuestionId) is not { } q) return;
         var row = await conn.QuerySingleOrDefaultAsync<AnswerRowRecord>(
-            "SELECT body, seller_id FROM engagement.answers WHERE id = @Id", new { Id = payload.AnswerId });
+            "SELECT body, seller_id FROM engagement.answers WHERE id = @Id", new AnswerIdRecord(message.AnswerId));
         if (row is null || await SellerDirectory.FindAsync(conn, row.SellerId) is not { } seller) return;
         var answer = new AnswerRecord(row.Body, seller.Name);
         var asker = await People.GetAsync(conn, q.CustomerId);

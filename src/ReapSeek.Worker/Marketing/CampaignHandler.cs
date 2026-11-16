@@ -1,15 +1,14 @@
 using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
-using System.Text.Json;
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Marketing;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Modules.Marketing;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Marketing.Contracts;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Engagement;
@@ -18,21 +17,22 @@ using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Marketing;
 
 public sealed class CampaignHandler(NpgsqlDataSource db, ReapDeepAudience audience, EmailSender email, IConfiguration cfg, TimeProvider clock,
-    ILogger<CampaignHandler> log)
+    ILogger<CampaignHandler> log) : IInboxHandler<CampaignSendV1>, IInboxHandler<CouponIssuedV1>
 {
+    public const string SendHandler = "campaign-send-issue-coupons";
+    public const string CouponHandler = "coupon-issued-customer-email";
+
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Marketing);
+
     public sealed record IssuedRecord(long Id);
     public sealed record CouponMailRecord(string Code, string Kind, decimal Value, decimal MinSubtotal, decimal? MaxDiscount, DateTime ExpiresAt,
         string Subject, string Message, long CustomerId);
 
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
-    {
-        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.CampaignMessage)
-            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
-        if (message.Type == OutboxTypes.CouponIssued) await MailAsync(payload.CouponId!.Value, ct);
-        else await SendAsync(payload.CampaignId, ct);
-    }
+    public Task HandleAsync(CampaignSendV1 message, InboxMessage envelope, CancellationToken ct) => SendAsync(message.CampaignId, ct);
+
+    public Task HandleAsync(CouponIssuedV1 message, InboxMessage envelope, CancellationToken ct) => MailAsync(message.CouponId, ct);
 
     async Task SendAsync(long campaignId, CancellationToken ct)
     {
@@ -60,7 +60,7 @@ public sealed class CampaignHandler(NpgsqlDataSource db, ReapDeepAudience audien
             customers.Select(_ => Coupon.NewCode("RS")).ToArray(), campaign.Kind, campaign.Value, campaign.MinSubtotal, campaign.MaxDiscount, expires));
         var issued = (await conn.QueryAsync<IssuedRecord>("SELECT id FROM coupons WHERE campaign_id = @Id ORDER BY id", new { Id = campaignId }, tx)).AsList();
         foreach (var coupon in issued)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.CouponIssued, new CampaignMessage(campaignId, coupon.Id), OutboxJsonContext.Default.CampaignMessage);
+            await Outbox.PublishAsync(conn, tx, CouponIssuedV1.EventName, new CouponIssuedV1(campaignId, coupon.Id), MarketingEventsJsonContext.Default.CouponIssuedV1);
         await conn.ExecuteAsync("UPDATE campaigns SET status = 'sent', recipients = @Count, sent_at = now() WHERE id = @Id",
             new { Id = campaignId, Count = issued.Count }, tx);
         await tx.CommitAsync(ct);

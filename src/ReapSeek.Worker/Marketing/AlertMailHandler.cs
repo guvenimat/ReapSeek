@@ -2,13 +2,12 @@ using ReapSeek.Modules.Identity;
 using System.Globalization;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using Dapper;
 using Npgsql;
 using ReapSeek.Shared.Analytics;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Marketing.Contracts;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Engagement;
@@ -16,21 +15,20 @@ using ReapSeek.Worker.Identity;
 using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Marketing;
 
-public sealed class AlertMailHandler(NpgsqlDataSource db, EmailSender email, IConfiguration cfg)
+public sealed class AlertMailHandler(NpgsqlDataSource db, EmailSender email, IConfiguration cfg) : IInboxHandler<AlertReceivedV1>
 {
+    public const string NotifyHandler = "alert-received-admin-email";
+
+    public sealed record AlertIdRecord(long Id);
     public sealed record AlertRecord(string AlertName, string State, string Message, string InsightName, double Value, DateTime CheckedAt);
 
     readonly string _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
 
-    public Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct) => AlertAsync(message, ct);
-
-    async Task AlertAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(AlertReceivedV1 payload, InboxMessage envelope, CancellationToken ct)
     {
-        var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.AlertMessage)
-            ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
         await using var conn = await db.OpenConnectionAsync(ct);
         var a = await conn.QuerySingleOrDefaultAsync<AlertRecord>(
-            "SELECT alert_name, state, message, insight_name, value, checked_at FROM analytics_alerts WHERE id = @Id", new { Id = payload.EventId });
+            "SELECT alert_name, state, message, insight_name, value, checked_at FROM analytics_alerts WHERE id = @Id", new AlertIdRecord(payload.EventId));
         if (a is null) return;
         var url = $"{_backofficeUrl}/#/alerts";
         var headline = a.State == "firing" ? $"Alert: {a.AlertName}" : $"{a.AlertName} is back to normal";

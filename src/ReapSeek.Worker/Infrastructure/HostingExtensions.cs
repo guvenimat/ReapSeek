@@ -1,5 +1,8 @@
 using ReapSeek.BuildingBlocks.Messaging;
 using ReapSeek.Engagement.Contracts;
+using ReapSeek.Identity.Contracts;
+using ReapSeek.Marketing.Contracts;
+using ReapSeek.Worker.Engagement.Wishlist;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Worker.Catalog.Caching;
@@ -57,8 +60,8 @@ public static class HostingExtensions
         services.AddHostedService<ShippingDeadlineJob>();
         services.AddSingleton<AccountEmailHandler>();
         services.AddHostedService<CartReminderJob>();
-        services.AddSingleton<ReapSeek.Worker.Engagement.Wishlist.PriceDropHandler>();
-        services.AddHostedService<ReapSeek.Worker.Engagement.Wishlist.PriceDropJob>();
+        services.AddSingleton<PriceDropHandler>();
+        services.AddHostedService<PriceDropJob>();
         services.AddHostedService<ReapSeek.Worker.Sellers.SellerRatingJob>();
         services.AddSingleton<ReapDeepAudience>();
         services.AddHostedService<PaymentExpiryJob>();
@@ -71,7 +74,21 @@ public static class HostingExtensions
         services.AddHostedService<OutboxProcessor>();
         services.AddMessagingWorker(new MessagingOptions(TimeSpan.FromMilliseconds(cfg.GetValue("Outbox:PollMilliseconds", 1000))), subscriptions => subscriptions
             .Add<QuestionAskedV1, QuestionHandler>(MessagingModules.Engagement, QuestionAskedV1.EventName, EngagementEventsJsonContext.Default.QuestionAskedV1,
-                MessagingModules.Engagement, QuestionHandler.AskedHandler));
+                MessagingModules.Engagement, QuestionHandler.AskedHandler)
+            .Add<QuestionAnsweredV1, QuestionHandler>(MessagingModules.Engagement, QuestionAnsweredV1.EventName, EngagementEventsJsonContext.Default.QuestionAnsweredV1,
+                MessagingModules.Engagement, QuestionHandler.AnsweredHandler)
+            .Add<PriceDroppedV1, PriceDropHandler>(MessagingModules.Engagement, PriceDroppedV1.EventName, EngagementEventsJsonContext.Default.PriceDroppedV1,
+                MessagingModules.Engagement, PriceDropHandler.NotifyHandler)
+            .Add<CampaignSendV1, CampaignHandler>(MessagingModules.Marketing, CampaignSendV1.EventName, MarketingEventsJsonContext.Default.CampaignSendV1,
+                MessagingModules.Marketing, CampaignHandler.SendHandler)
+            .Add<CouponIssuedV1, CampaignHandler>(MessagingModules.Marketing, CouponIssuedV1.EventName, MarketingEventsJsonContext.Default.CouponIssuedV1,
+                MessagingModules.Marketing, CampaignHandler.CouponHandler)
+            .Add<AlertReceivedV1, AlertMailHandler>(MessagingModules.Marketing, AlertReceivedV1.EventName, MarketingEventsJsonContext.Default.AlertReceivedV1,
+                MessagingModules.Marketing, AlertMailHandler.NotifyHandler)
+            .Add<UserRegisteredV1, AccountEmailHandler>(MessagingModules.Identity, UserRegisteredV1.EventName, IdentityEventsJsonContext.Default.UserRegisteredV1,
+                MessagingModules.Identity, AccountEmailHandler.WelcomeHandler)
+            .Add<AccountEmailV1, AccountEmailHandler>(MessagingModules.Identity, AccountEmailV1.EventName, IdentityEventsJsonContext.Default.AccountEmailV1,
+                MessagingModules.Identity, AccountEmailHandler.AccountHandler));
         return builder;
     }
 }
