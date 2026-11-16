@@ -1,9 +1,13 @@
 using Dapper;
 using Npgsql;
-using ReapSeek.Catalog.Contracts;
 
 namespace ReapSeek.Modules.Catalog;
 
+public sealed record OfferView(
+    long OfferId, decimal Price, decimal? ListPrice, int Stock, string OfferStatus, int HandlingDays,
+    long SellerId, string SellerName, string SellerStatus, decimal SellerRating,
+    long ProductId, string ProductSlug, string ProductTitle, string ProductStatus, string Brand,
+    long VariantId, string Sku, string Options, string? ImageUrl);
 public sealed record OfferIdsRecord(long[] Ids);
 public sealed record StockChangeRecord(long OfferId, int Quantity);
 

@@ -1,7 +1,6 @@
 using Dapper;
 using Npgsql;
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Catalog.Contracts;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Outbox;
 

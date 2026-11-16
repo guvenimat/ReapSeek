@@ -1,9 +1,9 @@
 using Dapper;
 using Npgsql;
-using ReapSeek.Catalog.Contracts;
 
 namespace ReapSeek.Modules.Catalog;
 
+public sealed record ProductInfo(long Id, string Title, string Slug);
 public sealed record ProductIdRecord(long ProductId);
 public sealed record ProductIdsRecord(long[] ProductIds);
 public sealed record LowestPriceRecord(long ProductId, decimal Price);

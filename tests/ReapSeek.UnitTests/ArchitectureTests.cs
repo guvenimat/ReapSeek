@@ -23,6 +23,7 @@ public partial class ArchitectureTests
         typeof(ReapSeek.Marketing.Contracts.CustomerCoupon).Assembly,
         typeof(ReapSeek.Finance.Contracts.ISellerFinance).Assembly,
         typeof(ReapSeek.Identity.Contracts.ISellerAccounts).Assembly,
+        typeof(ReapSeek.Catalog.Contracts.ISellerCatalog).Assembly,
     ];
 
     static readonly Dictionary<Assembly, Type> ModuleProjects = new()
@@ -31,6 +32,7 @@ public partial class ArchitectureTests
         [typeof(ReapSeek.Marketing.MarketingModule).Assembly] = typeof(ReapSeek.Marketing.MarketingModule),
         [typeof(ReapSeek.Finance.FinanceModule).Assembly] = typeof(ReapSeek.Finance.FinanceModule),
         [typeof(ReapSeek.Identity.IdentityModule).Assembly] = typeof(ReapSeek.Identity.IdentityModule),
+        [typeof(ReapSeek.Catalog.CatalogModule).Assembly] = typeof(ReapSeek.Catalog.CatalogModule),
     };
 
     static readonly string[] ApiModules = ["Identity", "Catalog", "Sellers", "Ordering", "Finance", "Engagement", "Marketing"];
@@ -39,9 +41,7 @@ public partial class ArchitectureTests
     static readonly Dictionary<string, string[]> PublicApi = new()
     {
         ["Identity"] = [],
-        ["Catalog"] = ["CatalogService", "CatalogRules", "SearchService", "ProductStatus",
-            "ProductFilter", "ProductsResponse", "ProductDetail", "CreateProductRequest", "UpdateProductRequest", "OfferRequest", "CategoriesResponse", "BrandsResponse", "VariantRow", "OfferRow", "ProductImage", "VariantProductRecord",
-            "SellerCatalog", "SellerOfferRow", "ProposalRow", "BuyBoxRecord"],
+        ["Catalog"] = [],
         ["Sellers"] = [],
         ["Ordering"] = ["CartService", "SellerPackages", "SellerPackageRow", "SellerPackagesResponse", "PackageAddress", "PackageLineRow", "PackageFilter"],
         ["Finance"] = [],
@@ -143,7 +143,7 @@ public partial class ArchitectureTests
     [Fact]
     public void Web_building_blocks_know_no_module() =>
         Pass(Types.InAssembly(Web).ShouldNot().HaveDependencyOnAny(
-            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity").GetResult(), "BuildingBlocks.Web");
+            "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance", "ReapSeek.Identity", "ReapSeek.Catalog").GetResult(), "BuildingBlocks.Web");
 
     static readonly Assembly BuildingBlocks = typeof(ReapSeek.BuildingBlocks.Messaging.ModuleOutbox).Assembly;
 
@@ -152,7 +152,7 @@ public partial class ArchitectureTests
     {
         Pass(Types.InAssembly(BuildingBlocks).ShouldNot().HaveDependencyOnAny(
             "ReapSeek.Api", "ReapSeek.Worker", "ReapSeek.Modules", "ReapSeek.Domain", "ReapSeek.Engagement", "ReapSeek.Marketing", "ReapSeek.Finance",
-            "ReapSeek.BuildingBlocks.Web", "Microsoft.AspNetCore").GetResult(), "BuildingBlocks");
+            "ReapSeek.Identity", "ReapSeek.Catalog", "ReapSeek.BuildingBlocks.Web", "Microsoft.AspNetCore").GetResult(), "BuildingBlocks");
         Assert.Equal(["ReapSeek.Shared"], BuildingBlocks.GetReferencedAssemblies().Select(r => r.Name!).Where(n => n.StartsWith("ReapSeek.", StringComparison.Ordinal)));
         Assert.DoesNotContain(Shared.GetReferencedAssemblies(), r => r.Name!.StartsWith("ReapSeek.BuildingBlocks", StringComparison.Ordinal));
     }
@@ -210,10 +210,10 @@ public partial class ArchitectureTests
     [
         "ReapSeek.Api.Health.DatabaseProbe",
         "ReapSeek.Api.Seed.CatalogSeeder",
-        "ReapSeek.Api.Catalog.Search.CategoryCache",
+        "ReapSeek.Catalog.Infrastructure.CategoryCache",
         "ReapSeek.Api.Ordering.Orders.OrderQueries",
         "ReapSeek.Identity.Application.AccountRecoveryService",
-        "ReapSeek.Api.Catalog.Media.ProductImageService",
+        "ReapSeek.Catalog.Application.ProductImageService",
         "ReapSeek.Api.Ordering.Returns.ReturnService",
         "ReapSeek.Api.Ordering.Shipping.ShippingService",
     ];
@@ -304,6 +304,9 @@ public partial class ArchitectureTests
         var identity = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Identity.IdentityModule));
         Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRepository");
         Assert.Contains(DataAccessTypesIn(identity.Key, RootNamespace(identity.Value), "Dapper"), t => t.Name == "AccountRecoveryService");
+        var catalog = ModuleProjects.Single(m => m.Value == typeof(ReapSeek.Catalog.CatalogModule));
+        Assert.Contains(DataAccessTypesIn(catalog.Key, RootNamespace(catalog.Value), "Dapper"), t => t.Name == "CatalogRepository");
+        Assert.Contains(DataAccessTypesIn(catalog.Key, RootNamespace(catalog.Value), "Dapper"), t => t.Name == "CategoryCache");
     }
 
     [Fact]

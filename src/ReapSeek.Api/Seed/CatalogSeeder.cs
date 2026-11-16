@@ -1,4 +1,3 @@
-using ReapSeek.Catalog.Contracts;
 using ReapSeek.Modules.Catalog;
 using Dapper;
 using Npgsql;

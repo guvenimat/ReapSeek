@@ -1,4 +1,4 @@
-using ReapSeek.Modules.Catalog;
+using ReapSeek.Catalog.Contracts;
 
 namespace ReapSeek.Engagement.Api;
 
