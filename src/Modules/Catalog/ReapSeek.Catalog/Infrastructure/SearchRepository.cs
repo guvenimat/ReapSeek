@@ -4,17 +4,11 @@ using Npgsql;
 using ReapSeek.Modules.Engagement;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
+using ReapSeek.Catalog.Api;
 
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
-namespace ReapSeek.Worker.Catalog.Search;
+namespace ReapSeek.Catalog.Infrastructure;
 
-public sealed class SearchRepository(NpgsqlDataSource db)
+internal sealed class SearchRepository(NpgsqlDataSource db)
 {
     public sealed record DocumentRecord(
         long Id, string Slug, string Title, string Description, string Status, string Brand, string BrandSlug,
@@ -77,7 +71,7 @@ public sealed class SearchRepository(NpgsqlDataSource db)
             r.CategoryPath, paths, r.CategoryName, Split(r.Colors), Split(r.Sizes), Split(r.Options),
             r.Price, discount > 0 ? r.ListPrice : null, discount, r.Price is not null, r.SellerCount, r.ImageUrl, r.CreatedAt,
             ColorImages(r.ColorImages),
-            JsonSerializer.Deserialize(r.Attributes, WorkerJsonContext.Default.DictionaryStringString) ?? [], r.Rating, r.ReviewCount);
+            JsonSerializer.Deserialize(r.Attributes, CatalogJsonContext.Default.DictionaryStringString) ?? [], r.Rating, r.ReviewCount);
     }
 
     static Dictionary<string, string> ColorImages(string? joined)

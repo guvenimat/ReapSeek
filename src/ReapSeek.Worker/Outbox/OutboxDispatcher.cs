@@ -1,8 +1,6 @@
 using ReapSeek.Shared.Outbox;
-using ReapSeek.Worker.Catalog.Caching;
 using ReapSeek.Worker.Catalog.CatalogSync;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Catalog.Search;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -11,7 +9,7 @@ using ReapSeek.Worker.Identity;
 using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Outbox;
 
-public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
+public sealed class OutboxDispatcher(ICatalogChangeHandler catalogChanges, CatalogSyncHandler catalogSync,
     OrderPaidHandler orderPaid, ReturnHandler returns, CartReminderHandler cartReminders, FailedJobNotifier failedJobs,
     OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders, ReapDeepEventsHandler reapDeepEvents)
 {
@@ -20,17 +18,16 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
 
     static bool IsCatalogChange(string type) => type is OutboxTypes.ProductsChanged or OutboxTypes.CatalogReindex;
 
-    public static string GroupOf(OutboxRepository.MessageRecord message) =>
+    public static string GroupOf(OutboxMessageRecord message) =>
         IsCatalogChange(message.Type) ? CatalogGroup
         : message.Type == OutboxTypes.ReapDeepCatalog ? ReapDeepCatalogGroup
         : $"message:{message.Id}";
 
-    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> batch, CancellationToken ct)
+    public async Task HandleAsync(IReadOnlyList<OutboxMessageRecord> batch, CancellationToken ct)
     {
         if (IsCatalogChange(batch[0].Type))
         {
-            await productCache.HandleAsync(batch, ct);
-            await searchIndexer.HandleAsync(batch, ct);
+            await catalogChanges.HandleAsync(batch, ct);
             await catalogSync.EnqueueAsync(batch, ct);
             return;
         }

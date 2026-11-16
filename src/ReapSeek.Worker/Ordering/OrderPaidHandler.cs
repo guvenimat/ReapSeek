@@ -19,7 +19,7 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
 
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.OrderEventMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");
@@ -32,7 +32,7 @@ public sealed class OrderPaidHandler(NpgsqlDataSource db, ReapDeepIngestClient r
         await email.SendAsync(EmailTemplates.OrderConfirmation(order, customer.Email, customer.Name, _storefrontUrl), ct);
     }
 
-    public async Task HandleShippedAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleShippedAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.PackageEventMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");

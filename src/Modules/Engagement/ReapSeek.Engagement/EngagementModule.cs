@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using ReapSeek.Engagement.Api;
 using ReapSeek.Engagement.Infrastructure;
+using ReapSeek.Engagement.Jobs;
 
 namespace ReapSeek.Engagement;
 
@@ -14,6 +15,12 @@ public static class EngagementModule
     {
         services.AddSingleton<ReviewRepository>();
         services.AddSingleton<WishlistRepository>();
+        return services;
+    }
+
+    public static IServiceCollection AddEngagementJobs(this IServiceCollection services)
+    {
+        services.AddHostedService<PriceDropJob>();
         return services;
     }
 

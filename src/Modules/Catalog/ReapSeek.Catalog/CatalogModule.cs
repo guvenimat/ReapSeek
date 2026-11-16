@@ -6,6 +6,8 @@ using ReapSeek.Catalog.Api;
 using ReapSeek.Catalog.Application;
 using ReapSeek.Catalog.Contracts;
 using ReapSeek.Catalog.Infrastructure;
+using ReapSeek.Catalog.Jobs;
+using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Catalog;
 
@@ -29,6 +31,16 @@ public static class CatalogModule
         services.AddSingleton<RecommendationService>();
         services.AddSingleton<SellerCatalogRepository>();
         services.AddSingleton<ISellerCatalog, SellerCatalog>();
+        return services;
+    }
+
+    public static IServiceCollection AddCatalogJobs(this IServiceCollection services)
+    {
+        services.AddSingleton<ProductCacheInvalidator>();
+        services.AddSingleton<SearchRepository>();
+        services.AddSingleton<SearchIndexer>();
+        services.AddSingleton<ICatalogChangeHandler, CatalogChangeHandler>();
+        services.AddHostedService<SearchBootstrap>();
         return services;
     }
 

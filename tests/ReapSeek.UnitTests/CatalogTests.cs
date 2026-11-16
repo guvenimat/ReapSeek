@@ -177,14 +177,14 @@ public class CatalogTests
     [Fact]
     public void Catalog_messages_are_batched_and_others_run_alone()
     {
-        var a = new OutboxRepository.MessageRecord(1, OutboxTypes.ProductsChanged, "{}", 1, DateTime.UnixEpoch, null);
-        var b = new OutboxRepository.MessageRecord(2, OutboxTypes.CatalogReindex, "{}", 1, DateTime.UnixEpoch, null);
-        var c = new OutboxRepository.MessageRecord(3, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
-        var d = new OutboxRepository.MessageRecord(4, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
+        var a = new OutboxMessageRecord(1, OutboxTypes.ProductsChanged, "{}", 1, DateTime.UnixEpoch, null);
+        var b = new OutboxMessageRecord(2, OutboxTypes.CatalogReindex, "{}", 1, DateTime.UnixEpoch, null);
+        var c = new OutboxMessageRecord(3, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
+        var d = new OutboxMessageRecord(4, OutboxTypes.OrderPaid, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(b));
         Assert.NotEqual(OutboxDispatcher.GroupOf(c), OutboxDispatcher.GroupOf(d));
-        var e = new OutboxRepository.MessageRecord(5, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
-        var f = new OutboxRepository.MessageRecord(6, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
+        var e = new OutboxMessageRecord(5, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
+        var f = new OutboxMessageRecord(6, OutboxTypes.ReapDeepCatalog, "{}", 1, DateTime.UnixEpoch, null);
         Assert.Equal(OutboxDispatcher.GroupOf(e), OutboxDispatcher.GroupOf(f));
         Assert.NotEqual(OutboxDispatcher.GroupOf(a), OutboxDispatcher.GroupOf(e));
     }
@@ -192,11 +192,11 @@ public class CatalogTests
     [Fact]
     public void Seller_scores_shrink_toward_the_platform_mean()
     {
-        var scores = ReapSeek.Worker.Sellers.SellerRatingJob.Scores([1, 2, 3], [(1, 5), (1, 5), (2, 1)]);
+        var scores = ReapSeek.Sellers.Jobs.SellerRatingJob.Scores([1, 2, 3], [(1, 5), (1, 5), (2, 1)]);
         Assert.Equal(Math.Round((10 * (11m / 3) + 10) / 12, 1), scores[1]);
         Assert.Equal(Math.Round((10 * (11m / 3) + 1) / 11, 1), scores[2]);
         Assert.Equal(3.7m, scores[3]);
-        Assert.Equal(4.0m, ReapSeek.Worker.Sellers.SellerRatingJob.Scores([9], [])[9]);
+        Assert.Equal(4.0m, ReapSeek.Sellers.Jobs.SellerRatingJob.Scores([9], [])[9]);
     }
 
     [Fact]

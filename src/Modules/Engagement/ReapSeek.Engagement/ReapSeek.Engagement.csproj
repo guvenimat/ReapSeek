@@ -3,7 +3,8 @@
   <PropertyGroup>
     <IsAotCompatible>true</IsAotCompatible>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
-    <InterceptorsNamespaces>$(InterceptorsNamespaces);Dapper.AOT;Microsoft.AspNetCore.Http.Generated</InterceptorsNamespaces>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Dapper.AOT;Microsoft.AspNetCore.Http.Generated;Microsoft.Extensions.Configuration.Binder.SourceGeneration</InterceptorsNamespaces>
   </PropertyGroup>
 
   <ItemGroup>

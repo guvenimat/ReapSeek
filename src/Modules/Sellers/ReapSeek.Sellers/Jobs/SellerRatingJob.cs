@@ -4,17 +4,13 @@ using ReapSeek.Modules.Engagement;
 using ReapSeek.Modules.Ordering;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Outbox;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
-namespace ReapSeek.Worker.Sellers;
+namespace ReapSeek.Sellers.Jobs;
 
-public sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILogger<SellerRatingJob> log) : BackgroundService
+internal sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, ILogger<SellerRatingJob> log) : BackgroundService
 {
     public const decimal FallbackPrior = 4.0m;
     public const int PriorWeight = 10;

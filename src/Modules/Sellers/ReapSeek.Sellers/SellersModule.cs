@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using ReapSeek.Sellers.Api;
 using ReapSeek.Sellers.Infrastructure;
+using ReapSeek.Sellers.Jobs;
 
 namespace ReapSeek.Sellers;
 
@@ -16,6 +17,12 @@ public static class SellersModule
         services.AddSingleton<SellerRepository>();
         services.AddSingleton<SellerPanelRepository>();
         services.AddSingleton<StoreRepository>();
+        return services;
+    }
+
+    public static IServiceCollection AddSellersJobs(this IServiceCollection services)
+    {
+        services.AddHostedService<SellerRatingJob>();
         return services;
     }
 

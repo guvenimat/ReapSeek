@@ -84,7 +84,15 @@ public partial class ModuleSqlTests
         var sellers = Path.Combine("src", "Modules", "Sellers", "ReapSeek.Sellers", "Infrastructure", "SellerRepository.cs");
         Assert.True(File.Exists(Path.Combine(root, sellers)));
         Assert.Equal("sellers", SchemaOf(sellers));
-        Assert.Equal("catalog", SchemaOf(Path.Combine("src", "ReapSeek.Worker", "Catalog", "Search", "SearchRepository.cs")));
+        var index = Path.Combine("src", "Modules", "Catalog", "ReapSeek.Catalog", "Infrastructure", "SearchRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, index)));
+        Assert.Equal("catalog", SchemaOf(index));
+        var catalogSync = Path.Combine("src", "ReapSeek.Worker", "Catalog", "CatalogSync", "CatalogSyncRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, catalogSync)));
+        Assert.Equal("catalog", SchemaOf(catalogSync));
+        var jobs = Path.Combine("src", "Modules", "Ordering", "ReapSeek.Ordering", "Jobs", "CartReminderJob.cs");
+        Assert.True(File.Exists(Path.Combine(root, jobs)));
+        Assert.Equal("ordering", SchemaOf(jobs));
         Assert.Null(SchemaOf(Path.Combine("src", "ReapSeek.Api", "Seed", "CatalogSeeder.cs")));
         var reviews = Path.Combine("src", "Modules", "Engagement", "ReapSeek.Engagement", "Infrastructure", "ReviewRepository.cs");
         Assert.True(File.Exists(Path.Combine(root, reviews)));

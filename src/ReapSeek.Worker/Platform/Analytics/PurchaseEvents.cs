@@ -85,7 +85,7 @@ public sealed class ReapDeepIngestClient : IDisposable
 
 public sealed class ReapDeepEventsHandler(ReapDeepIngestClient reapDeep, ILogger<ReapDeepEventsHandler> log)
 {
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         if (!reapDeep.IsConfigured) return;
         var payload = JsonSerializer.Deserialize(message.Payload, CaptureJsonContext.Default.ReapDeepEventsMessage)

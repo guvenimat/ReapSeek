@@ -16,7 +16,7 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     bool _warned;
 
-    public async Task EnqueueAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    public async Task EnqueueAsync(IReadOnlyList<OutboxMessageRecord> messages, CancellationToken ct)
     {
         if (!reapDeep.IsConfigured)
         {
@@ -29,7 +29,7 @@ public sealed class CatalogSyncHandler(CatalogSyncRepository products, ReapDeepC
         if (all || ids.Count > 0) await products.EnqueueSyncAsync(new ReapDeepCatalogMessage(ids, all), ct);
     }
 
-    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    public async Task HandleAsync(IReadOnlyList<OutboxMessageRecord> messages, CancellationToken ct)
     {
         if (!reapDeep.IsConfigured) return;
 

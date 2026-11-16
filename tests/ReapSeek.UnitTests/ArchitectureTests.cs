@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Hosting;
 using Mono.Cecil;
 using NetArchTest.Rules;
 using ReapSeek.Domain.Common;
@@ -208,6 +209,13 @@ public partial class ArchitectureTests
         "ReapSeek.Catalog.Application.ProductImageService",
         "ReapSeek.Ordering.Application.ReturnService",
         "ReapSeek.Ordering.Application.ShippingService",
+        "ReapSeek.Catalog.Jobs.ProductCacheInvalidator",
+        "ReapSeek.Engagement.Jobs.PriceDropJob",
+        "ReapSeek.Marketing.Jobs.CampaignHandler",
+        "ReapSeek.Ordering.Jobs.CartReminderJob",
+        "ReapSeek.Ordering.Jobs.PaymentExpiryJob",
+        "ReapSeek.Ordering.Jobs.ShippingDeadlineJob",
+        "ReapSeek.Sellers.Jobs.SellerRatingJob",
     ];
 
     static TypeReference Outermost(TypeReference t)
@@ -326,6 +334,18 @@ public partial class ArchitectureTests
             .ShouldNot().HaveDependencyOn(typeof(SandboxProvider).FullName!).GetResult(), "API");
         Pass(Types.InAssembly(Worker).That().DoNotResideInNamespace("ReapSeek.Worker.Infrastructure")
             .ShouldNot().HaveDependencyOn(typeof(SandboxProvider).FullName!).GetResult(), "Worker");
+    }
+
+    [Fact]
+    public void Module_jobs_live_in_their_module_projects()
+    {
+        string[] platform = ["ReapSeek.Worker.Outbox", "ReapSeek.Worker.Platform"];
+        var workerJobs = Worker.GetTypes().Where(t => t.IsSubclassOf(typeof(BackgroundService))).ToList();
+        Assert.Contains(workerJobs, t => t.Name == "OutboxProcessor");
+        Assert.All(workerJobs, t => Assert.True(platform.Any(p => t.Namespace!.StartsWith(p + ".", StringComparison.Ordinal) || t.Namespace == p),
+            $"{t.FullName} is a module job in the worker"));
+        var moduleJobs = ModuleProjects.Keys.SelectMany(m => m.GetTypes()).Where(t => t.IsSubclassOf(typeof(BackgroundService))).Select(t => t.Name).ToHashSet();
+        Assert.Superset(new HashSet<string> { "SearchBootstrap", "PriceDropJob", "PayoutJob", "CartReminderJob", "PaymentExpiryJob", "ShippingDeadlineJob", "SellerRatingJob" }, moduleJobs);
     }
 
     [Fact]

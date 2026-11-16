@@ -44,7 +44,7 @@ public sealed class ReturnHandler
     public static bool Handles(string type) => type is OutboxTypes.ReturnRequested or OutboxTypes.ReturnApproved or OutboxTypes.ReturnRejected
         or OutboxTypes.ReturnReceived or OutboxTypes.ReturnRefunded;
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.ReturnEventMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");

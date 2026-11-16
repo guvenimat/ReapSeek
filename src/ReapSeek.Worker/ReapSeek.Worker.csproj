@@ -18,6 +18,12 @@
     <ProjectReference Include="..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
     <ProjectReference Include="..\BuildingBlocks\ReapSeek.BuildingBlocks\ReapSeek.BuildingBlocks.csproj" />
     <ProjectReference Include="..\Modules\Engagement\ReapSeek.Engagement.Contracts\ReapSeek.Engagement.Contracts.csproj" />
+    <ProjectReference Include="..\Modules\Catalog\ReapSeek.Catalog\ReapSeek.Catalog.csproj" />
+    <ProjectReference Include="..\Modules\Engagement\ReapSeek.Engagement\ReapSeek.Engagement.csproj" />
+    <ProjectReference Include="..\Modules\Finance\ReapSeek.Finance\ReapSeek.Finance.csproj" />
+    <ProjectReference Include="..\Modules\Marketing\ReapSeek.Marketing\ReapSeek.Marketing.csproj" />
+    <ProjectReference Include="..\Modules\Ordering\ReapSeek.Ordering\ReapSeek.Ordering.csproj" />
+    <ProjectReference Include="..\Modules\Sellers\ReapSeek.Sellers\ReapSeek.Sellers.csproj" />
   </ItemGroup>
 
 </Project>
