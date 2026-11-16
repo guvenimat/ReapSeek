@@ -1,13 +1,17 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Ordering.Api;
+using ReapSeek.Ordering.Infrastructure;
 using System.Security.Cryptography;
-using ReapSeek.Api.Infrastructure;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared;
 
-namespace ReapSeek.Api.Ordering.Carts;
+namespace ReapSeek.Ordering.Application;
 
-public sealed class CartService(CartRepository carts, ISessionReader sessions, IConfiguration cfg, TimeProvider clock) : IStorefrontSignIn, IStorefrontCart
+internal sealed class CartService(CartRepository carts, ISessionReader sessions, IConfiguration cfg, TimeProvider clock) : IStorefrontSignIn, IStorefrontCart
 {
     public const string CookieName = "rs_cart";
     const int MaxTokenLength = 64;

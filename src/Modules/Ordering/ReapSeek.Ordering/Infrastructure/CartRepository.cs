@@ -4,11 +4,11 @@ using ReapSeek.Modules.Catalog;
 using ReapSeek.Domain.Carts;
 using ReapSeek.Domain.Common;
 
-namespace ReapSeek.Api.Ordering.Carts;
+namespace ReapSeek.Ordering.Infrastructure;
 
-public sealed record CartOwner(long? CustomerId, string? GuestToken);
+internal sealed record CartOwner(long? CustomerId, string? GuestToken);
 
-public sealed class CartRepository(NpgsqlDataSource db)
+internal sealed class CartRepository(NpgsqlDataSource db)
 {
     public sealed record CartRecord(Guid Id, long? CustomerId, string? GuestToken);
     public sealed record LineRecord(long OfferId, int Quantity, decimal AddedPrice, DateTime AddedAt);

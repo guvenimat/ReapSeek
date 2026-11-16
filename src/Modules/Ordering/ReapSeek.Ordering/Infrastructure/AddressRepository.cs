@@ -1,10 +1,11 @@
+using ReapSeek.Ordering.Api;
 using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ordering;
 
-namespace ReapSeek.Api.Ordering.Checkout;
+namespace ReapSeek.Ordering.Infrastructure;
 
-public static class AddressRepository
+internal static class AddressRepository
 {
     public sealed record CustomerIdRecord(long CustomerId);
     public sealed record AddressRecord(long CustomerId, string FullName, string Phone, string City, string District, string Line, string PostalCode);

@@ -1,17 +1,19 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using ReapSeek.Ordering.Infrastructure;
 using System.Text.Json;
 using Npgsql;
-using ReapSeek.Api.Ordering.Carts;
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Modules.Ordering;
 using ReapSeek.Shared.Providers;
 
-namespace ReapSeek.Api.Ordering.Payments;
+namespace ReapSeek.Ordering.Application;
 
-public enum WebhookOutcome { Rejected, Malformed, Duplicate, Ignored, Applied }
+internal enum WebhookOutcome { Rejected, Malformed, Duplicate, Ignored, Applied }
 
-public sealed class PaymentService(NpgsqlDataSource db, IPaymentGateway gateway, IConfiguration cfg, TimeProvider clock, ILogger<PaymentService> log)
+internal sealed class PaymentService(NpgsqlDataSource db, IPaymentGateway gateway, IConfiguration cfg, TimeProvider clock, ILogger<PaymentService> log)
 {
     readonly string _secret = cfg["Payments:Sandbox:WebhookSecret"] ?? "";
 

@@ -1,28 +1,11 @@
 using Dapper;
 using Npgsql;
-using ReapSeek.Api.Infrastructure;
-using ReapSeek.Modules.Ordering;
-using ReapSeek.Shared;
-using ReapSeek.Shared.Providers;
+using ReapSeek.Ordering.Application;
+using ReapSeek.Ordering.Contracts;
 
-namespace ReapSeek.Api.Ordering.Shipping;
+namespace ReapSeek.Ordering.Infrastructure;
 
-public sealed record PackageAddress(string FullName, string Phone, string City, string District, string Line, string PostalCode);
-public sealed record PackageLineRow(string ProductTitle, string VariantLabel, string Sku, decimal UnitPrice, int Quantity);
-public sealed record SellerPackageRow(
-    Guid Id, string OrderNumber, string Status, DateTime PlacedAt, DateTime? PaidAt, decimal Subtotal, decimal ShippingFee, decimal CommissionRate,
-    string? TrackingNumber, DateTime? ShippedAt, DateTime? DeliveredAt, PackageAddress Address, List<PackageLineRow> Lines);
-public sealed record SellerPackagesResponse(List<SellerPackageRow> Packages, long Total, int Page, int PageSize);
-
-public static class PackageFilter
-{
-    public static readonly string[] Statuses = ["preparing", "shipped", "delivered"];
-
-    public static string? Status(string? value) =>
-        value?.Trim() is { Length: > 0 } s ? Ensure.OneOf(s, "status", Statuses) : null;
-}
-
-public sealed class SellerPackagesRepository(NpgsqlDataSource db)
+internal sealed class SellerPackagesRepository(NpgsqlDataSource db)
 {
     public sealed record PackageRecord(
         Guid Id, string OrderNumber, string Status, DateTime PlacedAt, DateTime? PaidAt, decimal Subtotal, decimal ShippingFee, decimal CommissionRate,
@@ -93,32 +76,5 @@ public sealed class SellerPackagesRepository(NpgsqlDataSource db)
         await using var conn = await db.OpenConnectionAsync(ct);
         return await conn.ExecuteScalarAsync<int>("SELECT count(*)::int FROM ordering.order_packages WHERE seller_id = @SellerId AND status = 'delivered'",
             new { SellerId = sellerId });
-    }
-}
-
-public sealed class SellerPackages(NpgsqlDataSource db, SellerPackagesRepository packages, ICarrier carrier, TimeProvider clock)
-{
-    public Task<(List<SellerPackageRow> Rows, long Total)> ListAsync(long sellerId, string? status, int page, int pageSize, CancellationToken ct) =>
-        packages.PackagesAsync(sellerId, status, page, pageSize, ct);
-
-    public Task<SellerPackageRow?> GetAsync(long? sellerId, Guid packageId, CancellationToken ct) => packages.PackageAsync(sellerId, packageId, ct);
-
-    public Task<decimal> InTransitAsync(long sellerId, CancellationToken ct) => packages.InTransitAsync(sellerId, ct);
-
-    public Task<int> DeliveredCountAsync(long sellerId, CancellationToken ct) => packages.DeliveredCountAsync(sellerId, ct);
-
-    public async Task<SellerPackageRow> ShipAsync(long sellerId, Guid packageId, CancellationToken ct)
-    {
-        var orderId = await packages.OrderOfPackageAsync(packageId, sellerId, ct) ?? throw new NotFoundException("Package not found");
-        var shipment = await carrier.CreateShipmentAsync(packageId.ToString(), ShipmentKinds.Outbound, ct);
-        await using (var conn = await db.OpenConnectionAsync(ct))
-        await using (var tx = await conn.BeginTransactionAsync(ct))
-        {
-            var order = await OrderStore.LoadAsync(conn, tx, orderId) ?? throw new NotFoundException("Package not found");
-            order.ShipPackage(packageId, sellerId, shipment.TrackingNumber, clock.GetUtcNow().UtcDateTime);
-            await OrderStore.SaveAsync(conn, tx, order);
-            await tx.CommitAsync(ct);
-        }
-        return (await packages.PackageAsync(sellerId, packageId, ct))!;
     }
 }

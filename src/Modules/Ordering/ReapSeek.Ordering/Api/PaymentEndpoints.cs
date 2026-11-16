@@ -1,11 +1,15 @@
-using ReapSeek.Api.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using ReapSeek.BuildingBlocks.Web;
+using ReapSeek.Ordering.Application;
 
-namespace ReapSeek.Api.Ordering.Payments;
+namespace ReapSeek.Ordering.Api;
 
-public static class PaymentEndpoints
+internal static class PaymentEndpoints
 {
-    public static void MapPayments(this RouteGroupBuilder api) =>
-api.MapPost("/payments/sandbox/webhook", async (HttpRequest request, PaymentService payments, CancellationToken ct) =>
+    public static void MapPayments(this IEndpointRouteBuilder api) =>
+        api.MapPost("/payments/sandbox/webhook", async (HttpRequest request, PaymentService payments, CancellationToken ct) =>
         {
             using var reader = new StreamReader(request.Body);
             var body = await reader.ReadToEndAsync(ct);

@@ -1,9 +1,9 @@
 using Dapper;
 using Npgsql;
 
-namespace ReapSeek.Api.Ordering.Payments;
+namespace ReapSeek.Ordering.Infrastructure;
 
-public static class PaymentRepository
+internal static class PaymentRepository
 {
     public static Task InsertAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid id, Guid orderId, string provider, string providerPaymentId,
         decimal amount, string currency, string redirectUrl) =>

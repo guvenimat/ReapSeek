@@ -1,4 +1,4 @@
-using ReapSeek.Api.Ordering.Shipping;
+using ReapSeek.Ordering.Contracts;
 using Dapper;
 using Npgsql;
 using ReapSeek.Api.Infrastructure;
@@ -32,7 +32,7 @@ public static class StoreEndpoints
 
     public static void MapStores(this RouteGroupBuilder api)
     {
-        api.MapGet("/catalog/sellers/{slug}", async (string slug, int? page, StoreRepository stores, ISellerCatalog sellerCatalog, SellerPackages packages, CancellationToken ct) =>
+        api.MapGet("/catalog/sellers/{slug}", async (string slug, int? page, StoreRepository stores, ISellerCatalog sellerCatalog, ISellerPackages packages, CancellationToken ct) =>
         {
             var p = Ensure.InRange(page ?? 1, 1, 1000, "page");
             if (slug.Length > 100 || await stores.SellerAsync(slug, ct) is not { } s) return ApiResults.NotFound("Seller not found");
