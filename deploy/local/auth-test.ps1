@@ -83,8 +83,8 @@ while (-not $mail -and (Get-Date) -lt $deadline) {
 }
 Check "welcome email reached Mailpit" ($null -ne $mail)
 Check "email subject is 'Welcome to ReapSeek'" ($mail.Subject -ceq "Welcome to ReapSeek")
-$outbox = Psql "SELECT processed_at IS NOT NULL, attempts, failed_at IS NULL FROM platform.outbox WHERE type = 'user_registered' AND payload->>'email' = '$email'"
-Check "outbox message processed once ($outbox)" ($outbox -eq "t|1|t")
+$outbox = Psql "SELECT o.published_at IS NOT NULL, i.processed_at IS NOT NULL, i.attempts, i.failed_at IS NULL FROM identity.outbox o JOIN identity.inbox i ON i.source_module = 'identity' AND i.source_message_id = o.id WHERE o.event_type = 'identity.user_registered.v1' AND o.payload->>'email' = '$email'"
+Check "outbox message processed once ($outbox)" ($outbox -eq "t|t|1|t")
 
 Write-Host "`n[4] Sign in"
 $r = Send (NewClient) POST "$api/api/v1/auth/login" @{ email = $email; password = "wrong-password" }

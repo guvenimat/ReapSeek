@@ -3,7 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ReapSeek.BuildingBlocks.Messaging;
 using ReapSeek.Engagement.Contracts;
+using ReapSeek.Identity.Contracts;
+using ReapSeek.Marketing.Contracts;
 using ReapSeek.Worker.Engagement;
+using ReapSeek.Worker.Engagement.Wishlist;
+using ReapSeek.Worker.Identity;
+using ReapSeek.Worker.Marketing;
 using ReapSeek.Worker.Infrastructure;
 
 namespace ReapSeek.UnitTests;
@@ -109,6 +114,23 @@ public class MessagingTests
         var registry = (Subscriptions)builder.Services.Single(d => d.ServiceType == typeof(Subscriptions)).ImplementationInstance!;
         var question = Assert.Single(registry.Of(MessagingModules.Engagement, QuestionAskedV1.EventName));
         Assert.Equal((MessagingModules.Engagement, QuestionHandler.AskedHandler), (question.Subscriber, question.Handler));
+        (MessagingModule Module, string Event, string Handler)[] expected =
+        [
+            (MessagingModules.Engagement, QuestionAskedV1.EventName, QuestionHandler.AskedHandler),
+            (MessagingModules.Engagement, QuestionAnsweredV1.EventName, QuestionHandler.AnsweredHandler),
+            (MessagingModules.Engagement, PriceDroppedV1.EventName, PriceDropHandler.NotifyHandler),
+            (MessagingModules.Marketing, CampaignSendV1.EventName, CampaignHandler.SendHandler),
+            (MessagingModules.Marketing, CouponIssuedV1.EventName, CampaignHandler.CouponHandler),
+            (MessagingModules.Marketing, AlertReceivedV1.EventName, AlertMailHandler.NotifyHandler),
+            (MessagingModules.Identity, UserRegisteredV1.EventName, AccountEmailHandler.WelcomeHandler),
+            (MessagingModules.Identity, AccountEmailV1.EventName, AccountEmailHandler.AccountHandler),
+        ];
+        foreach (var (module, eventName, handler) in expected)
+        {
+            var subscription = Assert.Single(registry.Of(module, eventName));
+            Assert.Equal((module, handler, RetryPolicy.MaxAttempts), (subscription.Subscriber, subscription.Handler, subscription.MaxAttempts));
+        }
+        Assert.Equal(expected.Length, registry.All.Count);
         var known = ArchitectureTests.IntegrationEvents().Select(e => e.Name).ToHashSet();
         Assert.All(registry.All, s => Assert.Contains(s.EventType, known));
         Assert.Equal(registry.Subscribers.Count, builder.Services.Count(d => d.ServiceType == typeof(IHostedService) && d.ImplementationFactory is not null));

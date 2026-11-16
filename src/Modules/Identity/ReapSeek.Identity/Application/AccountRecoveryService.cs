@@ -6,15 +6,18 @@ using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Modules.Identity;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Identity.Contracts;
 
 namespace ReapSeek.Identity.Application;
 
 internal sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cache, ILogger<AccountRecoveryService> log)
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Identity);
+
     internal sealed record UserLookupRecord(string Email, string Role);
     internal sealed record UserRecord(long Id, string Role, bool Suspended, bool Verified);
-    internal sealed record RecentRecord(long UserId, string Purpose, DateTime Since);
+    internal sealed record RecentRecord(long UserId, string Purpose, DateTime Since, string EventType);
     internal sealed record TokenLookupRecord(string TokenHash, string Purpose);
     internal sealed record TokenRecord(string TokenHash, long UserId);
     internal sealed record PasswordRecord(long UserId, string Hash);
@@ -62,8 +65,8 @@ internal sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cac
             new PasswordRecord(userId.Value, PasswordHasher.Hash(password!)), tx);
         await conn.ExecuteAsync("UPDATE account_tokens SET used_at = now() WHERE user_id = @UserId AND purpose = 'password_reset' AND used_at IS NULL", args, tx);
         var revoked = (await conn.QueryAsync<string>("DELETE FROM sessions WHERE user_id = @UserId RETURNING token_hash", args, tx)).ToArray();
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AccountEmail, new AccountEmailMessage(userId.Value, AccountEmailKinds.PasswordChanged),
-            OutboxJsonContext.Default.AccountEmailMessage);
+        await Outbox.PublishAsync(conn, tx, AccountEmailV1.EventName, new AccountEmailV1(userId.Value, AccountEmailKinds.PasswordChanged),
+            IdentityEventsJsonContext.Default.AccountEmailV1);
         await tx.CommitAsync(ct);
         await cache.RemoveAsync(revoked.Select(CacheKeys.Session).ToArray());
         log.LogInformation("User {User} reset their password; {Sessions} sessions revoked", userId, revoked.Length);
@@ -116,13 +119,15 @@ internal sealed class AccountRecoveryService(NpgsqlDataSource db, RedisCache cac
 
     static async Task<bool> EnqueueIfAllowedAsync(NpgsqlConnection conn, NpgsqlTransaction tx, long userId, string purpose)
     {
-        var recent = await conn.ExecuteScalarAsync<int>("""
+        var recent = await conn.ExecuteScalarAsync<int>($"""
             SELECT (SELECT count(*) FROM account_tokens WHERE user_id = @UserId AND purpose = @Purpose AND created_at > @Since)
-                 + (SELECT count(*) FROM platform.outbox WHERE type = 'account_email' AND processed_at IS NULL AND failed_at IS NULL
+                 + (SELECT count(*) FROM {Outbox.Module.Outbox} WHERE event_type = @EventType AND published_at IS NULL
                         AND payload->>'user_id' = @UserId::text AND payload->>'kind' = @Purpose)
-            """, new RecentRecord(userId, purpose, DateTime.UtcNow.AddHours(-1)), tx);
+                 + (SELECT count(*) FROM {Outbox.Module.Inbox} WHERE event_type = @EventType AND processed_at IS NULL AND failed_at IS NULL
+                        AND payload->>'user_id' = @UserId::text AND payload->>'kind' = @Purpose)
+            """, new RecentRecord(userId, purpose, DateTime.UtcNow.AddHours(-1), AccountEmailV1.EventName), tx);
         if (recent >= AccountTokens.MaxRequestsPerHour) return false;
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AccountEmail, new AccountEmailMessage(userId, purpose), OutboxJsonContext.Default.AccountEmailMessage);
+        await Outbox.PublishAsync(conn, tx, AccountEmailV1.EventName, new AccountEmailV1(userId, purpose), IdentityEventsJsonContext.Default.AccountEmailV1);
         return true;
     }
 

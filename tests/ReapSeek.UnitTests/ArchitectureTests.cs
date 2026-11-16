@@ -176,6 +176,13 @@ public partial class ArchitectureTests
     {
         var events = IntegrationEvents().ToList();
         Assert.Contains(events, e => e.Type == typeof(ReapSeek.Engagement.Contracts.QuestionAskedV1));
+        Type[] converted =
+        [
+            typeof(ReapSeek.Engagement.Contracts.QuestionAnsweredV1), typeof(ReapSeek.Engagement.Contracts.PriceDroppedV1),
+            typeof(ReapSeek.Marketing.Contracts.CampaignSendV1), typeof(ReapSeek.Marketing.Contracts.CouponIssuedV1), typeof(ReapSeek.Marketing.Contracts.AlertReceivedV1),
+            typeof(ReapSeek.Identity.Contracts.UserRegisteredV1), typeof(ReapSeek.Identity.Contracts.AccountEmailV1),
+        ];
+        Assert.All(converted, t => Assert.Contains(events, e => e.Type == t));
         foreach (var (type, name, context) in events)
         {
             Assert.True(type.IsPublic && type.IsSealed && type.GetMethod("<Clone>$") is not null, $"{type.Name} must be a public sealed record");

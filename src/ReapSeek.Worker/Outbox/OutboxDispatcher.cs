@@ -12,8 +12,8 @@ using ReapSeek.Worker.Platform.Analytics;
 namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, SearchIndexer searchIndexer, CatalogSyncHandler catalogSync,
-    OrderPaidHandler orderPaid, ReturnHandler returns, QuestionHandler questions, CampaignHandler campaigns, CartReminderHandler cartReminders, AlertMailHandler alerts, FailedJobNotifier failedJobs, AccountEmailHandler accounts,
-    ReapSeek.Worker.Engagement.Wishlist.PriceDropHandler priceDrops, OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders, ReapDeepEventsHandler reapDeepEvents)
+    OrderPaidHandler orderPaid, ReturnHandler returns, CartReminderHandler cartReminders, FailedJobNotifier failedJobs,
+    OrderRefundHandler orderRefunds, PackageReminderHandler packageReminders, ReapDeepEventsHandler reapDeepEvents)
 {
     const string CatalogGroup = "catalog";
     const string ReapDeepCatalogGroup = "reapdeep_catalog";
@@ -40,16 +40,6 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
             return;
         }
         var message = batch.Single();
-        if (message.Type is OutboxTypes.CampaignSend or OutboxTypes.CouponIssued)
-        {
-            await campaigns.HandleAsync(message, ct);
-            return;
-        }
-        if (message.Type == OutboxTypes.QuestionAnswered)
-        {
-            await questions.HandleAsync(message, ct);
-            return;
-        }
         if (ReturnHandler.Handles(message.Type))
         {
             await returns.HandleAsync(message, ct);
@@ -57,16 +47,13 @@ public sealed class OutboxDispatcher(ProductCacheInvalidator productCache, Searc
         }
         await (message.Type switch
         {
-            OutboxTypes.UserRegistered or OutboxTypes.AccountEmail => accounts.HandleAsync(message, ct),
             OutboxTypes.OrderPaid => orderPaid.HandleAsync(message, ct),
             OutboxTypes.PackageShipped => orderPaid.HandleShippedAsync(message, ct),
             OutboxTypes.PackageShipReminder => packageReminders.HandleAsync(message, ct),
             OutboxTypes.OrderRefundDue => orderRefunds.HandleAsync(message, ct),
             OutboxTypes.ReapDeepEvents => reapDeepEvents.HandleAsync(message, ct),
             OutboxTypes.CartReminder => cartReminders.HandleAsync(message, ct),
-            OutboxTypes.AlertReceived => alerts.HandleAsync(message, ct),
             OutboxTypes.OutboxFailed => failedJobs.HandleAsync(message, ct),
-            OutboxTypes.PriceDropped => priceDrops.HandleAsync(message, ct),
             OutboxTypes.PackageDelivered => Task.CompletedTask,
             OutboxTypes.OrderPlaced or OutboxTypes.OrderPaymentFailed or OutboxTypes.OrderCancelled => Task.CompletedTask,
             _ => throw new NotSupportedException($"Unknown outbox message type: {message.Type}"),

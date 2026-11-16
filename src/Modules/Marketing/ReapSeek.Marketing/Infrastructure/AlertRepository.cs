@@ -1,12 +1,15 @@
 using Dapper;
 using Npgsql;
 using ReapSeek.Marketing.Api;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Marketing.Contracts;
 
 namespace ReapSeek.Marketing.Infrastructure;
 
 internal sealed class AlertRepository(NpgsqlDataSource db)
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Marketing);
+
     internal sealed record AlertInsertRecord(
         long AlertId, string AlertName, string State, string Condition, double Threshold, string TimeWindow, double Value, double? PreviousValue,
         string Message, string InsightName, DateTime CheckedAt);
@@ -50,7 +53,7 @@ internal sealed class AlertRepository(NpgsqlDataSource db)
             """, new AlertInsertRecord(p.AlertId, p.AlertName, p.State, p.Condition, p.Threshold, p.Window, p.Value, p.PreviousValue, p.Message,
             p.Insight.Name, p.CheckedAt), tx);
         if (id is { } eventId)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AlertReceived, new AlertMessage(eventId), OutboxJsonContext.Default.AlertMessage);
+            await Outbox.PublishAsync(conn, tx, AlertReceivedV1.EventName, new AlertReceivedV1(eventId), MarketingEventsJsonContext.Default.AlertReceivedV1);
         await tx.CommitAsync(ct);
     }
 }

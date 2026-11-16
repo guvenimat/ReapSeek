@@ -90,7 +90,7 @@ Check "a new customer is not verified yet" ((Send $shopper GET "$api/api/v1/auth
 Check "the welcome email carries a confirmation link" (WaitFor { LatestLink $email "Welcome to ReapSeek" "verify-email\?$tokenPattern" } 20)
 $firstLink = LatestLink $email "Welcome to ReapSeek" "verify-email\?$tokenPattern"
 Check "only a hash of the token is stored" ((Psql "SELECT count(*) FROM account_tokens WHERE token_hash = '$firstLink'") -eq "0" -and (Psql "SELECT count(*) FROM account_tokens WHERE user_id = $userId AND purpose = 'email_verification'") -eq "1")
-Check "the outbox never holds a token" ((Psql "SELECT count(*) FROM platform.outbox WHERE payload::text LIKE '%$firstLink%'") -eq "0")
+Check "the outbox never holds a token" ((Psql "SELECT (SELECT count(*) FROM platform.outbox WHERE payload::text LIKE '%$firstLink%') + (SELECT count(*) FROM identity.outbox WHERE payload::text LIKE '%$firstLink%') + (SELECT count(*) FROM identity.inbox WHERE payload::text LIKE '%$firstLink%')") -eq "0")
 $cookie = ($shopper.Cookies.GetCookies([Uri]$api) | Where-Object { $_.Name -ceq "rs_session" }).Value
 $run = Browse @(
     @{ cookie = @{ name = "rs_session"; value = $cookie } },

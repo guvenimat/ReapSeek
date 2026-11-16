@@ -2,12 +2,15 @@ using Dapper;
 using Npgsql;
 using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Modules.Identity;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.BuildingBlocks.Messaging;
+using ReapSeek.Identity.Contracts;
 
 namespace ReapSeek.Identity.Infrastructure;
 
 internal sealed class AccountRepository(NpgsqlDataSource db)
 {
+    static readonly ModuleOutbox Outbox = new(MessagingModules.Identity);
+
     internal sealed record CredentialsRecord(long Id, string PasswordHash, string Role, bool Suspended);
     internal sealed record SellerUserRecord(long Id, string Email, string Name, DateTime CreatedAt);
 
@@ -29,8 +32,8 @@ internal sealed class AccountRepository(NpgsqlDataSource db)
             var id = await conn.ExecuteScalarAsync<long>("""
                 INSERT INTO users (email, name, password_hash, role) VALUES (@Email, @Name, @Hash, 'customer') RETURNING id
                 """, new { Email = email, Name = name, Hash = passwordHash }, tx);
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.UserRegistered, new UserRegistered(id, email, name),
-                OutboxJsonContext.Default.UserRegistered);
+            await Outbox.PublishAsync(conn, tx, UserRegisteredV1.EventName, new UserRegisteredV1(id, email, name),
+                IdentityEventsJsonContext.Default.UserRegisteredV1);
             await tx.CommitAsync(ct);
             return id;
         }
@@ -98,8 +101,8 @@ internal sealed class AccountRepository(NpgsqlDataSource db)
         var revoked = (await conn.QueryAsync<string>(
             "DELETE FROM sessions WHERE user_id = @UserId AND token_hash <> @Keep RETURNING token_hash",
             new { UserId = userId, Keep = keepTokenHash }, tx)).ToArray();
-        await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.AccountEmail, new AccountEmailMessage(userId, AccountEmailKinds.PasswordChanged),
-            OutboxJsonContext.Default.AccountEmailMessage);
+        await Outbox.PublishAsync(conn, tx, AccountEmailV1.EventName, new AccountEmailV1(userId, AccountEmailKinds.PasswordChanged),
+            IdentityEventsJsonContext.Default.AccountEmailV1);
         await tx.CommitAsync(ct);
         return revoked;
     }
