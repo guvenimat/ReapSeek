@@ -1,9 +1,10 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Sellers.Api;
 
-namespace ReapSeek.Api.Sellers.SellerPanel;
+namespace ReapSeek.Sellers.Infrastructure;
 
-public sealed class SellerPanelRepository(NpgsqlDataSource db)
+internal sealed class SellerPanelRepository(NpgsqlDataSource db)
 {
     public async Task<SellerAccount?> AccountAsync(long sellerId, CancellationToken ct)
     {

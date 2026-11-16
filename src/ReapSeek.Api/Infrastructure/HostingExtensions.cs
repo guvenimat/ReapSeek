@@ -5,9 +5,6 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using ReapSeek.Api.Health;
 using ReapSeek.Api.Operations;
-using ReapSeek.Api.Sellers.Stores;
-using ReapSeek.Api.Sellers.SellerPanel;
-using ReapSeek.Api.Sellers;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Analytics;
@@ -21,6 +18,7 @@ using ReapSeek.Finance;
 using ReapSeek.Identity;
 using ReapSeek.Catalog;
 using ReapSeek.Ordering;
+using ReapSeek.Sellers;
 
 namespace ReapSeek.Api.Infrastructure;
 
@@ -53,6 +51,7 @@ public static class HostingExtensions
             o.SerializerOptions.TypeInfoResolverChain.Insert(3, IdentityModule.JsonTypeInfoResolver);
             o.SerializerOptions.TypeInfoResolverChain.Insert(4, CatalogModule.JsonTypeInfoResolver);
             o.SerializerOptions.TypeInfoResolverChain.Insert(5, OrderingModule.JsonTypeInfoResolver);
+            o.SerializerOptions.TypeInfoResolverChain.Insert(6, SellersModule.JsonTypeInfoResolver);
             o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
         });
         services.AddExceptionHandler<ApiExceptionHandler>();
@@ -88,14 +87,12 @@ public static class HostingExtensions
         services.AddSingleton<OutboxAdminRepository>();
         services.AddSingleton<DatabaseProbe>();
         services.AddMarketing();
-        services.AddSingleton<StoreRepository>();
-        services.AddSingleton<SellerRepository>();
+        services.AddSellers();
         services.AddSingleton<OpenSearchClient>();
         services.AddCatalog();
         services.AddSingleton(TimeProvider.System);
         services.AddSandboxProviders();
         services.AddOrdering();
-        services.AddSingleton<SellerPanelRepository>();
         services.AddFinance();
         services.AddSingleton<PayoutRunner>();
         services.AddEngagement();
@@ -115,10 +112,8 @@ public static class HostingExtensions
         api.MapIdentityEndpoints();
         api.MapCatalogEndpoints();
         api.MapOrderingEndpoints();
-        api.MapGroup("/backoffice/sellers").MapSellersAdmin();
-        api.MapSellerPanel();
+        api.MapSellersEndpoints();
         api.MapEngagementEndpoints();
-        api.MapStores();
         api.MapMarketingEndpoints();
         api.MapOutboxAdmin();
         app.MapCatalogMedia();

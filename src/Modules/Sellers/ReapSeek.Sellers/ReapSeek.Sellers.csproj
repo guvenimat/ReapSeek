@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsNamespaces>$(InterceptorsNamespaces);Dapper.AOT;Microsoft.AspNetCore.Http.Generated</InterceptorsNamespaces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Dapper" Version="2.1.89" />
+    <PackageReference Include="Dapper.AOT" Version="1.1.0" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks.Web\ReapSeek.BuildingBlocks.Web.csproj" />
+    <ProjectReference Include="..\..\..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
+    <ProjectReference Include="..\..\..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
+    <ProjectReference Include="..\..\Catalog\ReapSeek.Catalog.Contracts\ReapSeek.Catalog.Contracts.csproj" />
+    <ProjectReference Include="..\..\Ordering\ReapSeek.Ordering.Contracts\ReapSeek.Ordering.Contracts.csproj" />
+    <ProjectReference Include="..\..\Finance\ReapSeek.Finance.Contracts\ReapSeek.Finance.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\ReapSeek.Identity.Contracts\ReapSeek.Identity.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ReapSeek.UnitTests" />
+  </ItemGroup>
+
+</Project>

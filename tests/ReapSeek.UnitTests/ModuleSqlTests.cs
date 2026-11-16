@@ -81,6 +81,9 @@ public partial class ModuleSqlTests
         var root = Root();
         Assert.True(File.Exists(Path.Combine(root, "src", "ReapSeek.Modules", "Ordering", "OrderStore.cs")));
         Assert.Equal("sellers", SchemaOf(Path.Combine("src", "ReapSeek.Api", "Sellers", "SellerRepository.cs")));
+        var sellers = Path.Combine("src", "Modules", "Sellers", "ReapSeek.Sellers", "Infrastructure", "SellerRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, sellers)));
+        Assert.Equal("sellers", SchemaOf(sellers));
         Assert.Equal("catalog", SchemaOf(Path.Combine("src", "ReapSeek.Worker", "Catalog", "Search", "SearchRepository.cs")));
         Assert.Null(SchemaOf(Path.Combine("src", "ReapSeek.Api", "Seed", "CatalogSeeder.cs")));
         var reviews = Path.Combine("src", "Modules", "Engagement", "ReapSeek.Engagement", "Infrastructure", "ReviewRepository.cs");

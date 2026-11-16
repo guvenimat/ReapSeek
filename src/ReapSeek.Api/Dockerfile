@@ -18,6 +18,7 @@ COPY Modules/Finance/ReapSeek.Finance/ReapSeek.Finance.csproj Modules/Finance/Re
 COPY Modules/Identity/ReapSeek.Identity/ReapSeek.Identity.csproj Modules/Identity/ReapSeek.Identity/
 COPY Modules/Catalog/ReapSeek.Catalog/ReapSeek.Catalog.csproj Modules/Catalog/ReapSeek.Catalog/
 COPY Modules/Ordering/ReapSeek.Ordering/ReapSeek.Ordering.csproj Modules/Ordering/ReapSeek.Ordering/
+COPY Modules/Sellers/ReapSeek.Sellers/ReapSeek.Sellers.csproj Modules/Sellers/ReapSeek.Sellers/
 COPY ReapSeek.Api/ReapSeek.Api.csproj ReapSeek.Api/
 RUN dotnet restore ReapSeek.Api/ReapSeek.Api.csproj -r linux-x64
 COPY ReapSeek.Domain/ ReapSeek.Domain/
