@@ -1,4 +1,4 @@
-using ReapSeek.Api.Catalog.Media;
+using ReapSeek.Catalog.Application;
 using ReapSeek.Shared;
 
 namespace ReapSeek.UnitTests;

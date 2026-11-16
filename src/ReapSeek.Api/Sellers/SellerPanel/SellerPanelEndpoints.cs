@@ -2,7 +2,7 @@ using ReapSeek.Finance.Contracts;
 using ReapSeek.Identity.Contracts;
 using ReapSeek.Api.Ordering.Shipping;
 using ReapSeek.Modules.Identity;
-using ReapSeek.Api.Catalog;
+using ReapSeek.Catalog.Contracts;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 using ReapSeek.Modules.Finance;
@@ -20,28 +20,26 @@ public static class SellerPanelEndpoints
                 ? ApiResults.Ok(account, AppJsonContext.Default.SellerAccount)
                 : ApiResults.NotFound("Seller not found"));
 
-        seller.MapGet("/offers", async (UserInfo user, SellerCatalog sellerCatalog, string? q, int? page, CancellationToken ct) =>
+        seller.MapGet("/offers", async (UserInfo user, ISellerCatalog sellerCatalog, string? q, int? page, CancellationToken ct) =>
         {
             var p = Ensure.InRange(page ?? 1, 1, 1000, "page");
             var search = q?.Trim() is { Length: > 0 } s ? Ensure.NotBlank(s, "q", 100) : null;
-            var (rows, total) = await sellerCatalog.OffersAsync(SellerOf(user), search, p, PageSize, ct);
-            return ApiResults.Ok(new SellerOffersResponse(rows, total, p, PageSize), AppJsonContext.Default.SellerOffersResponse);
+            return ApiResults.Ok(await sellerCatalog.OffersAsync(SellerOf(user), search, p, PageSize, ct), AppJsonContext.Default.SellerOffersResponse);
         });
-        seller.MapPut("/offers", async (OfferRequest req, UserInfo user, SellerPanelService service, CancellationToken ct) =>
-            ApiResults.Ok(await service.UpsertOfferAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
+        seller.MapPut("/offers", async (OfferRequest req, UserInfo user, ISellerCatalog sellerCatalog, CancellationToken ct) =>
+            ApiResults.Ok(await sellerCatalog.UpsertOfferAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
 
-        seller.MapGet("/catalog/products", async (CatalogService catalog, string? q, string? category, int? page, CancellationToken ct) =>
-            ApiResults.Ok(await catalog.ListProductsAsync(CatalogService.Filter(q, ProductStatus.Active, category, null, page, PageSize), ct),
-                AppJsonContext.Default.ProductsResponse));
-        seller.MapGet("/catalog/products/{id:long}", async (long id, UserInfo user, SellerPanelService service, CancellationToken ct) =>
-            ApiResults.Ok(await service.ProductAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerProductView));
-        seller.MapGet("/catalog/categories", async (CatalogService catalog, CancellationToken ct) =>
+        seller.MapGet("/catalog/products", async (ICatalogBrowser catalog, string? q, string? category, int? page, CancellationToken ct) =>
+            ApiResults.Ok(await catalog.ListActiveProductsAsync(q, category, page, PageSize, ct), AppJsonContext.Default.ProductsResponse));
+        seller.MapGet("/catalog/products/{id:long}", async (long id, UserInfo user, ISellerCatalog sellerCatalog, CancellationToken ct) =>
+            ApiResults.Ok(await sellerCatalog.ProductAsync(SellerOf(user), id, ct), AppJsonContext.Default.SellerProductView));
+        seller.MapGet("/catalog/categories", async (ICatalogBrowser catalog, CancellationToken ct) =>
             ApiResults.Ok(new CategoriesResponse(await catalog.ListCategoriesAsync(ct)), AppJsonContext.Default.CategoriesResponse));
-        seller.MapGet("/catalog/brands", async (CatalogService catalog, CancellationToken ct) =>
+        seller.MapGet("/catalog/brands", async (ICatalogBrowser catalog, CancellationToken ct) =>
             ApiResults.Ok(new BrandsResponse(await catalog.ListBrandsAsync(ct)), AppJsonContext.Default.BrandsResponse));
-        seller.MapPost("/catalog/products", async (CreateProductRequest req, UserInfo user, SellerPanelService service, CancellationToken ct) =>
-            ApiResults.Created(await service.ProposeAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
-        seller.MapGet("/proposals", async (UserInfo user, SellerCatalog sellerCatalog, CancellationToken ct) =>
+        seller.MapPost("/catalog/products", async (CreateProductRequest req, UserInfo user, ISellerCatalog sellerCatalog, CancellationToken ct) =>
+            ApiResults.Created(await sellerCatalog.ProposeAsync(SellerOf(user), req, ct), AppJsonContext.Default.SellerProductView));
+        seller.MapGet("/proposals", async (UserInfo user, ISellerCatalog sellerCatalog, CancellationToken ct) =>
             ApiResults.Ok(new ProposalsResponse(await sellerCatalog.ProposalsAsync(SellerOf(user), ct)), AppJsonContext.Default.ProposalsResponse));
 
         seller.MapGet("/packages", async (UserInfo user, SellerPackages packages, string? status, int? page, CancellationToken ct) =>
@@ -66,8 +64,8 @@ public static class SellerPanelEndpoints
             ApiResults.Ok(new PayoutsResponse(await finance.PayoutsAsync(null, ct)), AppJsonContext.Default.PayoutsResponse));
         admin.MapPost("/payouts/run", async (PayoutRunner payouts, TimeProvider clock, CancellationToken ct) =>
             ApiResults.Ok(await payouts.RunAsync(clock.GetUtcNow().UtcDateTime, ct), AppJsonContext.Default.PayoutRunResult));
-        admin.MapPost("/catalog/products/{id:long}/review", async (long id, ReviewRequest req, SellerPanelService service, CancellationToken ct) =>
-            ApiResults.Ok(await service.ReviewAsync(id, req, ct), AppJsonContext.Default.ProductDetail));
+        admin.MapPost("/catalog/products/{id:long}/review", async (long id, ReviewRequest req, ISellerCatalog sellerCatalog, CancellationToken ct) =>
+            ApiResults.Ok(await sellerCatalog.ReviewProposalAsync(id, req.Decision, req.Note, ct), AppJsonContext.Default.ProductDetail));
         admin.MapGet("/sellers/{id:long}/users", async (long id, ISellerAccounts accounts, CancellationToken ct) =>
             ApiResults.Ok(new SellerUsersResponse((await accounts.ListAsync(id, ct)).Select(u => new SellerUserRow(u.Id, u.Email, u.Name, u.CreatedAt)).ToList()),
                 AppJsonContext.Default.SellerUsersResponse));

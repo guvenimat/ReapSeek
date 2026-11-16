@@ -95,6 +95,9 @@ public partial class ModuleSqlTests
         var accounts = Path.Combine("src", "Modules", "Identity", "ReapSeek.Identity", "Infrastructure", "AccountRepository.cs");
         Assert.True(File.Exists(Path.Combine(root, accounts)));
         Assert.Equal("identity", SchemaOf(accounts));
+        var products = Path.Combine("src", "Modules", "Catalog", "ReapSeek.Catalog", "Infrastructure", "CatalogRepository.cs");
+        Assert.True(File.Exists(Path.Combine(root, products)));
+        Assert.Equal("catalog", SchemaOf(products));
     }
 
     [Fact]

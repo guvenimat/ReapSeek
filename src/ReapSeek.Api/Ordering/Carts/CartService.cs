@@ -7,7 +7,7 @@ using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Ordering.Carts;
 
-public sealed class CartService(CartRepository carts, ISessionReader sessions, IConfiguration cfg, TimeProvider clock) : IStorefrontSignIn
+public sealed class CartService(CartRepository carts, ISessionReader sessions, IConfiguration cfg, TimeProvider clock) : IStorefrontSignIn, IStorefrontCart
 {
     public const string CookieName = "rs_cart";
     const int MaxTokenLength = 64;

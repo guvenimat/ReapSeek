@@ -2,9 +2,7 @@ using ReapSeek.Api.Ordering.Shipping;
 using Dapper;
 using Npgsql;
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Catalog;
-using ReapSeek.Api.Catalog.Search;
-using ReapSeek.Modules.Catalog;
+using ReapSeek.Catalog.Contracts;
 using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Sellers.Stores;
@@ -34,14 +32,14 @@ public static class StoreEndpoints
 
     public static void MapStores(this RouteGroupBuilder api)
     {
-        api.MapGet("/catalog/sellers/{slug}", async (string slug, int? page, StoreRepository stores, SellerCatalog sellerCatalog, SellerPackages packages, SearchService search, CancellationToken ct) =>
+        api.MapGet("/catalog/sellers/{slug}", async (string slug, int? page, StoreRepository stores, ISellerCatalog sellerCatalog, SellerPackages packages, CancellationToken ct) =>
         {
             var p = Ensure.InRange(page ?? 1, 1, 1000, "page");
             if (slug.Length > 100 || await stores.SellerAsync(slug, ct) is not { } s) return ApiResults.NotFound("Seller not found");
-            var (ids, total, handling) = await sellerCatalog.StoreProductsAsync(s.Id, p, PageSize, ct);
-            var cards = await search.InStockCardsAsync(ids, ct);
-            var seller = new StoreSeller(s.Id, s.Name, s.Slug, s.City, s.Rating, s.CreatedAt, total, await packages.DeliveredCountAsync(s.Id, ct), handling);
-            return ApiResults.Ok(new StoreSellerResponse(seller, cards, total, p, PageSize), AppJsonContext.Default.StoreSellerResponse);
+            var store = await sellerCatalog.StoreProductsAsync(s.Id, p, PageSize, ct);
+            var seller = new StoreSeller(s.Id, s.Name, s.Slug, s.City, s.Rating, s.CreatedAt, store.Total, await packages.DeliveredCountAsync(s.Id, ct),
+                store.AverageHandlingDays);
+            return ApiResults.Ok(new StoreSellerResponse(seller, store.Products, store.Total, p, PageSize), AppJsonContext.Default.StoreSellerResponse);
         });
     }
 }

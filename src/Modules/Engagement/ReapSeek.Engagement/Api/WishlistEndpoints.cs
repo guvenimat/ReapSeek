@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Engagement.Infrastructure;
-using ReapSeek.Modules.Catalog;
+using ReapSeek.Catalog.Contracts;
 
 namespace ReapSeek.Engagement.Api;
 

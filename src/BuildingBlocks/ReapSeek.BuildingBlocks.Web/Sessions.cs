@@ -11,3 +11,8 @@ public interface IStorefrontSignIn
 {
     Task SignedInAsync(HttpContext ctx, long customerId, CancellationToken ct);
 }
+
+public interface IStorefrontCart
+{
+    Task<long[]> ProductIdsAsync(HttpContext ctx, CancellationToken ct);
+}

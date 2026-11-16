@@ -2,8 +2,8 @@ using ReapSeek.BuildingBlocks.Messaging;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using ReapSeek.Api.Catalog;
-using ReapSeek.Api.Catalog.Media;
+using ReapSeek.Catalog.Application;
+using ReapSeek.Catalog.Contracts;
 using ReapSeek.Api.Seed;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Outbox;
@@ -23,12 +23,12 @@ public class CatalogTests
     [InlineData("  --Hello__World!! ", "hello-world")]
     [InlineData("!!!", "")]
     public void Slugs_are_lowercase_ascii_with_single_dashes(string input, string expected) =>
-        Assert.Equal(expected, CatalogRules.Slugify(input));
+        Assert.Equal(expected, Slugs.Slugify(input));
 
     [Fact]
     public void Slugs_are_capped_and_product_slugs_end_with_the_id()
     {
-        Assert.True(CatalogRules.Slugify(new string('a', 200)).Length <= CatalogRules.MaxSlugLength);
+        Assert.True(Slugs.Slugify(new string('a', 200)).Length <= Slugs.MaxLength);
         Assert.Equal("linen-dress-p42", CatalogRules.ProductSlug("Linen Dress", 42));
         Assert.Equal("p42", CatalogRules.ProductSlug("!!!", 42));
     }
@@ -88,7 +88,7 @@ public class CatalogTests
     public void Every_art_kind_renders_valid_svg_in_every_color()
     {
         foreach (var kind in ProductArt.Kinds)
-        foreach (var color in ProductArt.Colors)
+        foreach (var color in CatalogArt.Colors)
         {
             var svg = XDocument.Parse(ProductArt.Render(kind, color, 12345));
             Assert.Equal("svg", svg.Root!.Name.LocalName);
@@ -99,9 +99,9 @@ public class CatalogTests
     [Fact]
     public void Art_colors_are_found_by_name_and_urls_are_stable()
     {
-        Assert.Equal("navy", ProductArt.FindColorByName("NAVY").Slug);
-        Assert.Equal(ProductArt.FindColorByName("Teal"), ProductArt.FindColorByName("Teal"));
-        Assert.Equal("/media/catalog/dress/navy/7.svg", ProductArt.Url("dress", "navy", 7));
+        Assert.Equal("navy", CatalogArt.FindColorByName("NAVY").Slug);
+        Assert.Equal(CatalogArt.FindColorByName("Teal"), CatalogArt.FindColorByName("Teal"));
+        Assert.Equal("/media/catalog/dress/navy/7.svg", CatalogArt.Url("dress", "navy", 7));
     }
 
     [Theory]
