@@ -9,6 +9,7 @@ using ReapSeek.Worker.Engagement;
 using ReapSeek.Worker.Engagement.Wishlist;
 using ReapSeek.Worker.Identity;
 using ReapSeek.Worker.Marketing;
+using ReapSeek.Marketing.Jobs;
 using ReapSeek.Worker.Infrastructure;
 
 namespace ReapSeek.UnitTests;
@@ -120,7 +121,7 @@ public class MessagingTests
             (MessagingModules.Engagement, QuestionAnsweredV1.EventName, QuestionHandler.AnsweredHandler),
             (MessagingModules.Engagement, PriceDroppedV1.EventName, PriceDropHandler.NotifyHandler),
             (MessagingModules.Marketing, CampaignSendV1.EventName, CampaignHandler.SendHandler),
-            (MessagingModules.Marketing, CouponIssuedV1.EventName, CampaignHandler.CouponHandler),
+            (MessagingModules.Marketing, CouponIssuedV1.EventName, CouponMailHandler.CouponHandler),
             (MessagingModules.Marketing, AlertReceivedV1.EventName, AlertMailHandler.NotifyHandler),
             (MessagingModules.Identity, UserRegisteredV1.EventName, AccountEmailHandler.WelcomeHandler),
             (MessagingModules.Identity, AccountEmailV1.EventName, AccountEmailHandler.AccountHandler),

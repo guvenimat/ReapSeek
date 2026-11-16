@@ -2,16 +2,13 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Modules.Ordering;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
-namespace ReapSeek.Worker.Ordering;
+namespace ReapSeek.Ordering.Jobs;
 
-public sealed class PaymentExpiryJob(NpgsqlDataSource db, IConfiguration cfg, TimeProvider clock, ILogger<PaymentExpiryJob> log) : BackgroundService
+internal sealed class PaymentExpiryJob(NpgsqlDataSource db, IConfiguration cfg, TimeProvider clock, ILogger<PaymentExpiryJob> log) : BackgroundService
 {
     const int BatchSize = 100;
     public const string TimeoutReason = "payment_timeout";

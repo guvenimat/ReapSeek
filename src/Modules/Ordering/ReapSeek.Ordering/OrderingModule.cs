@@ -7,6 +7,7 @@ using ReapSeek.Ordering.Api;
 using ReapSeek.Ordering.Application;
 using ReapSeek.Ordering.Contracts;
 using ReapSeek.Ordering.Infrastructure;
+using ReapSeek.Ordering.Jobs;
 
 namespace ReapSeek.Ordering;
 
@@ -28,6 +29,14 @@ public static class OrderingModule
         services.AddSingleton<SellerPackagesRepository>();
         services.AddSingleton<ISellerPackages, SellerPackages>();
         services.AddSingleton<ReturnService>();
+        return services;
+    }
+
+    public static IServiceCollection AddOrderingJobs(this IServiceCollection services)
+    {
+        services.AddHostedService<ShippingDeadlineJob>();
+        services.AddHostedService<CartReminderJob>();
+        services.AddHostedService<PaymentExpiryJob>();
         return services;
     }
 

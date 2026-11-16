@@ -31,7 +31,7 @@ public sealed class OrderRefundHandler(NpgsqlDataSource db, IPaymentGateway paym
     readonly string _storefrontUrl = (cfg["Storefront:PublicUrl"] ?? "http://localhost:3100").TrimEnd('/');
     readonly string _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
 
-    public async Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    public async Task HandleAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         var m = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.OrderRefundMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");

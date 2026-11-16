@@ -3,25 +3,21 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using ReapSeek.Shared.Outbox;
 using ReapSeek.Shared.Search;
-using ReapSeek.Worker.Outbox;
 using ReapSeek.Modules.Catalog;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using ReapSeek.Catalog.Infrastructure;
 
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-namespace ReapSeek.Worker.Catalog.Search;
+namespace ReapSeek.Catalog.Jobs;
 
-public sealed class SearchIndexer(OpenSearchClient search, SearchRepository products, ILogger<SearchIndexer> log)
+internal sealed class SearchIndexer(OpenSearchClient search, SearchRepository products, ILogger<SearchIndexer> log)
 {
     public const int ChunkSize = 1000;
     readonly SemaphoreSlim _lock = new(1, 1);
 
     public bool IsConfigured => search.IsConfigured;
 
-    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    public async Task HandleAsync(IReadOnlyList<OutboxMessageRecord> messages, CancellationToken ct)
     {
         if (!search.IsConfigured) return;
         if (messages.Any(m => m.Type == OutboxTypes.CatalogReindex))
@@ -136,7 +132,7 @@ public sealed class SearchIndexer(OpenSearchClient search, SearchRepository prod
     }
 }
 
-public sealed class SearchBootstrap(SearchIndexer indexer, ILogger<SearchBootstrap> log) : BackgroundService
+internal sealed class SearchBootstrap(SearchIndexer indexer, ILogger<SearchBootstrap> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken ct)
     {

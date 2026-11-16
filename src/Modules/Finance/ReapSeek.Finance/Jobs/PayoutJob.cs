@@ -1,16 +1,12 @@
 using Npgsql;
 using ReapSeek.Modules.Finance;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Outbox;
-namespace ReapSeek.Worker.Finance.Payouts;
+namespace ReapSeek.Finance.Jobs;
 
-public sealed class PayoutJob(PayoutRunner payouts, IConfiguration cfg, TimeProvider clock, ILogger<PayoutJob> log) : BackgroundService
+internal sealed class PayoutJob(PayoutRunner payouts, IConfiguration cfg, TimeProvider clock, ILogger<PayoutJob> log) : BackgroundService
 {
     readonly TimeSpan _interval = TimeSpan.FromSeconds(cfg.GetValue("Payouts:CheckSeconds", 3600));
 

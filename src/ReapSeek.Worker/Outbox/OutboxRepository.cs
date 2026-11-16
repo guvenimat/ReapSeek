@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Shared.Outbox;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -11,12 +12,10 @@ namespace ReapSeek.Worker.Outbox;
 
 public sealed class OutboxRepository(NpgsqlDataSource db)
 {
-    public sealed record MessageRecord(long Id, string Type, string Payload, int Attempts, DateTime CreatedAt, string? TraceParent);
-
-    public async Task<List<MessageRecord>> ClaimAsync(int batchSize, DateTime leaseUntil, CancellationToken ct)
+    public async Task<List<OutboxMessageRecord>> ClaimAsync(int batchSize, DateTime leaseUntil, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
-        var rows = await conn.QueryAsync<MessageRecord>("""
+        var rows = await conn.QueryAsync<OutboxMessageRecord>("""
             UPDATE platform.outbox SET available_at = @LeaseUntil, attempts = attempts + 1
             WHERE id IN (
                 SELECT id FROM platform.outbox

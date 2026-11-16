@@ -25,9 +25,9 @@ public sealed class FailedJobNotifier(NpgsqlDataSource db, EmailSender email, IC
 
     readonly string _backofficeUrl = (cfg["Backoffice:PublicUrl"] ?? "http://localhost:3101").TrimEnd('/');
 
-    public Task HandleAsync(OutboxRepository.MessageRecord message, CancellationToken ct) => FailedJobAsync(message, ct);
+    public Task HandleAsync(OutboxMessageRecord message, CancellationToken ct) => FailedJobAsync(message, ct);
 
-    async Task FailedJobAsync(OutboxRepository.MessageRecord message, CancellationToken ct)
+    async Task FailedJobAsync(OutboxMessageRecord message, CancellationToken ct)
     {
         var payload = JsonSerializer.Deserialize(message.Payload, OutboxJsonContext.Default.OutboxFailedMessage)
             ?? throw new InvalidOperationException($"Outbox message {message.Id} has an empty payload");

@@ -5,18 +5,21 @@ using ReapSeek.Marketing.Contracts;
 using ReapSeek.Worker.Engagement.Wishlist;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Caching;
-using ReapSeek.Worker.Catalog.Caching;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Search;
-using ReapSeek.Worker.Catalog.Search;
 using ReapSeek.Worker.Catalog.CatalogSync;
 using ReapSeek.Worker.Notifications;
-using ReapSeek.Worker.Finance.Payouts;
 using ReapSeek.Shared.Analytics;
 using ReapSeek.Shared.Observability;
 using ReapSeek.Modules.Finance;
 using ReapSeek.Shared.Providers;
 using ReapSeek.Worker.Outbox;
+using ReapSeek.Catalog;
+using ReapSeek.Engagement;
+using ReapSeek.Finance;
+using ReapSeek.Marketing;
+using ReapSeek.Ordering;
+using ReapSeek.Sellers;
 
 using ReapSeek.Worker.Ordering;
 using ReapSeek.Worker.Marketing;
@@ -36,38 +39,34 @@ public static class HostingExtensions
 
         services.AddSingleton(Database.Create(cfg.GetConnectionString("Postgres")));
         services.AddSingleton<RedisCache>();
-        services.AddSingleton<ProductCacheInvalidator>();
         services.AddSingleton<EmailSender>();
         services.AddSingleton<ReapDeepClient>();
         services.AddSingleton<CatalogSyncRepository>();
         services.AddSingleton<CatalogSyncHandler>();
         services.AddSingleton<OpenSearchClient>();
-        services.AddSingleton<SearchRepository>();
-        services.AddSingleton<SearchIndexer>();
-        services.AddHostedService<SearchBootstrap>();
+        services.AddCatalogJobs();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ReapDeepIngestClient>();
         services.AddSingleton<ReapDeepEventsHandler>();
         services.AddSingleton<OrderPaidHandler>();
         services.AddSingleton<ReturnHandler>();
         services.AddSingleton<QuestionHandler>();
-        services.AddSingleton<CampaignHandler>();
+        services.AddMarketingJobs();
+        services.AddSingleton<CouponMailHandler>();
         services.AddSingleton<CartReminderHandler>();
         services.AddSingleton<AlertMailHandler>();
         services.AddSingleton<FailedJobNotifier>();
         services.AddSingleton<OrderRefundHandler>();
         services.AddSingleton<PackageReminderHandler>();
-        services.AddHostedService<ShippingDeadlineJob>();
+        services.AddOrderingJobs();
         services.AddSingleton<AccountEmailHandler>();
-        services.AddHostedService<CartReminderJob>();
         services.AddSingleton<PriceDropHandler>();
-        services.AddHostedService<PriceDropJob>();
-        services.AddHostedService<ReapSeek.Worker.Sellers.SellerRatingJob>();
+        services.AddEngagementJobs();
+        services.AddSellersJobs();
         services.AddSingleton<ReapDeepAudience>();
-        services.AddHostedService<PaymentExpiryJob>();
         services.AddSandboxProviders();
         services.AddSingleton<PayoutRunner>();
-        services.AddHostedService<PayoutJob>();
+        services.AddFinanceJobs();
         services.AddHostedService<ReapSeek.Worker.Platform.Maintenance.CleanupJob>();
         services.AddSingleton<OutboxRepository>();
         services.AddSingleton<OutboxDispatcher>();
@@ -79,10 +78,9 @@ public static class HostingExtensions
                 MessagingModules.Engagement, QuestionHandler.AnsweredHandler)
             .Add<PriceDroppedV1, PriceDropHandler>(MessagingModules.Engagement, PriceDroppedV1.EventName, EngagementEventsJsonContext.Default.PriceDroppedV1,
                 MessagingModules.Engagement, PriceDropHandler.NotifyHandler)
-            .Add<CampaignSendV1, CampaignHandler>(MessagingModules.Marketing, CampaignSendV1.EventName, MarketingEventsJsonContext.Default.CampaignSendV1,
-                MessagingModules.Marketing, CampaignHandler.SendHandler)
-            .Add<CouponIssuedV1, CampaignHandler>(MessagingModules.Marketing, CouponIssuedV1.EventName, MarketingEventsJsonContext.Default.CouponIssuedV1,
-                MessagingModules.Marketing, CampaignHandler.CouponHandler)
+            .AddMarketingSubscriptions()
+            .Add<CouponIssuedV1, CouponMailHandler>(MessagingModules.Marketing, CouponIssuedV1.EventName, MarketingEventsJsonContext.Default.CouponIssuedV1,
+                MessagingModules.Marketing, CouponMailHandler.CouponHandler)
             .Add<AlertReceivedV1, AlertMailHandler>(MessagingModules.Marketing, AlertReceivedV1.EventName, MarketingEventsJsonContext.Default.AlertReceivedV1,
                 MessagingModules.Marketing, AlertMailHandler.NotifyHandler)
             .Add<UserRegisteredV1, AccountEmailHandler>(MessagingModules.Identity, UserRegisteredV1.EventName, IdentityEventsJsonContext.Default.UserRegisteredV1,

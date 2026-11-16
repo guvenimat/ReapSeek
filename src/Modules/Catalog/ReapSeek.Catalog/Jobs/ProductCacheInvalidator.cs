@@ -3,19 +3,13 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Shared.Caching;
 using ReapSeek.Shared.Outbox;
-using ReapSeek.Worker.Outbox;
+using Microsoft.Extensions.Logging;
 
-using ReapSeek.Worker.Ordering;
-using ReapSeek.Worker.Marketing;
-using ReapSeek.Worker.Engagement;
-using ReapSeek.Worker.Identity;
-using ReapSeek.Worker.Platform.Analytics;
-using ReapSeek.Worker.Notifications;
-namespace ReapSeek.Worker.Catalog.Caching;
+namespace ReapSeek.Catalog.Jobs;
 
-public sealed class ProductCacheInvalidator(NpgsqlDataSource db, RedisCache cache, ILogger<ProductCacheInvalidator> log)
+internal sealed class ProductCacheInvalidator(NpgsqlDataSource db, RedisCache cache, ILogger<ProductCacheInvalidator> log)
 {
-    public async Task HandleAsync(IReadOnlyList<OutboxRepository.MessageRecord> messages, CancellationToken ct)
+    public async Task HandleAsync(IReadOnlyList<OutboxMessageRecord> messages, CancellationToken ct)
     {
         if (messages.Any(m => m.Type == OutboxTypes.CatalogReindex))
         {

@@ -4,7 +4,7 @@ using ReapSeek.Catalog.Application;
 using ReapSeek.Catalog.Contracts;
 using ReapSeek.Shared;
 using ReapSeek.Shared.Search;
-using ReapSeek.Worker.Catalog.Search;
+using ReapSeek.Catalog.Infrastructure;
 using ReapSeek.Modules.Catalog;
 
 namespace ReapSeek.UnitTests;
