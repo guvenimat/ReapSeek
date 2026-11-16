@@ -1,7 +1,7 @@
 using System.Text.Json;
-using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Infrastructure;
-using ReapSeek.Api.Catalog.Media;
+using ReapSeek.Catalog.Contracts;
+using ReapSeek.Shared;
 
 namespace ReapSeek.Api.Seed;
 
@@ -37,7 +37,7 @@ public static class CatalogGenerator
         var images = new List<SeedImage>();
         var offers = new List<SeedOffer>();
 
-        var sellers = SeedData.Sellers.Select((s, i) => new SeedSeller(i + 1, s.Name, CatalogRules.Slugify(s.Name), s.City, s.Rating,
+        var sellers = SeedData.Sellers.Select((s, i) => new SeedSeller(i + 1, s.Name, Slugs.Slugify(s.Name), s.City, s.Rating,
             Math.Round(0.10m + (decimal)rng.Next(0, 11) / 100m, 2))).ToList();
 
         long categoryId = 0, brandId = 0, productId = 0, variantId = 0;
@@ -46,7 +46,7 @@ public static class CatalogGenerator
             var dept = SeedData.Departments[d];
             var deptId = ++categoryId;
             categories.Add(new SeedCategory(deptId, null, dept.Slug, dept.Name, dept.Slug, 0, d, dept.Kind));
-            var deptBrands = dept.Brands.Select(b => new SeedBrand(++brandId, b, CatalogRules.Slugify(b))).ToList();
+            var deptBrands = dept.Brands.Select(b => new SeedBrand(++brandId, b, Slugs.Slugify(b))).ToList();
             brands.AddRange(deptBrands);
             var deptSellers = sellers.Where((_, i) => SeedData.Sellers[i].Departments.Contains(dept.Slug)).ToList();
 
@@ -62,7 +62,7 @@ public static class CatalogGenerator
                     var title = Title(leaf, brand.Name, adjective, noun, material);
                     var status = rng.Next(100) switch { < 96 => ProductStatus.Active, < 99 => ProductStatus.Draft, _ => ProductStatus.Archived };
                     var created = now.AddMinutes(-rng.Next(0, 180 * 24 * 60));
-                    products.Add(new SeedProduct(id, CatalogRules.ProductSlug(title, id), title, brand.Id, leafId,
+                    products.Add(new SeedProduct(id, ProductSlug(title, id), title, brand.Id, leafId,
                         Description(leaf, title, brand.Name, material), Json(Attributes(rng, leaf, adjective, material)), status, created));
 
                     var basePrice = leaf.MinPrice + (decimal)rng.NextDouble() * (leaf.MaxPrice - leaf.MinPrice);
@@ -72,8 +72,8 @@ public static class CatalogGenerator
                     if (!hasColorOption) colors.Add(dept.Colors[rng.Next(dept.Colors.Length)]);
                     for (var i = 0; i < colors.Count; i++)
                     {
-                        var color = ProductArt.FindColorByName(colors[i]);
-                        images.Add(new SeedImage(id, i, ProductArt.Url(leaf.Kind, color.Slug, id), hasColorOption ? $"{title}, {color.Name}" : title,
+                        var color = CatalogArt.FindColorByName(colors[i]);
+                        images.Add(new SeedImage(id, i, CatalogArt.Url(leaf.Kind, color.Slug, id), hasColorOption ? $"{title}, {color.Name}" : title,
                             hasColorOption ? color.Name : null));
                     }
 
@@ -249,6 +249,12 @@ public static class CatalogGenerator
             roll -= weights[i];
         }
         return weights.Length - 1;
+    }
+
+    static string ProductSlug(string title, long id)
+    {
+        var baseSlug = Slugs.Slugify(title);
+        return (baseSlug.Length > 0 ? baseSlug + "-" : "") + "p" + id;
     }
 
     static string Json(Dictionary<string, string> map) => JsonSerializer.Serialize(map, AppJsonContext.Default.DictionaryStringString);

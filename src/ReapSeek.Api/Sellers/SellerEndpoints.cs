@@ -1,4 +1,3 @@
-using ReapSeek.Api.Catalog;
 using ReapSeek.Api.Infrastructure;
 using ReapSeek.Shared;
 
@@ -18,7 +17,7 @@ public static class SellerEndpoints
     static async Task<IResult> Create(CreateSellerRequest req, SellerRepository sellers, CancellationToken ct)
     {
         var name = Ensure.NotBlank(req.Name, "name", 80);
-        var slug = CatalogRules.Slugify(name);
+        var slug = Slugs.Slugify(name);
         Ensure.That(slug.Length > 0, "name must contain letters or digits");
         var city = req.City?.Trim() ?? "";
         Ensure.That(city.Length <= 60, "city can be at most 60 characters");

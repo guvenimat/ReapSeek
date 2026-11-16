@@ -2,6 +2,7 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Engagement;
 using ReapSeek.Modules.Ordering;
+using ReapSeek.Catalog.Contracts;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Shared.Outbox;
 

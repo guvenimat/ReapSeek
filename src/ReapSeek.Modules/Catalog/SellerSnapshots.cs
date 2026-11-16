@@ -1,13 +1,12 @@
 using Dapper;
 using Npgsql;
+using ReapSeek.Catalog.Contracts;
 
 namespace ReapSeek.Modules.Catalog;
 
-public sealed record SellerSnapshotRecord(long Id, string Name, string Slug, string City, string Status, decimal Rating);
 public sealed record SellerSnapshotsRecord(long[] Ids, string[] Names, string[] Slugs, string[] Cities, string[] Statuses, decimal[] Ratings);
 public sealed record SellerIdRecord(long SellerId);
 public sealed record SellerIdsRecord(long[] SellerIds);
-public sealed record SellerOfferCountRecord(long SellerId, long ProductCount, long OfferCount);
 
 public static class SellerSnapshots
 {
