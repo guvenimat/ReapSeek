@@ -26,6 +26,7 @@ public partial class ArchitectureTests
         typeof(ReapSeek.Identity.Contracts.ISellerAccounts).Assembly,
         typeof(ReapSeek.Catalog.Contracts.ISellerCatalog).Assembly,
         typeof(ReapSeek.Ordering.Contracts.ISellerPackages).Assembly,
+        typeof(ReapSeek.Sellers.Contracts.SellerChangedV1).Assembly,
     ];
 
     static readonly Dictionary<Assembly, Type> ModuleProjects = new()
@@ -174,6 +175,7 @@ public partial class ArchitectureTests
             typeof(ReapSeek.Engagement.Contracts.QuestionAnsweredV1), typeof(ReapSeek.Engagement.Contracts.PriceDroppedV1),
             typeof(ReapSeek.Marketing.Contracts.CampaignSendV1), typeof(ReapSeek.Marketing.Contracts.CouponIssuedV1), typeof(ReapSeek.Marketing.Contracts.AlertReceivedV1),
             typeof(ReapSeek.Identity.Contracts.UserRegisteredV1), typeof(ReapSeek.Identity.Contracts.AccountEmailV1),
+            typeof(ReapSeek.Sellers.Contracts.SellerChangedV1),
         ];
         Assert.All(converted, t => Assert.Contains(events, e => e.Type == t));
         foreach (var (type, name, context) in events)
@@ -346,6 +348,25 @@ public partial class ArchitectureTests
             $"{t.FullName} is a module job in the worker"));
         var moduleJobs = ModuleProjects.Keys.SelectMany(m => m.GetTypes()).Where(t => t.IsSubclassOf(typeof(BackgroundService))).Select(t => t.Name).ToHashSet();
         Assert.Superset(new HashSet<string> { "SearchBootstrap", "PriceDropJob", "PayoutJob", "CartReminderJob", "PaymentExpiryJob", "ShippingDeadlineJob", "SellerRatingJob" }, moduleJobs);
+    }
+
+    static List<string> SellerSnapshotCalls(Assembly assembly)
+    {
+        using var module = ModuleDefinition.ReadModule(assembly.Location);
+        return module.GetTypes().SelectMany(t => t.Methods).Where(m => m.HasBody).SelectMany(m => m.Body.Instructions)
+            .Select(i => i.Operand).OfType<MethodReference>()
+            .Where(r => r.DeclaringType.FullName == typeof(ReapSeek.Modules.Catalog.SellerSnapshots).FullName)
+            .Select(r => r.Name).Distinct().ToList();
+    }
+
+    [Fact]
+    public void Only_the_seed_writes_the_seller_snapshot_outside_the_catalog_event_handler()
+    {
+        Assert.Contains("UpsertAsync", SellerSnapshotCalls(Api));
+        foreach (var assembly in ModuleProjects.Keys.Append(Worker))
+            Assert.DoesNotContain("UpsertAsync", SellerSnapshotCalls(assembly));
+        Assert.DoesNotContain("ProductIdsOfSellerAsync", SellerSnapshotCalls(typeof(ReapSeek.Sellers.SellersModule).Assembly));
+        Assert.Contains("ProductIdsOfSellerAsync", SellerSnapshotCalls(typeof(ReapSeek.Catalog.CatalogModule).Assembly));
     }
 
     [Fact]

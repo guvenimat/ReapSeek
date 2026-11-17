@@ -62,6 +62,7 @@ function A([string]$method, [string]$path, $body = $null) { Send $admin $method 
 
 Write-Host "`n[1] Seller accounts"
 $seller = (A POST "/sellers" @{ name = "Panel Seller $tag"; city = "Bursa"; commission_rate = 0.12 }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $sellerEmail = "seller.$tag@example.com"
 $created = A POST "/sellers/$($seller.id)/users" @{ email = $sellerEmail; name = "Panel Owner"; password = "seller-pass-1" }
 Check "the admin creates a login for the seller" ($created.Status -eq 201 -and $created.Json.email -eq $sellerEmail)

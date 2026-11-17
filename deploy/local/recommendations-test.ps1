@@ -80,6 +80,7 @@ Write-Host "`n[1] Catalog and behavior"
 $dresses = (A GET "/catalog/categories").Json.categories | Where-Object { $_.slug -eq "dresses" }
 $brand = (A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Velora" }
 $seller = (A POST "/sellers" @{ name = "Reco Seller $tag"; city = "Izmir" }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $products = @{}
 $offers = @{}
 foreach ($name in "A", "B", "C", "D", "E") {

@@ -115,6 +115,7 @@ Write-Host "`n[3] Using a code"
 $dresses = (A GET "/catalog/categories").Json.categories | Where-Object { $_.slug -eq "dresses" }
 $brand = (A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Velora" }
 $seller = (A POST "/sellers" @{ name = "Coupon Seller $tag"; city = "Izmir" }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $product = (A POST "/catalog/products" @{ title = "Coupon Dress $tag"; brand_id = $brand.id; category_id = $dresses.id; variant_axes = @{ Color = @("Green") } }).Json
 $script:productId = $product.id
 $null = A PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $product.variants[0].id; price = 150; stock = 20 }

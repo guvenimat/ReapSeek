@@ -62,6 +62,7 @@ Write-Host "`n[1] Abandoned cart reminder"
 $dresses = (A GET "/catalog/categories").Json.categories | Where-Object { $_.slug -eq "dresses" }
 $brand = (A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Velora" }
 $seller = (A POST "/sellers" @{ name = "Reminder Seller $tag"; city = "Izmir" }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $product = (A POST "/catalog/products" @{ title = "Reminder Dress $tag"; brand_id = $brand.id; category_id = $dresses.id; variant_axes = @{ Color = @("Navy") } }).Json
 $script:cleanup += { $null = A PATCH "/catalog/products/$($product.id)" @{ status = "archived" } }
 $null = A PUT "/catalog/offers" @{ seller_id = $seller.id; variant_id = $product.variants[0].id; price = 220; stock = 10 }

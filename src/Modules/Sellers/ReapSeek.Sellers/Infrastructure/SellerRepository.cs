@@ -3,7 +3,6 @@ using Npgsql;
 using ReapSeek.BuildingBlocks.Web;
 using ReapSeek.Modules.Catalog;
 using ReapSeek.Sellers.Api;
-using ReapSeek.Shared.Outbox;
 
 namespace ReapSeek.Sellers.Infrastructure;
 
@@ -35,20 +34,17 @@ internal sealed class SellerRepository(NpgsqlDataSource db)
             counts.GetValueOrDefault(s.Id)?.ProductCount ?? 0, counts.GetValueOrDefault(s.Id)?.OfferCount ?? 0, s.CreatedAt)).ToList();
     }
 
-    static Task SnapshotAsync(NpgsqlConnection conn, NpgsqlTransaction tx, SellerRecord s) =>
-        SellerSnapshots.UpsertAsync(conn, tx, [new SellerSnapshotRecord(s.Id, s.Name, s.Slug, s.City, s.Status, s.Rating)]);
-
     public async Task<long?> CreateAsync(string name, string slug, string city, decimal commission, CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
         try
         {
-            var seller = await conn.QuerySingleAsync<SellerRecord>("""
+            var seller = await conn.QuerySingleAsync<SellerVersionRecord>("""
                 INSERT INTO sellers.sellers (name, slug, city, commission_rate) VALUES (@Name, @Slug, @City, @Commission)
-                RETURNING id, name, slug, city, status, commission_rate, rating, created_at
+                RETURNING id, name, slug, city, status, rating, version
                 """, new SellerChangeRecord(0, name, slug, city, "", commission), tx);
-            await SnapshotAsync(conn, tx, seller);
+            await SellerChanges.PublishAsync(conn, tx, seller);
             await tx.CommitAsync(ct);
             return seller.Id;
         }
@@ -62,28 +58,20 @@ internal sealed class SellerRepository(NpgsqlDataSource db)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
-        var change = new SellerChangeRecord(id, name, "", city, status, commission);
-        var previous = await conn.ExecuteScalarAsync<string?>("SELECT status FROM sellers.sellers WHERE id = @Id FOR UPDATE", change, tx);
-        if (previous is null) return false;
-        SellerRecord seller;
+        SellerVersionRecord? seller;
         try
         {
-            seller = await conn.QuerySingleAsync<SellerRecord>("""
-                UPDATE sellers.sellers SET name = @Name, city = @City, status = @Status, commission_rate = @Commission WHERE id = @Id
-                RETURNING id, name, slug, city, status, commission_rate, rating, created_at
-                """, change, tx);
+            seller = await conn.QuerySingleOrDefaultAsync<SellerVersionRecord>("""
+                UPDATE sellers.sellers SET name = @Name, city = @City, status = @Status, commission_rate = @Commission, version = version + 1 WHERE id = @Id
+                RETURNING id, name, slug, city, status, rating, version
+                """, new SellerChangeRecord(id, name, "", city, status, commission), tx);
         }
         catch (PostgresException ex) when (ex.SqlState == UniqueViolation)
         {
             throw new ConflictException($"Seller '{name}' already exists");
         }
-        await SnapshotAsync(conn, tx, seller);
-        if (previous != status)
-        {
-            var productIds = await SellerSnapshots.ProductIdsOfSellerAsync(conn, tx, id);
-            if (productIds.Count > 0)
-                await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged, new ProductsChanged(productIds), OutboxJsonContext.Default.ProductsChanged);
-        }
+        if (seller is null) return false;
+        await SellerChanges.PublishAsync(conn, tx, seller);
         await tx.CommitAsync(ct);
         return true;
     }

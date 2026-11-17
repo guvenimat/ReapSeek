@@ -76,6 +76,7 @@ $me = NewClient
 $null = Send $me POST "$api/api/v1/backoffice/auth/login" @{ email = "vseller.$tag@example.com"; password = "seller-pass-1" }
 function S([string]$method, [string]$path, $body = $null) { Send $me $method "$api/api/v1/seller$path" $body }
 $other = (A POST "/sellers" @{ name = "Other Seller $tag"; city = "Izmir" }).Json
+Check "the new sellers reach the catalog" (Wait-SellerSnapshot @($seller.id, $other.id))
 $null = A POST "/sellers/$($other.id)/users" @{ email = "oseller.$tag@example.com"; name = "Other Desk"; password = "seller-pass-1" }
 $them = NewClient
 $null = Send $them POST "$api/api/v1/backoffice/auth/login" @{ email = "oseller.$tag@example.com"; password = "seller-pass-1" }

@@ -66,6 +66,7 @@ function A([string]$method, [string]$path, $body = $null) { Send $admin $method 
 
 Write-Host "`n[1] A delivered order"
 $seller = (A POST "/sellers" @{ name = "Return Seller $tag"; city = "Izmir"; commission_rate = 0.15 }).Json
+Check "the new seller reaches the catalog" (Wait-SellerSnapshot @($seller.id))
 $null = A POST "/sellers/$($seller.id)/users" @{ email = "rseller.$tag@example.com"; name = "Return Desk"; password = "seller-pass-1" }
 $me = NewClient
 $null = Send $me POST "$api/api/v1/backoffice/auth/login" @{ email = "rseller.$tag@example.com"; password = "seller-pass-1" }

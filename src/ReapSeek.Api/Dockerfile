@@ -10,6 +10,7 @@ COPY Modules/Finance/ReapSeek.Finance.Contracts/ReapSeek.Finance.Contracts.cspro
 COPY Modules/Identity/ReapSeek.Identity.Contracts/ReapSeek.Identity.Contracts.csproj Modules/Identity/ReapSeek.Identity.Contracts/
 COPY Modules/Catalog/ReapSeek.Catalog.Contracts/ReapSeek.Catalog.Contracts.csproj Modules/Catalog/ReapSeek.Catalog.Contracts/
 COPY Modules/Ordering/ReapSeek.Ordering.Contracts/ReapSeek.Ordering.Contracts.csproj Modules/Ordering/ReapSeek.Ordering.Contracts/
+COPY Modules/Sellers/ReapSeek.Sellers.Contracts/ReapSeek.Sellers.Contracts.csproj Modules/Sellers/ReapSeek.Sellers.Contracts/
 COPY BuildingBlocks/ReapSeek.BuildingBlocks/ReapSeek.BuildingBlocks.csproj BuildingBlocks/ReapSeek.BuildingBlocks/
 COPY BuildingBlocks/ReapSeek.BuildingBlocks.Web/ReapSeek.BuildingBlocks.Web.csproj BuildingBlocks/ReapSeek.BuildingBlocks.Web/
 COPY Modules/Engagement/ReapSeek.Engagement/ReapSeek.Engagement.csproj Modules/Engagement/ReapSeek.Engagement/

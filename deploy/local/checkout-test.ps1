@@ -103,6 +103,7 @@ $dresses = $cats | Where-Object { $_.slug -eq "dresses" }
 $brand = (A GET "/catalog/brands").Json.brands | Where-Object { $_.name -eq "Velora" }
 $sellerA = (A POST "/sellers" @{ name = "Checkout Seller A $tag"; city = "Izmir" }).Json
 $sellerB = (A POST "/sellers" @{ name = "Checkout Seller B $tag"; city = "Ankara" }).Json
+Check "the new sellers reach the catalog" (Wait-SellerSnapshot @($sellerA.id, $sellerB.id))
 $product = (A POST "/catalog/products" @{ title = "Checkout Dress $tag"; brand_id = $brand.id; category_id = $dresses.id; variant_axes = @{ Color = @("Black", "White") } }).Json
 $black = ($product.variants | Where-Object { $_.options.Color -eq "Black" }).id
 $white = ($product.variants | Where-Object { $_.options.Color -eq "White" }).id

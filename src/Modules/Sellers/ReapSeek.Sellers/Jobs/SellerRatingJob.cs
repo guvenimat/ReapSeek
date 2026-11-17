@@ -2,8 +2,7 @@ using Dapper;
 using Npgsql;
 using ReapSeek.Modules.Engagement;
 using ReapSeek.Modules.Ordering;
-using ReapSeek.Modules.Catalog;
-using ReapSeek.Shared.Outbox;
+using ReapSeek.Sellers.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -17,8 +16,6 @@ internal sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, I
     public const int WindowDays = 180;
 
     public sealed record ScoresRecord(long[] Ids, decimal[] Ratings);
-    public sealed record ChangeRecord(long Id, string Name, string Slug, string City, string Status, decimal Rating);
-    public sealed record Result(int Sellers, int Products);
 
     public static Dictionary<long, decimal> Scores(IEnumerable<long> sellerIds, IReadOnlyCollection<(long SellerId, int Rating)> attributed)
     {
@@ -36,9 +33,9 @@ internal sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, I
         {
             try
             {
-                var result = await RunOnceAsync(ct);
-                if (result.Sellers > 0)
-                    log.LogInformation("Updated the rating of {Sellers} sellers, {Products} products queued for reindexing", result.Sellers, result.Products);
+                var sellers = await RunOnceAsync(ct);
+                if (sellers > 0)
+                    log.LogInformation("Updated the rating of {Sellers} sellers", sellers);
             }
             catch (NpgsqlException ex)
             {
@@ -48,7 +45,7 @@ internal sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, I
         }
     }
 
-    public async Task<Result> RunOnceAsync(CancellationToken ct)
+    public async Task<int> RunOnceAsync(CancellationToken ct)
     {
         await using var conn = await db.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -59,19 +56,15 @@ internal sealed class SellerRatingJob(NpgsqlDataSource db, IConfiguration cfg, I
             .Select(r => (SellerId: sellerOf[(r.CustomerId, r.ProductId)], r.Rating)).ToList();
         var sellerIds = (await conn.QueryAsync<long>("SELECT id FROM sellers.sellers", transaction: tx)).ToArray();
         var scores = Scores(sellerIds, attributed);
-        var changes = (await conn.QueryAsync<ChangeRecord>("""
-            UPDATE sellers.sellers s SET rating = n.rating
+        var changes = (await conn.QueryAsync<SellerVersionRecord>("""
+            UPDATE sellers.sellers s SET rating = n.rating, version = s.version + 1
             FROM unnest(@Ids, @Ratings) AS n(id, rating)
             WHERE s.id = n.id AND s.rating IS DISTINCT FROM n.rating
-            RETURNING s.id, s.name, s.slug, s.city, s.status, s.rating
+            RETURNING s.id, s.name, s.slug, s.city, s.status, s.rating, s.version
             """, new ScoresRecord(scores.Keys.ToArray(), scores.Values.ToArray()), tx)).AsList();
 
-        await SellerSnapshots.UpsertAsync(conn, tx, changes.Select(c => new SellerSnapshotRecord(c.Id, c.Name, c.Slug, c.City, c.Status, c.Rating)).ToList());
-        var products = new HashSet<long>();
-        foreach (var change in changes) products.UnionWith(await SellerSnapshots.ProductIdsOfSellerAsync(conn, tx, change.Id));
-        if (products.Count > 0)
-            await OutboxWriter.EnqueueAsync(conn, tx, OutboxTypes.ProductsChanged, new ProductsChanged(products.ToList()), OutboxJsonContext.Default.ProductsChanged);
+        foreach (var change in changes) await SellerChanges.PublishAsync(conn, tx, change);
         await tx.CommitAsync(ct);
-        return new Result(changes.Count, products.Count);
+        return changes.Count;
     }
 }

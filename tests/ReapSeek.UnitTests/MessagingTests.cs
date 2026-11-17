@@ -10,6 +10,8 @@ using ReapSeek.Worker.Engagement.Wishlist;
 using ReapSeek.Worker.Identity;
 using ReapSeek.Worker.Marketing;
 using ReapSeek.Marketing.Jobs;
+using ReapSeek.Catalog.Jobs;
+using ReapSeek.Sellers.Contracts;
 using ReapSeek.Worker.Infrastructure;
 
 namespace ReapSeek.UnitTests;
@@ -115,21 +117,22 @@ public class MessagingTests
         var registry = (Subscriptions)builder.Services.Single(d => d.ServiceType == typeof(Subscriptions)).ImplementationInstance!;
         var question = Assert.Single(registry.Of(MessagingModules.Engagement, QuestionAskedV1.EventName));
         Assert.Equal((MessagingModules.Engagement, QuestionHandler.AskedHandler), (question.Subscriber, question.Handler));
-        (MessagingModule Module, string Event, string Handler)[] expected =
+        (MessagingModule Source, string Event, MessagingModule Subscriber, string Handler)[] expected =
         [
-            (MessagingModules.Engagement, QuestionAskedV1.EventName, QuestionHandler.AskedHandler),
-            (MessagingModules.Engagement, QuestionAnsweredV1.EventName, QuestionHandler.AnsweredHandler),
-            (MessagingModules.Engagement, PriceDroppedV1.EventName, PriceDropHandler.NotifyHandler),
-            (MessagingModules.Marketing, CampaignSendV1.EventName, CampaignHandler.SendHandler),
-            (MessagingModules.Marketing, CouponIssuedV1.EventName, CouponMailHandler.CouponHandler),
-            (MessagingModules.Marketing, AlertReceivedV1.EventName, AlertMailHandler.NotifyHandler),
-            (MessagingModules.Identity, UserRegisteredV1.EventName, AccountEmailHandler.WelcomeHandler),
-            (MessagingModules.Identity, AccountEmailV1.EventName, AccountEmailHandler.AccountHandler),
+            (MessagingModules.Engagement, QuestionAskedV1.EventName, MessagingModules.Engagement, QuestionHandler.AskedHandler),
+            (MessagingModules.Engagement, QuestionAnsweredV1.EventName, MessagingModules.Engagement, QuestionHandler.AnsweredHandler),
+            (MessagingModules.Engagement, PriceDroppedV1.EventName, MessagingModules.Engagement, PriceDropHandler.NotifyHandler),
+            (MessagingModules.Marketing, CampaignSendV1.EventName, MessagingModules.Marketing, CampaignHandler.SendHandler),
+            (MessagingModules.Marketing, CouponIssuedV1.EventName, MessagingModules.Marketing, CouponMailHandler.CouponHandler),
+            (MessagingModules.Marketing, AlertReceivedV1.EventName, MessagingModules.Marketing, AlertMailHandler.NotifyHandler),
+            (MessagingModules.Identity, UserRegisteredV1.EventName, MessagingModules.Identity, AccountEmailHandler.WelcomeHandler),
+            (MessagingModules.Identity, AccountEmailV1.EventName, MessagingModules.Identity, AccountEmailHandler.AccountHandler),
+            (MessagingModules.Sellers, SellerChangedV1.EventName, MessagingModules.Catalog, SellerSnapshotHandler.UpdateHandler),
         ];
-        foreach (var (module, eventName, handler) in expected)
+        foreach (var (source, eventName, subscriber, handler) in expected)
         {
-            var subscription = Assert.Single(registry.Of(module, eventName));
-            Assert.Equal((module, handler, RetryPolicy.MaxAttempts), (subscription.Subscriber, subscription.Handler, subscription.MaxAttempts));
+            var subscription = Assert.Single(registry.Of(source, eventName));
+            Assert.Equal((subscriber, handler, RetryPolicy.MaxAttempts), (subscription.Subscriber, subscription.Handler, subscription.MaxAttempts));
         }
         Assert.Equal(expected.Length, registry.All.Count);
         var known = ArchitectureTests.IntegrationEvents().Select(e => e.Name).ToHashSet();
