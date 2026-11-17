@@ -12,6 +12,8 @@ using ReapSeek.Worker.Marketing;
 using ReapSeek.Marketing.Jobs;
 using ReapSeek.Catalog.Jobs;
 using ReapSeek.Sellers.Contracts;
+using ReapSeek.Finance.Jobs;
+using ReapSeek.Ordering.Contracts;
 using ReapSeek.Worker.Infrastructure;
 
 namespace ReapSeek.UnitTests;
@@ -128,6 +130,8 @@ public class MessagingTests
             (MessagingModules.Identity, UserRegisteredV1.EventName, MessagingModules.Identity, AccountEmailHandler.WelcomeHandler),
             (MessagingModules.Identity, AccountEmailV1.EventName, MessagingModules.Identity, AccountEmailHandler.AccountHandler),
             (MessagingModules.Sellers, SellerChangedV1.EventName, MessagingModules.Catalog, SellerSnapshotHandler.UpdateHandler),
+            (MessagingModules.Ordering, PackageDeliveredV1.EventName, MessagingModules.Finance, LedgerHandler.DeliveredHandler),
+            (MessagingModules.Ordering, ReturnRefundedV1.EventName, MessagingModules.Finance, LedgerHandler.RefundedHandler),
         ];
         foreach (var (source, eventName, subscriber, handler) in expected)
         {

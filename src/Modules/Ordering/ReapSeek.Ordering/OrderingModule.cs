@@ -37,6 +37,7 @@ public static class OrderingModule
         services.AddHostedService<ShippingDeadlineJob>();
         services.AddHostedService<CartReminderJob>();
         services.AddHostedService<PaymentExpiryJob>();
+        services.AddSingleton<IReturnRefunds, ReturnRefundHandler>();
         return services;
     }
 

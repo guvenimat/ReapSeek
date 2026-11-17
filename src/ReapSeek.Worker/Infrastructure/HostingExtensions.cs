@@ -80,6 +80,7 @@ public static class HostingExtensions
                 MessagingModules.Engagement, PriceDropHandler.NotifyHandler)
             .AddMarketingSubscriptions()
             .AddCatalogSubscriptions()
+            .AddFinanceSubscriptions()
             .Add<CouponIssuedV1, CouponMailHandler>(MessagingModules.Marketing, CouponIssuedV1.EventName, MarketingEventsJsonContext.Default.CouponIssuedV1,
                 MessagingModules.Marketing, CouponMailHandler.CouponHandler)
             .Add<AlertReceivedV1, AlertMailHandler>(MessagingModules.Marketing, AlertReceivedV1.EventName, MarketingEventsJsonContext.Default.AlertReceivedV1,

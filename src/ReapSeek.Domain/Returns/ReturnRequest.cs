@@ -1,6 +1,5 @@
 using System.Globalization;
 using ReapSeek.Domain.Common;
-using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
 
 namespace ReapSeek.Domain.Returns;
@@ -190,14 +189,13 @@ public sealed class ReturnRequest : AggregateRoot
         return true;
     }
 
-    public IReadOnlyList<LedgerEntry> MarkRefunded(string refundReference, DateTime now)
+    public void MarkRefunded(string refundReference, DateTime now)
     {
         if (string.IsNullOrWhiteSpace(refundReference)) throw new DomainException("return.refund", "A refund reference is required");
         Move(ReturnStatus.Refunded);
         RefundedAt = now;
         RefundReference = refundReference;
         Raise(new ReturnRefunded(Id, Number, CustomerId, now));
-        return Settlement.ForRefund(Total.Amount, CommissionRate);
     }
 
     void EnsureSeller(long sellerId)

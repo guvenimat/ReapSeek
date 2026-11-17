@@ -35,3 +35,16 @@ function Wait-SellerSnapshot([long[]]$Ids, [string]$Status = "active", [int]$Sec
     } until ((Get-Date) -gt $deadline)
     return $false
 }
+
+function Wait-Ledger([string]$OrderNumber, [string[]]$Kinds, [int]$Seconds = 20) {
+    $sql = "SELECT count(DISTINCT kind) FROM finance.seller_ledger WHERE order_number = '$OrderNumber' AND kind IN ('$($Kinds -join "','")')"
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    do {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+        $count = $sql | docker.exe exec -i reapseek-postgres psql -U reapseek -d reapseek -At 2>&1
+        $ErrorActionPreference = $prev
+        if ("$count".Trim() -eq "$($Kinds.Count)") { return $true }
+        Start-Sleep -Milliseconds 500
+    } until ((Get-Date) -gt $deadline)
+    return $false
+}

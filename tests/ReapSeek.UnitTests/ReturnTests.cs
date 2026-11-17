@@ -82,10 +82,12 @@ public class ReturnTests
 
         Assert.True(request.MarkReceived(Now));
         Assert.False(request.MarkReceived(Now));
-        var entries = request.MarkRefunded("re_1", Now);
+        request.MarkRefunded("re_1", Now);
 
         Assert.Equal(ReturnStatus.Refunded, request.Status);
-        Assert.Equal([new LedgerEntry("refund", -299.97m), new LedgerEntry("commission_refund", 45.00m)], entries);
+        Assert.Equal((Now, "re_1"), (request.RefundedAt, request.RefundReference));
+        Assert.Equal([new LedgerEntry("refund", -299.97m), new LedgerEntry("commission_refund", 45.00m)],
+            Settlement.ForRefund(request.Total.Amount, request.CommissionRate));
         Assert.IsType<ReturnRefunded>(request.DomainEvents[^1]);
     }
 }

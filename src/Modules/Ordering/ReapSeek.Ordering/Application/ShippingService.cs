@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
-using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
 using ReapSeek.Modules.Ordering;
+using ReapSeek.Ordering.Infrastructure;
 using ReapSeek.Shared.Providers;
 
 namespace ReapSeek.Ordering.Application;
@@ -18,10 +18,10 @@ internal sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, T
     public sealed record ShipmentEventRecord(string EventId, string TrackingNumber, string Kind, string Status, DateTime OccurredAt);
     public sealed record ShipmentStatusRecord(string TrackingNumber, string Status);
     public sealed record TrackingRecord(string Tracking);
+    public sealed record PackageIdRecord(Guid Id);
 
     public static readonly string[] Steps = ["label_created", "in_transit", "out_for_delivery", "delivered"];
     readonly string _secret = cfg["Payments:Sandbox:WebhookSecret"] ?? "";
-    readonly TimeSpan _hold = TimeSpan.FromDays(cfg.GetValue("Ledger:HoldDays", Settlement.DefaultHold.TotalDays));
 
     public async Task<ShippingWebhookOutcome> HandleSandboxWebhookAsync(string body, string? signature, CancellationToken ct)
     {
@@ -60,7 +60,7 @@ internal sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, T
                 await conn.ExecuteAsync("UPDATE order_packages SET shipment_status = @Status WHERE tracking_number = @TrackingNumber",
                     new ShipmentStatusRecord(d.TrackingNumber, d.Status), tx);
             if (d.Status == "delivered" && package.Status == OrderStatusRules.Name(PackageStatus.Shipped))
-                await PackageDelivery.DeliverAsync(conn, tx, package.OrderId, package.Id, d.OccurredAt, _hold);
+                await DeliverAsync(conn, tx, package.OrderId, package.Id, d.OccurredAt);
         }
         else if (d.Status == "delivered" && await ReturnStore.LoadByTrackingAsync(conn, tx, d.TrackingNumber) is { } request)
         {
@@ -68,5 +68,14 @@ internal sealed class ShippingService(NpgsqlDataSource db, IConfiguration cfg, T
         }
         await tx.CommitAsync(ct);
         return ShippingWebhookOutcome.Applied;
+    }
+
+    static async Task DeliverAsync(NpgsqlConnection conn, NpgsqlTransaction tx, Guid orderId, Guid packageId, DateTime deliveredAt)
+    {
+        var order = await OrderStore.LoadAsync(conn, tx, orderId) ?? throw new InvalidOperationException($"Order {orderId} of package {packageId} was not found");
+        var package = order.DeliverPackage(packageId, deliveredAt);
+        var rate = await conn.ExecuteScalarAsync<decimal>("SELECT commission_rate FROM order_packages WHERE id = @Id", new PackageIdRecord(packageId), tx);
+        await OrderStore.SaveAsync(conn, tx, order);
+        await OrderingEvents.PackageDeliveredAsync(conn, tx, order, package, rate);
     }
 }

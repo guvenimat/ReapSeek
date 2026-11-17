@@ -176,6 +176,7 @@ public partial class ArchitectureTests
             typeof(ReapSeek.Marketing.Contracts.CampaignSendV1), typeof(ReapSeek.Marketing.Contracts.CouponIssuedV1), typeof(ReapSeek.Marketing.Contracts.AlertReceivedV1),
             typeof(ReapSeek.Identity.Contracts.UserRegisteredV1), typeof(ReapSeek.Identity.Contracts.AccountEmailV1),
             typeof(ReapSeek.Sellers.Contracts.SellerChangedV1),
+            typeof(ReapSeek.Ordering.Contracts.PackageDeliveredV1), typeof(ReapSeek.Ordering.Contracts.ReturnRefundedV1),
         ];
         Assert.All(converted, t => Assert.Contains(events, e => e.Type == t));
         foreach (var (type, name, context) in events)
@@ -367,6 +368,23 @@ public partial class ArchitectureTests
             Assert.DoesNotContain("UpsertAsync", SellerSnapshotCalls(assembly));
         Assert.DoesNotContain("ProductIdsOfSellerAsync", SellerSnapshotCalls(typeof(ReapSeek.Sellers.SellersModule).Assembly));
         Assert.Contains("ProductIdsOfSellerAsync", SellerSnapshotCalls(typeof(ReapSeek.Catalog.CatalogModule).Assembly));
+    }
+
+    static bool CallsLedgerStore(Assembly assembly)
+    {
+        using var module = ModuleDefinition.ReadModule(assembly.Location);
+        return module.GetTypes().SelectMany(t => t.Methods).Where(m => m.HasBody).SelectMany(m => m.Body.Instructions)
+            .Select(i => i.Operand).OfType<MethodReference>()
+            .Any(r => r.DeclaringType.FullName == typeof(ReapSeek.Modules.Finance.LedgerStore).FullName);
+    }
+
+    [Fact]
+    public void Only_finance_writes_the_seller_ledger_outside_the_simulator()
+    {
+        var finance = typeof(ReapSeek.Finance.FinanceModule).Assembly;
+        Assert.True(CallsLedgerStore(finance));
+        foreach (var assembly in ModuleProjects.Keys.Where(a => a != finance).Append(Worker).Append(Api).Append(ModulesAssembly))
+            Assert.False(CallsLedgerStore(assembly), $"{assembly.GetName().Name} writes the seller ledger");
     }
 
     [Fact]
