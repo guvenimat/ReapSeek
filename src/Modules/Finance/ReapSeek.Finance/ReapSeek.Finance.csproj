@@ -15,9 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\ReapSeek.BuildingBlocks\ReapSeek.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Domain\ReapSeek.Domain.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Modules\ReapSeek.Modules.csproj" />
     <ProjectReference Include="..\..\..\ReapSeek.Shared\ReapSeek.Shared.csproj" />
+    <ProjectReference Include="..\..\Ordering\ReapSeek.Ordering.Contracts\ReapSeek.Ordering.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

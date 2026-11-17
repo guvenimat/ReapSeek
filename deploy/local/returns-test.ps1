@@ -100,6 +100,7 @@ $early = Ask 1
 Check "nothing can be returned before delivery" ($early.Status -eq 400 -and $early.Json.code -eq "return.not_delivered")
 $null = S POST "/packages/$($package.id)/ship"
 Check "the carrier delivers the package" (WaitFor { (Order).packages[0].status -eq "delivered" } 60)
+Check "finance settles the delivered package" (Wait-Ledger $number @("sale", "commission"))
 $delivered = (Order).packages[0]
 $deadline = [DateTime]::Parse($delivered.return_deadline).ToUniversalTime()
 Check "the return window is 7 days from delivery" ($delivered.returnable -and [Math]::Abs(($deadline - [DateTime]::Parse($delivered.delivered_at).ToUniversalTime()).TotalDays - 7) -lt 0.001 -and $delivered.lines[0].returnable_quantity -eq 3)
@@ -135,6 +136,7 @@ $ret = (Order).returns | Where-Object { $_.id -eq $first.Json.id }
 Check "the customer sees the return's journey" ((@($ret.tracking | ForEach-Object { $_.status }) -join ",") -eq "in_transit,out_for_delivery,delivered" -and $ret.received_at)
 Check "the refund went through the payment provider" ((Psql "SELECT refund_reference FROM returns WHERE id = '$($first.Json.id)'") -cmatch '^re_[0-9a-f]{24}$')
 Check "the customer gets a refund email" (WaitFor { (Mails "subject:""for return $($first.Json.number)""") -eq 1 } 20)
+Check "finance books the refund" (Wait-Ledger $number @("refund", "commission_refund"))
 $ledger = @((S GET "/balance").Json.entries | Where-Object { $_.order_number -eq $number })
 Check "the refund comes off the seller's ledger with the commission given back" (($ledger | Where-Object { $_.kind -eq "refund" }).amount -eq -400 -and ($ledger | Where-Object { $_.kind -eq "commission_refund" }).amount -eq 60)
 $summary = (S GET "/balance").Json.summary
@@ -200,8 +202,8 @@ $replay = '{"id":"' + $eventId + '","type":"shipment.delivered","created":"2026-
 $t = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $hmac = New-Object System.Security.Cryptography.HMACSHA256 (,[Text.Encoding]::UTF8.GetBytes($envValues.SANDBOX_WEBHOOK_SECRET))
 $sig = (($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes("$t.$replay")) | ForEach-Object { $_.ToString("x2") }) -join "")
-$before = Psql "SELECT count(*) FROM seller_ledger WHERE order_number = '$number'"
-Check "a replayed carrier event is accepted once" ((Send (NewClient) POST "$api/api/v1/shipping/sandbox/webhook" $replay $null @{ "Sandbox-Signature" = "t=$t,v1=$sig" }).Status -eq 200 -and (Psql "SELECT count(*) FROM seller_ledger WHERE order_number = '$number'") -eq $before)
+$before = Psql "SELECT count(*) FROM seller_ledger WHERE order_number = '$number' AND return_id IS NULL"
+Check "a replayed carrier event is accepted once" ((Send (NewClient) POST "$api/api/v1/shipping/sandbox/webhook" $replay $null @{ "Sandbox-Signature" = "t=$t,v1=$sig" }).Status -eq 200 -and (Psql "SELECT count(*) FROM seller_ledger WHERE order_number = '$number' AND return_id IS NULL") -eq $before)
 
 $null = A PATCH "/catalog/products/$($product.id)" @{ status = "archived" }
 

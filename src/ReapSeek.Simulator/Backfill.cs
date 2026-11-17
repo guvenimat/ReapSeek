@@ -214,14 +214,14 @@ public sealed class Backfill(NpgsqlDataSource db, Ingest ingest, PayoutRunner pa
         var line = package.Lines[0];
         var request = ReturnRequest.Request(Guid.CreateVersion7(), await ReturnStore.NextNumberAsync(conn, tx, requested), order, package.Id, customerId,
             [new ReturnItem(line.Id, 1)], SafeReasons[rng.Next(SafeReasons.Length)], null, rate, new Dictionary<Guid, int>(), requested);
-        IReadOnlyList<LedgerEntry>? entries = null;
         if (requested.AddDays(1) < now) request.Approve(package.SellerId, $"SC{rng.NextInt64(1_000_000_000, 9_999_999_999)}", requested.AddDays(1));
         if (requested.AddDays(3) < now) request.MarkReceived(requested.AddDays(3));
-        if (requested.AddDays(4) < now) entries = request.MarkRefunded($"re_sim_{request.Id:N}", requested.AddDays(4));
+        if (requested.AddDays(4) < now) request.MarkRefunded($"re_sim_{request.Id:N}", requested.AddDays(4));
         request.ClearDomainEvents();
         await ReturnStore.InsertAsync(conn, tx, request);
         await ReturnStore.SaveAsync(conn, tx, request);
-        if (entries is null) return;
+        if (request.Status != ReturnStatus.Refunded) return;
+        var entries = Settlement.ForRefund(request.Total.Amount, request.CommissionRate);
         await LedgerStore.InsertAsync(conn, tx, new LedgerInsertRecord(request.SellerId, request.PackageId, request.Id, request.OrderNumber,
             entries.Select(e => e.Kind).ToArray(), entries.Select(e => e.Amount).ToArray(), request.RefundedAt!.Value));
         await ingest.AddAsync("refund", distinctId, $"return-line-{request.Id}-{line.Id}", request.RefundedAt!.Value, new Dictionary<string, object?>

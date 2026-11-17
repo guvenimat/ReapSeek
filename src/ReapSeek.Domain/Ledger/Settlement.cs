@@ -23,13 +23,17 @@ public static class Settlement
     {
         if (package.Status != PackageStatus.Delivered)
             throw new DomainException("ledger.not_delivered", "Only a delivered package is settled");
+        return ForPackage(package.Subtotal.Amount, package.ShippingFee.Amount, commissionRate);
+    }
+
+    public static IReadOnlyList<LedgerEntry> ForPackage(decimal subtotal, decimal shippingFee, decimal commissionRate)
+    {
         if (commissionRate is < 0 or > MaxCommissionRate)
             throw new DomainException("ledger.commission", $"Commission rate must be between 0 and {MaxCommissionRate}");
 
-        var subtotal = package.Subtotal.Amount;
         var commission = Math.Round(subtotal * commissionRate, 2, MidpointRounding.AwayFromZero);
         var entries = new List<LedgerEntry> { new(LedgerKind.Sale, subtotal) };
-        if (!package.ShippingFee.IsZero) entries.Add(new(LedgerKind.Shipping, package.ShippingFee.Amount));
+        if (shippingFee != 0) entries.Add(new(LedgerKind.Shipping, shippingFee));
         if (commission > 0) entries.Add(new(LedgerKind.Commission, -commission));
         return entries;
     }

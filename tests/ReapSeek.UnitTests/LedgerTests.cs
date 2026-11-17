@@ -1,6 +1,8 @@
 using ReapSeek.Domain.Common;
 using ReapSeek.Domain.Ledger;
 using ReapSeek.Domain.Ordering;
+using ReapSeek.Finance.Application;
+using ReapSeek.Ordering.Contracts;
 
 namespace ReapSeek.UnitTests;
 
@@ -68,6 +70,19 @@ public class LedgerTests
     }
 
     [Fact]
+    public void Settlement_from_the_delivery_facts_matches_the_package()
+    {
+        var order = Paid(Item(1, 1, 99.99m, 3));
+        var package = order.Packages[0];
+        order.ShipPackage(package.Id, 1, "SC1", Now);
+        order.DeliverPackage(package.Id, Now);
+
+        Assert.Equal(Settlement.ForPackage(package, 0.15m), Settlement.ForPackage(package.Subtotal.Amount, package.ShippingFee.Amount, 0.15m));
+        Assert.Equal([new LedgerEntry("sale", 600m)], Settlement.ForPackage(600m, 0m, 0m));
+        Assert.Equal("ledger.commission", Assert.Throws<DomainException>(() => Settlement.ForPackage(600m, 0m, 0.6m)).Code);
+    }
+
+    [Fact]
     public void Free_shipping_and_zero_commission_leave_out_empty_entries()
     {
         var order = Paid(Item(1, 1, 600m, 1));
@@ -98,4 +113,27 @@ public class LedgerTests
     public void A_payout_period_ends_on_Monday_at_midnight_in_Turkey(string now, string expected) =>
         Assert.Equal(DateTime.Parse(expected).ToUniversalTime(),
             PayoutPeriod.CurrentPeriodEnd(DateTime.Parse(now).ToUniversalTime(), PayoutPeriod.Turkey));
+
+    [Fact]
+    public void Finance_builds_the_delivery_entries_from_the_event_and_holds_them()
+    {
+        var packageId = Guid.NewGuid();
+        var entries = LedgerEntries.ForDelivery(new PackageDeliveredV1(packageId, "RS261030000001", 4, 299.97m, 39.90m, 0.15m, Now), Settlement.DefaultHold);
+
+        Assert.Equal((4L, packageId, (Guid?)null, "RS261030000001", Now.AddDays(7)), (entries.SellerId, entries.PackageId, entries.ReturnId, entries.OrderNumber, entries.AvailableAt));
+        Assert.Equal(["sale", "shipping", "commission"], entries.Kinds);
+        Assert.Equal([299.97m, 39.90m, -45.00m], entries.Amounts);
+    }
+
+    [Fact]
+    public void Finance_builds_the_refund_entries_from_the_event_and_releases_them_at_once()
+    {
+        var returnId = Guid.NewGuid();
+        var packageId = Guid.NewGuid();
+        var entries = LedgerEntries.ForRefund(new ReturnRefundedV1(returnId, packageId, 4, "RS261030000001", 400m, 0.15m, Now));
+
+        Assert.Equal((4L, packageId, (Guid?)returnId, Now), (entries.SellerId, entries.PackageId, entries.ReturnId, entries.AvailableAt));
+        Assert.Equal(["refund", "commission_refund"], entries.Kinds);
+        Assert.Equal([-400m, 60m], entries.Amounts);
+    }
 }

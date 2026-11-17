@@ -141,6 +141,7 @@ Write-Host "`n[5] Delivery and the ledger"
 Check "the carrier moves the package and delivers it (signed Sandbox webhooks)" (WaitFor { (S GET "/packages/$($package.id)").Json.status -eq "delivered" } 60)
 $tracked = (Send $customer GET "$api/api/v1/orders/$number").Json.packages[0]
 Check "the customer sees every tracking step" ((@($tracked.tracking | ForEach-Object { $_.status }) -join ",") -eq "in_transit,out_for_delivery,delivered" -and $tracked.shipment_status -eq "delivered")
+Check "finance settles the delivered package" (Wait-Ledger $number @("sale", "commission"))
 $ledger = (S GET "/balance").Json
 $entries = @($ledger.entries | Where-Object { $_.order_number -eq $number })
 Check "delivery writes the sale and the commission to the ledger" ($entries.Count -eq 2 -and ($entries | Where-Object { $_.kind -eq "sale" }).amount -eq 500 -and ($entries | Where-Object { $_.kind -eq "commission" }).amount -eq -60)
